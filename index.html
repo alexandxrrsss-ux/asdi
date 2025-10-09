@@ -2610,6 +2610,8 @@
                     loadAllTasks();
                 }
                 updateDashboard();
+            } else {
+                showNotification('Error: Tarea no encontrada', 'danger');
             }
         }
 
@@ -4259,7 +4261,10 @@
 
         function updateTask(taskId) {
             const taskIndex = tasks.findIndex(t => t.id === taskId);
-            if (taskIndex === -1) return;
+            if (taskIndex === -1) {
+                showNotification('Error: Tarea no encontrada', 'danger');
+                return;
+            }
             
             const taskName = document.getElementById('taskName').value;
             const taskDescription = document.getElementById('taskDescription').value;
