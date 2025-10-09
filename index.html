@@ -992,6 +992,72 @@
             font-size: 1.1rem;
         }
 
+        /* Nuevos estilos para notificaciones de reportes */
+        .notification-badge {
+            background: var(--danger);
+            color: white;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.7rem;
+            position: absolute;
+            top: -5px;
+            right: -5px;
+        }
+
+        .notification-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px;
+            border-bottom: 1px solid #eee;
+            cursor: pointer;
+        }
+
+        .notification-item:hover {
+            background: #f8f9fa;
+        }
+
+        .notification-item.unread {
+            background: #f0f7ff;
+        }
+
+        .notification-list {
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .notification-dropdown {
+            position: absolute;
+            top: 100%;
+            right: 0;
+            width: 350px;
+            background: white;
+            border-radius: var(--border-radius);
+            box-shadow: var(--shadow);
+            z-index: 1000;
+            display: none;
+        }
+
+        .notification-dropdown.active {
+            display: block;
+        }
+
+        .notification-header {
+            padding: 1rem;
+            border-bottom: 1px solid #eee;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .notification-container {
+            position: relative;
+        }
+
         @media (max-width: 992px) {
             .main-layout {
                 flex-direction: column;
@@ -1092,6 +1158,11 @@
                 width: 100%;
                 justify-content: center;
             }
+
+            .notification-dropdown {
+                width: 300px;
+                right: -50px;
+            }
         }
 
         @media (max-width: 768px) {
@@ -1145,6 +1216,11 @@
             .modal-footer .btn {
                 width: 100%;
             }
+
+            .notification-dropdown {
+                width: 280px;
+                right: -80px;
+            }
         }
 
         @media (max-width: 576px) {
@@ -1191,6 +1267,11 @@
 
             .card {
                 padding: 1rem;
+            }
+
+            .notification-dropdown {
+                width: 250px;
+                right: -100px;
             }
         }
     </style>
@@ -1243,6 +1324,23 @@
                         </div>
                     </div>
                     <div class="user-info">
+                        <div class="notification-container">
+                            <button class="btn btn-outline" id="notificationBtn" style="box-shadow: none; position: relative;">
+                                <i class="fas fa-bell"></i>
+                                <span id="notificationCount" class="notification-badge" style="display: none;">0</span>
+                            </button>
+                            <div class="notification-dropdown" id="notificationDropdown">
+                                <div class="notification-header">
+                                    <h4>Notificaciones</h4>
+                                    <button class="btn btn-outline btn-sm" id="markAllReadBtn">
+                                        <i class="fas fa-check-double"></i> Marcar todas como leídas
+                                    </button>
+                                </div>
+                                <div class="notification-list" id="notificationList">
+                                    <div style="text-align: center; padding: 2rem; color: var(--gray);">No hay notificaciones</div>
+                                </div>
+                            </div>
+                        </div>
                         <div class="user-avatar" id="userInitials">A</div>
                         <span id="userName">Administrador</span>
                         <span id="userRole" style="background: rgba(255,255,255,0.2); padding: 0.3rem 0.8rem; border-radius: 20px; font-size: 0.8rem;"></span>
@@ -1674,6 +1772,9 @@
                             <label class="form-label">Tipo de Exportación</label>
                             <select class="form-select" id="exportType">
                                 <option value="all">Todas las actividades</option>
+                                <option value="tasks">Solo tareas</option>
+                                <option value="reports">Solo reportes</option>
+                                <option value="inventory">Solo inventario</option>
                                 <option value="completed">Solo actividades completadas</option>
                                 <option value="pending">Solo actividades pendientes</option>
                                 <option value="date-range">Por rango de fechas</option>
@@ -1931,6 +2032,7 @@
         let users = [];
         let reports = [];
         let inventory = [];
+        let notifications = [];
         let currentPage = "dashboard";
 
         // ==================== PERSISTENCIA DE SESIÓN ====================
@@ -2093,9 +2195,14 @@
             const savedInventory = localStorage.getItem('taskmaster_inventory');
             inventory = savedInventory ? JSON.parse(savedInventory) : defaultInventory;
             
+            // Cargar notificaciones
+            const savedNotifications = localStorage.getItem('taskmaster_notifications');
+            notifications = savedNotifications ? JSON.parse(savedNotifications) : [];
+            
             // Guardar datos iniciales si no existían
             if (!savedUsers) saveUsers();
             if (!savedInventory) saveInventory();
+            if (!savedNotifications) saveNotifications();
         }
 
         function saveUsers() {
@@ -2112,6 +2219,101 @@
 
         function saveInventory() {
             localStorage.setItem('taskmaster_inventory', JSON.stringify(inventory));
+        }
+
+        function saveNotifications() {
+            localStorage.setItem('taskmaster_notifications', JSON.stringify(notifications));
+        }
+
+        // ==================== SISTEMA DE NOTIFICACIONES ====================
+        function createNotification(title, message, type = 'info', relatedTo = null) {
+            const notification = {
+                id: generateId(),
+                title: title,
+                message: message,
+                type: type,
+                relatedTo: relatedTo,
+                read: false,
+                createdAt: new Date().toISOString()
+            };
+            
+            notifications.push(notification);
+            saveNotifications();
+            updateNotificationBadge();
+            
+            // Mostrar notificación en tiempo real si el usuario actual es admin
+            if (currentUser && currentUser.role === 'admin') {
+                showNotification(message, 'success');
+            }
+        }
+
+        function updateNotificationBadge() {
+            const unreadCount = notifications.filter(n => !n.read).length;
+            const badge = document.getElementById('notificationCount');
+            
+            if (unreadCount > 0) {
+                badge.textContent = unreadCount;
+                badge.style.display = 'flex';
+            } else {
+                badge.style.display = 'none';
+            }
+        }
+
+        function loadNotifications() {
+            const notificationList = document.getElementById('notificationList');
+            const unreadNotifications = notifications.filter(n => !n.read);
+            
+            if (unreadNotifications.length === 0) {
+                notificationList.innerHTML = '<div style="text-align: center; padding: 2rem; color: var(--gray);">No hay notificaciones</div>';
+                return;
+            }
+            
+            notificationList.innerHTML = '';
+            
+            unreadNotifications.forEach(notification => {
+                const item = document.createElement('div');
+                item.className = 'notification-item unread';
+                item.innerHTML = `
+                    <i class="fas fa-bell" style="color: var(--primary);"></i>
+                    <div style="flex: 1;">
+                        <div style="font-weight: 600;">${sanitizeInput(notification.title)}</div>
+                        <div style="font-size: 0.9rem; color: var(--gray);">${sanitizeInput(notification.message)}</div>
+                        <div style="font-size: 0.8rem; color: var(--gray); margin-top: 5px;">
+                            ${formatDate(notification.createdAt)}
+                        </div>
+                    </div>
+                `;
+                
+                item.addEventListener('click', function() {
+                    markNotificationAsRead(notification.id);
+                    
+                    // Si la notificación está relacionada con un reporte, ir a la página de reportes
+                    if (notification.relatedTo && notification.relatedTo.type === 'report') {
+                        switchPage('reports-admin');
+                    }
+                });
+                
+                notificationList.appendChild(item);
+            });
+        }
+
+        function markNotificationAsRead(notificationId) {
+            const notificationIndex = notifications.findIndex(n => n.id === notificationId);
+            if (notificationIndex !== -1) {
+                notifications[notificationIndex].read = true;
+                saveNotifications();
+                updateNotificationBadge();
+                loadNotifications();
+            }
+        }
+
+        function markAllNotificationsAsRead() {
+            notifications.forEach(notification => {
+                notification.read = true;
+            });
+            saveNotifications();
+            updateNotificationBadge();
+            loadNotifications();
         }
 
         // ==================== LOGIN ====================
@@ -2654,6 +2856,1089 @@
             document.getElementById('lowStock').textContent = lowStock;
         }
 
+        // ==================== SISTEMA DE REPORTES ====================
+        function submitReport(e) {
+            e.preventDefault();
+            
+            const reportType = document.getElementById('reportType').value;
+            const taskId = document.getElementById('taskSelect').value;
+            const reportTitle = document.getElementById('reportTitle').value;
+            const problemDescription = document.getElementById('problemDescription').value;
+            const reportUrgency = document.getElementById('reportUrgency').value;
+            const blocksProgress = document.getElementById('blocksProgress').value;
+            const requiredDate = document.getElementById('requiredDate').value;
+            
+            if (!reportTitle || !problemDescription) {
+                showNotification('Completa todos los campos obligatorios', 'warning');
+                return;
+            }
+            
+            // Recopilar información adicional según el tipo de reporte
+            let additionalInfo = {};
+            if (reportType === 'material') {
+                additionalInfo = {
+                    materialName: document.getElementById('materialNameInput').value,
+                    materialQuantity: document.getElementById('materialQuantityInput').value,
+                    materialSpecs: document.getElementById('materialSpecs').value
+                };
+            } else if (reportType === 'equipment') {
+                additionalInfo = {
+                    equipmentType: document.getElementById('equipmentType').value,
+                    equipmentTime: document.getElementById('equipmentTime').value,
+                    equipmentSpecs: document.getElementById('equipmentSpecs').value
+                };
+            }
+            
+            // Crear nuevo reporte
+            const newReport = {
+                id: generateId(),
+                type: reportType,
+                taskId: taskId,
+                title: reportTitle,
+                description: problemDescription,
+                urgency: reportUrgency,
+                blocksProgress: blocksProgress,
+                requiredDate: requiredDate,
+                additionalInfo: additionalInfo,
+                reporter: currentUser.username,
+                status: 'pending',
+                createdAt: new Date().toISOString()
+            };
+            
+            reports.push(newReport);
+            saveReports();
+            
+            // Crear notificación para el administrador
+            createNotification(
+                'Nuevo Reporte Recibido',
+                `${currentUser.name} ha enviado un reporte: ${reportTitle}`,
+                'warning',
+                { type: 'report', id: newReport.id }
+            );
+            
+            showNotification('Reporte enviado correctamente', 'success');
+            document.getElementById('reportForm').reset();
+            
+            // Si el usuario es admin, actualizar la página de reportes
+            if (currentUser.role === 'admin') {
+                loadReports();
+            }
+        }
+
+        function loadReports() {
+            const container = document.getElementById('reportsContainer');
+            container.innerHTML = '';
+
+            if (reports.length === 0) {
+                container.innerHTML = '<div style="text-align: center; padding: 2rem; color: var(--gray);">No hay reportes recibidos</div>';
+                return;
+            }
+
+            const currentTab = document.querySelector('.tab.active[data-tab^="reports-"]');
+            const tabType = currentTab ? currentTab.getAttribute('data-tab').replace('reports-', '') : 'all';
+            
+            let filteredReports = reports;
+            if (tabType === 'pending') {
+                filteredReports = reports.filter(r => r.status === 'pending');
+            } else if (tabType === 'resolved') {
+                filteredReports = reports.filter(r => r.status === 'resolved');
+            }
+
+            if (filteredReports.length === 0) {
+                container.innerHTML = `<div style="text-align: center; padding: 2rem; color: var(--gray);">No hay reportes ${tabType === 'all' ? '' : tabType}</div>`;
+                return;
+            }
+
+            filteredReports.forEach(report => {
+                const reporter = users.find(u => u.username === report.reporter);
+                const relatedTask = report.taskId ? tasks.find(t => t.id === report.taskId) : null;
+                
+                let additionalInfoHtml = '';
+                if (report.type === 'material' && report.additionalInfo) {
+                    additionalInfoHtml = `
+                        <div class="material-details">
+                            <strong>Detalles del material solicitado:</strong>
+                            <div>Material: ${report.additionalInfo.materialName || 'No especificado'}</div>
+                            <div>Cantidad: ${report.additionalInfo.materialQuantity || 'No especificado'}</div>
+                            <div>Especificaciones: ${report.additionalInfo.materialSpecs || 'No especificado'}</div>
+                        </div>
+                    `;
+                } else if (report.type === 'equipment' && report.additionalInfo) {
+                    additionalInfoHtml = `
+                        <div class="material-details">
+                            <strong>Detalles del equipo solicitado:</strong>
+                            <div>Tipo: ${report.additionalInfo.equipmentType || 'No especificado'}</div>
+                            <div>Tiempo de uso: ${report.additionalInfo.equipmentTime || 'No especificado'}</div>
+                            <div>Especificaciones: ${report.additionalInfo.equipmentSpecs || 'No especificado'}</div>
+                        </div>
+                    `;
+                }
+
+                const card = document.createElement('div');
+                card.className = `report-card ${report.status === 'resolved' ? 'resolved' : ''}`;
+                
+                card.innerHTML = `
+                    <div class="report-header">
+                        <div class="report-title">${sanitizeInput(report.title)}</div>
+                        <div>
+                            <span class="badge badge-${report.urgency}">${getUrgencyText(report.urgency)}</span>
+                            <span class="badge ${report.status === 'pending' ? 'badge-new' : 'badge-resolved'}">
+                                ${report.status === 'pending' ? 'Pendiente' : 'Resuelto'}
+                            </span>
+                        </div>
+                    </div>
+                    <div class="report-meta">
+                        <div class="report-meta-item">
+                            <i class="fas fa-user"></i>
+                            <span>Reportado por: ${reporter?.name || report.reporter}</span>
+                        </div>
+                        <div class="report-meta-item">
+                            <i class="fas fa-calendar"></i>
+                            <span>${formatDate(report.createdAt)}</span>
+                        </div>
+                        <div class="report-meta-item">
+                            <i class="fas fa-tasks"></i>
+                            <span>Tarea: ${relatedTask ? relatedTask.name : 'No relacionada'}</span>
+                        </div>
+                    </div>
+                    <div class="report-description">
+                        ${sanitizeInput(report.description)}
+                    </div>
+                    ${additionalInfoHtml}
+                    <div class="report-actions">
+                        ${report.status === 'pending' ? `
+                        <button class="btn btn-success resolve-report-btn" data-report-id="${report.id}">
+                            <i class="fas fa-check"></i> Marcar como Resuelto
+                        </button>
+                        ` : ''}
+                        <button class="btn btn-danger delete-report-btn" data-report-id="${report.id}">
+                            <i class="fas fa-trash"></i> Eliminar
+                        </button>
+                    </div>
+                `;
+                container.appendChild(card);
+            });
+
+            // Agregar event listeners
+            document.querySelectorAll('.resolve-report-btn').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    const reportId = this.getAttribute('data-report-id');
+                    resolveReport(reportId);
+                });
+            });
+
+            document.querySelectorAll('.delete-report-btn').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    const reportId = this.getAttribute('data-report-id');
+                    deleteReport(reportId);
+                });
+            });
+        }
+
+        function resolveReport(reportId) {
+            const reportIndex = reports.findIndex(r => r.id === reportId);
+            if (reportIndex !== -1) {
+                reports[reportIndex].status = 'resolved';
+                reports[reportIndex].resolvedAt = new Date().toISOString();
+                saveReports();
+                showNotification('Reporte marcado como resuelto', 'success');
+                loadReports();
+                updateDashboard();
+            }
+        }
+
+        function deleteReport(reportId) {
+            if (confirm('¿Estás seguro de que quieres eliminar este reporte?')) {
+                reports = reports.filter(r => r.id !== reportId);
+                saveReports();
+                showNotification('Reporte eliminado correctamente', 'success');
+                loadReports();
+                updateDashboard();
+            }
+        }
+
+        // ==================== SISTEMA DE EXPORTACIÓN MEJORADO ====================
+        function loadExportPage() {
+            document.getElementById('previewSection').style.display = 'none';
+            
+            // Configurar fechas por defecto
+            const today = new Date();
+            const oneWeekAgo = new Date(today);
+            oneWeekAgo.setDate(today.getDate() - 7);
+            
+            document.getElementById('startDate').value = oneWeekAgo.toISOString().split('T')[0];
+            document.getElementById('endDate').value = today.toISOString().split('T')[0];
+        }
+
+        function exportData() {
+            const exportType = document.getElementById('exportType').value;
+            const exportFormat = document.getElementById('exportFormat').value;
+            const startDate = document.getElementById('startDate').value;
+            const endDate = document.getElementById('endDate').value;
+            
+            let dataToExport = [];
+            
+            // Filtrar datos según el tipo de exportación
+            if (exportType === 'all') {
+                dataToExport = getAllExportData();
+            } else if (exportType === 'tasks') {
+                dataToExport = getTasksExportData();
+            } else if (exportType === 'reports') {
+                dataToExport = getReportsExportData();
+            } else if (exportType === 'inventory') {
+                dataToExport = getInventoryExportData();
+            } else if (exportType === 'completed') {
+                dataToExport = getAllExportData().filter(item => 
+                    item.tipo === 'tarea' ? item.estado === 'Terminada' : true
+                );
+            } else if (exportType === 'pending') {
+                dataToExport = getAllExportData().filter(item => 
+                    item.tipo === 'tarea' ? item.estado !== 'Terminada' : true
+                );
+            } else if (exportType === 'date-range') {
+                if (!startDate || !endDate) {
+                    showNotification('Selecciona un rango de fechas válido', 'warning');
+                    return;
+                }
+                dataToExport = getAllExportData().filter(item => {
+                    const itemDate = new Date(item.fecha);
+                    const start = new Date(startDate);
+                    const end = new Date(endDate);
+                    end.setHours(23, 59, 59, 999);
+                    return itemDate >= start && itemDate <= end;
+                });
+            }
+            
+            if (dataToExport.length === 0) {
+                showNotification('No hay datos para exportar con los filtros seleccionados', 'warning');
+                return;
+            }
+            
+            // Exportar según el formato
+            if (exportFormat === 'excel') {
+                exportToExcel(dataToExport, exportType);
+            } else if (exportFormat === 'csv') {
+                exportToCSV(dataToExport, exportType);
+            } else if (exportFormat === 'pdf') {
+                exportToPDF(dataToExport, exportType);
+            }
+        }
+
+        function getAllExportData() {
+            const exportData = [];
+            
+            // Agregar tareas
+            exportData.push(...getTasksExportData());
+            
+            // Agregar reportes
+            exportData.push(...getReportsExportData());
+            
+            // Agregar materiales del inventario
+            exportData.push(...getInventoryExportData());
+            
+            return exportData;
+        }
+
+        function getTasksExportData() {
+            return tasks.map(task => {
+                const assignee = users.find(u => u.username === task.assignee);
+                const materialsText = task.materials && task.materials.length > 0 
+                    ? task.materials.map(m => {
+                        const material = inventory.find(mat => mat.id === m.materialId);
+                        return material ? `${material.name} (${m.quantity} ${material.unit})` : '';
+                    }).filter(Boolean).join(', ')
+                    : 'Ninguno';
+                
+                return {
+                    tipo: 'tarea',
+                    nombre: task.name,
+                    descripcion: task.description,
+                    responsable: assignee?.name || task.assignee,
+                    fecha_inicio: formatDate(task.startDate),
+                    fecha_limite: formatDate(task.dueDate),
+                    estado: getStatusText(task.status),
+                    urgencia: getUrgencyText(task.urgency),
+                    materiales: materialsText,
+                    fecha: task.createdAt,
+                    fecha_actualizacion: task.updatedAt
+                };
+            });
+        }
+
+        function getReportsExportData() {
+            return reports.map(report => {
+                const reporter = users.find(u => u.username === report.reporter);
+                const relatedTask = report.taskId ? tasks.find(t => t.id === report.taskId) : null;
+                
+                return {
+                    tipo: 'reporte',
+                    titulo: report.title,
+                    descripcion: report.description,
+                    tipo_reporte: report.type,
+                    urgencia: getUrgencyText(report.urgency),
+                    reportado_por: reporter?.name || report.reporter,
+                    tarea_relacionada: relatedTask?.name || 'Ninguna',
+                    bloquea_progreso: report.blocksProgress,
+                    fecha_requerida: formatDate(report.requiredDate),
+                    estado: report.status === 'resolved' ? 'Resuelto' : 'Pendiente',
+                    fecha: report.createdAt
+                };
+            });
+        }
+
+        function getInventoryExportData() {
+            return inventory.map(material => {
+                return {
+                    tipo: 'inventario',
+                    nombre: material.name,
+                    categoria: material.category,
+                    cantidad: material.quantity,
+                    unidad: material.unit,
+                    stock_minimo: material.minStock,
+                    proveedor: material.supplier || 'No especificado',
+                    costo: material.cost ? `$${material.cost.toFixed(2)}` : 'No especificado',
+                    ubicacion: material.location || 'No especificado',
+                    descripcion: material.description || 'No especificado',
+                    fecha: new Date().toISOString()
+                };
+            });
+        }
+
+        function exportToExcel(data, exportType) {
+            try {
+                // Crear libro de trabajo
+                const wb = XLSX.utils.book_new();
+                
+                // Convertir datos a hoja de trabajo
+                const ws = XLSX.utils.json_to_sheet(data);
+                
+                // Agregar hoja de trabajo al libro
+                let sheetName = "Actividades";
+                if (exportType === 'tasks') sheetName = "Tareas";
+                else if (exportType === 'reports') sheetName = "Reportes";
+                else if (exportType === 'inventory') sheetName = "Inventario";
+                
+                XLSX.utils.book_append_sheet(wb, ws, sheetName);
+                
+                // Generar archivo y descargar
+                const fileName = `taskmaster_${exportType}_${new Date().toISOString().split('T')[0]}.xlsx`;
+                XLSX.writeFile(wb, fileName);
+                
+                showNotification('Datos exportados exitosamente a Excel', 'success');
+            } catch (error) {
+                console.error('Error al exportar a Excel:', error);
+                showNotification('Error al exportar a Excel', 'danger');
+            }
+        }
+
+        function exportToCSV(data, exportType) {
+            try {
+                if (data.length === 0) {
+                    showNotification('No hay datos para exportar', 'warning');
+                    return;
+                }
+                
+                // Convertir a CSV
+                const headers = Object.keys(data[0]);
+                const csvContent = [
+                    headers.join(','),
+                    ...data.map(row => 
+                        headers.map(header => {
+                            const value = row[header] || '';
+                            return `"${String(value).replace(/"/g, '""')}"`;
+                        }).join(',')
+                    )
+                ].join('\n');
+                
+                // Crear y descargar archivo
+                const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+                const link = document.createElement('a');
+                const url = URL.createObjectURL(blob);
+                
+                link.setAttribute('href', url);
+                link.setAttribute('download', `taskmaster_${exportType}_${new Date().toISOString().split('T')[0]}.csv`);
+                link.style.visibility = 'hidden';
+                
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                
+                showNotification('Datos exportados exitosamente a CSV', 'success');
+            } catch (error) {
+                console.error('Error al exportar a CSV:', error);
+                showNotification('Error al exportar a CSV', 'danger');
+            }
+        }
+
+        function exportToPDF(data, exportType) {
+            try {
+                if (typeof jsPDF === 'undefined') {
+                    showNotification('La funcionalidad PDF no está disponible', 'danger');
+                    return;
+                }
+                
+                const { jsPDF } = window.jspdf;
+                const doc = new jsPDF();
+                
+                // Título
+                doc.setFontSize(16);
+                let title = 'Reporte de Actividades - TaskMaster';
+                if (exportType === 'tasks') title = 'Reporte de Tareas - TaskMaster';
+                else if (exportType === 'reports') title = 'Reporte de Reportes - TaskMaster';
+                else if (exportType === 'inventory') title = 'Reporte de Inventario - TaskMaster';
+                
+                doc.text(title, 20, 20);
+                doc.setFontSize(10);
+                doc.text(`Generado el: ${new Date().toLocaleDateString('es-ES')}`, 20, 30);
+                
+                let yPosition = 50;
+                
+                // Agrupar por tipo si es una exportación general
+                if (exportType === 'all') {
+                    const groupedData = {
+                        tareas: data.filter(item => item.tipo === 'tarea'),
+                        reportes: data.filter(item => item.tipo === 'reporte'),
+                        inventario: data.filter(item => item.tipo === 'inventario')
+                    };
+                    
+                    // Tareas
+                    if (groupedData.tareas.length > 0) {
+                        doc.setFontSize(12);
+                        doc.text('TAREAS', 20, yPosition);
+                        yPosition += 10;
+                        
+                        groupedData.tareas.forEach((task, index) => {
+                            if (yPosition > 270) {
+                                doc.addPage();
+                                yPosition = 20;
+                            }
+                            
+                            doc.setFontSize(8);
+                            doc.text(`${index + 1}. ${task.nombre}`, 25, yPosition);
+                            yPosition += 5;
+                            doc.text(`   Responsable: ${task.responsable} | Estado: ${task.estado}`, 25, yPosition);
+                            yPosition += 5;
+                            doc.text(`   Fecha límite: ${task.fecha_limite} | Materiales: ${task.materiales}`, 25, yPosition);
+                            yPosition += 8;
+                        });
+                        yPosition += 5;
+                    }
+                    
+                    // Reportes
+                    if (groupedData.reportes.length > 0) {
+                        if (yPosition > 250) {
+                            doc.addPage();
+                            yPosition = 20;
+                        }
+                        
+                        doc.setFontSize(12);
+                        doc.text('REPORTES', 20, yPosition);
+                        yPosition += 10;
+                        
+                        groupedData.reportes.forEach((report, index) => {
+                            if (yPosition > 270) {
+                                doc.addPage();
+                                yPosition = 20;
+                            }
+                            
+                            doc.setFontSize(8);
+                            doc.text(`${index + 1}. ${report.titulo}`, 25, yPosition);
+                            yPosition += 5;
+                            doc.text(`   Tipo: ${report.tipo_reporte} | Urgencia: ${report.urgencia}`, 25, yPosition);
+                            yPosition += 5;
+                            doc.text(`   Reportado por: ${report.reportado_por} | Estado: ${report.estado}`, 25, yPosition);
+                            yPosition += 8;
+                        });
+                        yPosition += 5;
+                    }
+                    
+                    // Inventario
+                    if (groupedData.inventario.length > 0) {
+                        if (yPosition > 250) {
+                            doc.addPage();
+                            yPosition = 20;
+                        }
+                        
+                        doc.setFontSize(12);
+                        doc.text('INVENTARIO', 20, yPosition);
+                        yPosition += 10;
+                        
+                        groupedData.inventario.forEach((item, index) => {
+                            if (yPosition > 270) {
+                                doc.addPage();
+                                yPosition = 20;
+                            }
+                            
+                            doc.setFontSize(8);
+                            doc.text(`${index + 1}. ${item.nombre}`, 25, yPosition);
+                            yPosition += 5;
+                            doc.text(`   Cantidad: ${item.cantidad} ${item.unidad} | Stock mínimo: ${item.stock_minimo}`, 25, yPosition);
+                            yPosition += 5;
+                            doc.text(`   Categoría: ${item.categoria} | Ubicación: ${item.ubicacion}`, 25, yPosition);
+                            yPosition += 8;
+                        });
+                    }
+                } else {
+                    // Exportación específica
+                    data.forEach((item, index) => {
+                        if (yPosition > 270) {
+                            doc.addPage();
+                            yPosition = 20;
+                        }
+                        
+                        doc.setFontSize(8);
+                        doc.text(`${index + 1}. ${item.nombre || item.titulo}`, 25, yPosition);
+                        yPosition += 5;
+                        
+                        if (exportType === 'tasks') {
+                            doc.text(`   Responsable: ${item.responsable} | Estado: ${item.estado}`, 25, yPosition);
+                            yPosition += 5;
+                            doc.text(`   Fecha límite: ${item.fecha_limite} | Materiales: ${item.materiales}`, 25, yPosition);
+                        } else if (exportType === 'reports') {
+                            doc.text(`   Tipo: ${item.tipo_reporte} | Urgencia: ${item.urgencia}`, 25, yPosition);
+                            yPosition += 5;
+                            doc.text(`   Reportado por: ${item.reportado_por} | Estado: ${item.estado}`, 25, yPosition);
+                        } else if (exportType === 'inventory') {
+                            doc.text(`   Cantidad: ${item.cantidad} ${item.unidad} | Stock mínimo: ${item.stock_minimo}`, 25, yPosition);
+                            yPosition += 5;
+                            doc.text(`   Categoría: ${item.categoria} | Ubicación: ${item.ubicacion}`, 25, yPosition);
+                        }
+                        
+                        yPosition += 8;
+                    });
+                }
+                
+                // Guardar PDF
+                doc.save(`taskmaster_${exportType}_${new Date().toISOString().split('T')[0]}.pdf`);
+                showNotification('Datos exportados exitosamente a PDF', 'success');
+            } catch (error) {
+                console.error('Error al exportar a PDF:', error);
+                showNotification('Error al exportar a PDF', 'danger');
+            }
+        }
+
+        function previewData() {
+            const exportType = document.getElementById('exportType').value;
+            const startDate = document.getElementById('startDate').value;
+            const endDate = document.getElementById('endDate').value;
+            
+            let dataToShow = [];
+            
+            if (exportType === 'all') {
+                dataToShow = getAllExportData();
+            } else if (exportType === 'tasks') {
+                dataToShow = getTasksExportData();
+            } else if (exportType === 'reports') {
+                dataToShow = getReportsExportData();
+            } else if (exportType === 'inventory') {
+                dataToShow = getInventoryExportData();
+            } else if (exportType === 'completed') {
+                dataToShow = getAllExportData().filter(item => 
+                    item.tipo === 'tarea' ? item.estado === 'Terminada' : true
+                );
+            } else if (exportType === 'pending') {
+                dataToShow = getAllExportData().filter(item => 
+                    item.tipo === 'tarea' ? item.estado !== 'Terminada' : true
+                );
+            } else if (exportType === 'date-range') {
+                if (!startDate || !endDate) {
+                    showNotification('Selecciona un rango de fechas válido', 'warning');
+                    return;
+                }
+                dataToShow = getAllExportData().filter(item => {
+                    const itemDate = new Date(item.fecha);
+                    const start = new Date(startDate);
+                    const end = new Date(endDate);
+                    end.setHours(23, 59, 59, 999);
+                    return itemDate >= start && itemDate <= end;
+                });
+            }
+            
+            const previewContent = document.getElementById('previewContent');
+            const previewSection = document.getElementById('previewSection');
+            
+            if (dataToShow.length === 0) {
+                previewContent.innerHTML = '<div style="text-align: center; padding: 2rem; color: var(--gray);">No hay datos para mostrar con los filtros seleccionados</div>';
+            } else {
+                let html = `
+                    <div style="margin-bottom: 1rem; color: var(--gray);">
+                        Mostrando ${dataToShow.length} registros
+                    </div>
+                    <div style="overflow-x: auto;">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>Tipo</th>
+                                    <th>Nombre/Título</th>
+                                    <th>Responsable</th>
+                                    <th>Estado</th>
+                                    <th>Fecha</th>
+                                    <th>Detalles</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                `;
+                
+                dataToShow.slice(0, 50).forEach(item => { // Mostrar máximo 50 registros en vista previa
+                    html += `
+                        <tr>
+                            <td><span class="badge" style="background: #f0f0f0; color: var(--dark);">${item.tipo}</span></td>
+                            <td>${item.nombre || item.titulo}</td>
+                            <td>${item.responsable || item.reportado_por || 'N/A'}</td>
+                            <td>${item.estado || 'N/A'}</td>
+                            <td>${formatDate(item.fecha)}</td>
+                            <td>${item.descripcion ? item.descripcion.substring(0, 50) + '...' : 'N/A'}</td>
+                        </tr>
+                    `;
+                });
+                
+                html += `
+                            </tbody>
+                        </table>
+                    </div>
+                    ${dataToShow.length > 50 ? `<div style="text-align: center; margin-top: 1rem; color: var(--gray);">... y ${dataToShow.length - 50} registros más</div>` : ''}
+                `;
+                
+                previewContent.innerHTML = html;
+            }
+            
+            previewSection.style.display = 'block';
+        }
+
+        // ==================== FUNCIONES RESTANTES ====================
+        function loadUserData() {
+            loadData();
+            updateDashboard();
+            updateNotificationBadge();
+            
+            // Mostrar fecha actual
+            const now = new Date();
+            document.getElementById('currentDate').textContent = now.toLocaleDateString('es-ES', {
+                weekday: 'long',
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric'
+            });
+        }
+
+        function populateTaskSelect() {
+            const taskSelect = document.getElementById('taskSelect');
+            taskSelect.innerHTML = '<option value="">Selecciona una tarea (opcional)</option>';
+            
+            const userTasks = currentUser.role === 'worker'
+                ? tasks.filter(task => task.assignee === currentUser.username)
+                : tasks;
+            
+            userTasks.forEach(task => {
+                const option = document.createElement('option');
+                option.value = task.id;
+                option.textContent = task.name;
+                taskSelect.appendChild(option);
+            });
+        }
+
+        function updateUsersTable() {
+            const tbody = document.getElementById('usersTable');
+            tbody.innerHTML = '';
+
+            if (users.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; padding: 2rem; color: var(--gray);">No hay usuarios registrados</td></tr>';
+                return;
+            }
+
+            users.forEach(user => {
+                const userTasks = tasks.filter(task => task.assignee === user.username);
+                const activeTasks = userTasks.filter(task => task.status !== 'completed').length;
+                
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${user.username}</td>
+                    <td>${user.name}</td>
+                    <td><span class="badge ${user.role === 'admin' ? 'badge-primary' : 'badge-secondary'}">${user.role === 'admin' ? 'Administrador' : 'Trabajador'}</span></td>
+                    <td>${activeTasks}</td>
+                    <td>
+                        <button class="btn btn-outline edit-user-btn" data-user-id="${user.username}" style="margin-bottom: 5px;">
+                            <i class="fas fa-edit"></i> Editar
+                        </button>
+                        ${user.username !== currentUser.username ? `
+                        <button class="btn btn-danger delete-user-btn" data-user-id="${user.username}">
+                            <i class="fas fa-trash"></i> Eliminar
+                        </button>
+                        ` : ''}
+                    </td>
+                `;
+                tbody.appendChild(row);
+            });
+
+            // Agregar event listeners
+            document.querySelectorAll('.edit-user-btn').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    const userId = this.getAttribute('data-user-id');
+                    // Implementar edición de usuario
+                    showNotification('Funcionalidad de edición de usuario en desarrollo', 'warning');
+                });
+            });
+
+            document.querySelectorAll('.delete-user-btn').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    const userId = this.getAttribute('data-user-id');
+                    if (confirm('¿Estás seguro de que quieres eliminar este usuario?')) {
+                        users = users.filter(u => u.username !== userId);
+                        saveUsers();
+                        showNotification('Usuario eliminado correctamente', 'success');
+                        updateUsersTable();
+                    }
+                });
+            });
+        }
+
+        function loadChangePasswordPage() {
+            document.getElementById('currentUserDisplay').value = currentUser.username;
+        }
+
+        // ==================== INICIALIZACIÓN ====================
+        document.addEventListener('DOMContentLoaded', function() {
+            // Cargar datos
+            loadData();
+            
+            // Intentar cargar sesión
+            if (!loadSession()) {
+                document.getElementById('loginScreen').style.display = 'flex';
+                document.getElementById('app').style.display = 'none';
+            }
+            
+            // Event listeners
+            document.getElementById('loginForm').addEventListener('submit', handleLogin);
+            document.getElementById('logoutBtn').addEventListener('click', handleLogout);
+            document.getElementById('menuToggle').addEventListener('click', function() {
+                document.getElementById('sidebar').classList.toggle('active');
+            });
+            
+            // Notificaciones
+            document.getElementById('notificationBtn').addEventListener('click', function(e) {
+                e.stopPropagation();
+                document.getElementById('notificationDropdown').classList.toggle('active');
+                loadNotifications();
+            });
+            
+            document.getElementById('markAllReadBtn').addEventListener('click', function(e) {
+                e.stopPropagation();
+                markAllNotificationsAsRead();
+            });
+            
+            // Cerrar dropdown de notificaciones al hacer clic fuera
+            document.addEventListener('click', function() {
+                document.getElementById('notificationDropdown').classList.remove('active');
+            });
+            
+            // Navegación
+            document.querySelectorAll('.nav-item').forEach(item => {
+                item.addEventListener('click', function() {
+                    const page = this.getAttribute('data-page');
+                    switchPage(page);
+                    // Cerrar sidebar en móviles
+                    if (window.innerWidth <= 992) {
+                        document.getElementById('sidebar').classList.remove('active');
+                    }
+                });
+            });
+            
+            // Tabs
+            document.querySelectorAll('.tab').forEach(tab => {
+                tab.addEventListener('click', function() {
+                    const tabId = this.getAttribute('data-tab');
+                    
+                    // Actualizar tabs activos
+                    document.querySelectorAll('.tab').forEach(t => {
+                        t.classList.toggle('active', t === this);
+                    });
+                    
+                    // Mostrar contenido correspondiente
+                    document.querySelectorAll('.tab-content').forEach(content => {
+                        content.classList.toggle('active', content.id === `tab-${tabId}`);
+                    });
+                    
+                    // Si estamos en la página de reportes admin, recargar
+                    if (currentPage === 'reports-admin') {
+                        loadReports();
+                    }
+                });
+            });
+            
+            // Botón para ver todas las tareas
+            document.getElementById('viewAllTasksBtn').addEventListener('click', function() {
+                switchPage('tasks');
+            });
+            
+            // Botón para agregar tarea
+            document.getElementById('addTaskBtn').addEventListener('click', function() {
+                // Limpiar formulario
+                document.getElementById('taskForm').reset();
+                
+                // Llenar select de trabajadores
+                const taskAssignee = document.getElementById('taskAssignee');
+                taskAssignee.innerHTML = '<option value="">Selecciona un trabajador</option>';
+                users.filter(u => u.role === 'worker').forEach(user => {
+                    const option = document.createElement('option');
+                    option.value = user.username;
+                    option.textContent = user.name;
+                    taskAssignee.appendChild(option);
+                });
+                
+                // Llenar select de materiales
+                const materialSelect = document.getElementById('materialSelect');
+                materialSelect.innerHTML = '<option value="">Seleccionar material</option>';
+                inventory.forEach(material => {
+                    const option = document.createElement('option');
+                    option.value = material.id;
+                    option.textContent = `${material.name} (${material.quantity} ${material.unit} disponible)`;
+                    materialSelect.appendChild(option);
+                });
+                
+                // Limpiar lista de materiales
+                document.getElementById('taskMaterialsList').innerHTML = '';
+                
+                // Mostrar modal
+                document.getElementById('addTaskModal').classList.add('active');
+                
+                // Configurar el botón de guardar para crear nueva tarea
+                document.getElementById('saveTaskBtn').onclick = function() {
+                    createNewTask();
+                };
+            });
+            
+            // Botón para agregar material
+            document.getElementById('addMaterialBtn').addEventListener('click', function() {
+                // Limpiar formulario
+                document.getElementById('materialForm').reset();
+                
+                // Mostrar modal
+                document.getElementById('addMaterialModal').classList.add('active');
+                
+                // Configurar el botón de guardar para crear nuevo material
+                document.getElementById('saveMaterialBtn').onclick = function() {
+                    createNewMaterial();
+                };
+            });
+            
+            // Botón para exportar inventario
+            document.getElementById('exportInventoryBtn').addEventListener('click', function() {
+                const inventoryData = getInventoryExportData();
+                exportToExcel(inventoryData, 'inventory');
+            });
+            
+            // Botón para exportar datos
+            document.getElementById('exportDataBtn').addEventListener('click', exportData);
+            
+            // Botón para vista previa
+            document.getElementById('previewDataBtn').addEventListener('click', previewData);
+            
+            // Cambio de tipo de exportación
+            document.getElementById('exportType').addEventListener('change', function() {
+                const dateRangeGroup = document.getElementById('dateRangeGroup');
+                if (this.value === 'date-range') {
+                    dateRangeGroup.style.display = 'block';
+                } else {
+                    dateRangeGroup.style.display = 'none';
+                }
+            });
+            
+            // Formulario de reportes
+            document.getElementById('reportForm').addEventListener('submit', submitReport);
+            
+            // Cambio de tipo de reporte
+            document.getElementById('reportType').addEventListener('change', function() {
+                const materialSection = document.getElementById('materialSection');
+                const equipmentSection = document.getElementById('equipmentSection');
+                
+                if (this.value === 'material') {
+                    materialSection.style.display = 'block';
+                    equipmentSection.style.display = 'none';
+                } else if (this.value === 'equipment') {
+                    materialSection.style.display = 'none';
+                    equipmentSection.style.display = 'block';
+                } else {
+                    materialSection.style.display = 'none';
+                    equipmentSection.style.display = 'none';
+                }
+            });
+            
+            // Cerrar modales
+            document.getElementById('closeTaskModal').addEventListener('click', function() {
+                document.getElementById('addTaskModal').classList.remove('active');
+            });
+            
+            document.getElementById('closeMaterialModal').addEventListener('click', function() {
+                document.getElementById('addMaterialModal').classList.remove('active');
+            });
+            
+            document.getElementById('closeAssignModal').addEventListener('click', function() {
+                document.getElementById('assignMaterialsModal').classList.remove('active');
+            });
+            
+            document.getElementById('cancelTaskBtn').addEventListener('click', function() {
+                document.getElementById('addTaskModal').classList.remove('active');
+            });
+            
+            document.getElementById('cancelMaterialBtn').addEventListener('click', function() {
+                document.getElementById('addMaterialModal').classList.remove('active');
+            });
+            
+            document.getElementById('cancelAssignBtn').addEventListener('click', function() {
+                document.getElementById('assignMaterialsModal').classList.remove('active');
+            });
+            
+            // Agregar material a tarea
+            document.getElementById('addMaterialToTask').addEventListener('click', function() {
+                const materialId = document.getElementById('materialSelect').value;
+                const quantity = parseInt(document.getElementById('materialQuantityTask').value);
+                
+                if (!materialId || !quantity || quantity <= 0) {
+                    showNotification('Selecciona un material y una cantidad válida', 'warning');
+                    return;
+                }
+                
+                const material = inventory.find(m => m.id === materialId);
+                if (quantity > material.quantity) {
+                    showNotification(`No hay suficiente stock. Disponible: ${material.quantity} ${material.unit}`, 'danger');
+                    return;
+                }
+                
+                // Agregar a la lista visual
+                const materialsList = document.getElementById('taskMaterialsList');
+                const item = document.createElement('div');
+                item.className = 'assignment-item';
+                item.innerHTML = `
+                    <span>${material.name} - ${quantity} ${material.unit}</span>
+                    <button class="btn btn-danger btn-sm remove-material-btn" data-material-id="${materialId}">
+                        <i class="fas fa-times"></i>
+                    </button>
+                `;
+                materialsList.appendChild(item);
+                
+                // Limpiar formulario
+                document.getElementById('materialSelect').value = '';
+                document.getElementById('materialQuantityTask').value = '';
+                
+                // Agregar event listener al botón de eliminar
+                item.querySelector('.remove-material-btn').addEventListener('click', function() {
+                    item.remove();
+                });
+            });
+            
+            // Búsqueda en inventario
+            document.getElementById('searchMaterial').addEventListener('input', function() {
+                loadInventory();
+            });
+        });
+
+        // ==================== FUNCIONES DE CREACIÓN ====================
+        function createNewTask() {
+            const taskName = document.getElementById('taskName').value;
+            const taskDescription = document.getElementById('taskDescription').value;
+            const taskAssignee = document.getElementById('taskAssignee').value;
+            const taskStartDate = document.getElementById('taskStartDate').value;
+            const taskDueDate = document.getElementById('taskDueDate').value;
+            const taskUrgency = document.getElementById('taskUrgency').value;
+            
+            if (!taskName || !taskDescription || !taskAssignee || !taskStartDate || !taskDueDate) {
+                showNotification('Completa todos los campos obligatorios', 'warning');
+                return;
+            }
+            
+            // Recopilar materiales
+            const materials = [];
+            const materialsList = document.getElementById('taskMaterialsList');
+            materialsList.querySelectorAll('.assignment-item').forEach(item => {
+                const text = item.textContent.trim();
+                const match = text.match(/(.+) - (\d+) (.+)/);
+                if (match) {
+                    const materialName = match[1];
+                    const quantity = parseInt(match[2]);
+                    const unit = match[3];
+                    
+                    const material = inventory.find(m => m.name === materialName);
+                    if (material) {
+                        materials.push({
+                            materialId: material.id,
+                            quantity: quantity,
+                            delivered: false
+                        });
+                        
+                        // Descontar del inventario
+                        const materialIndex = inventory.findIndex(m => m.id === material.id);
+                        if (materialIndex !== -1) {
+                            inventory[materialIndex].quantity -= quantity;
+                        }
+                    }
+                }
+            });
+            
+            // Crear nueva tarea
+            const newTask = {
+                id: generateId(),
+                name: taskName,
+                description: taskDescription,
+                assignee: taskAssignee,
+                startDate: taskStartDate,
+                dueDate: taskDueDate,
+                urgency: taskUrgency,
+                status: 'pending',
+                materials: materials,
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString()
+            };
+            
+            tasks.push(newTask);
+            saveTasks();
+            saveInventory();
+            showNotification('Tarea creada correctamente', 'success');
+            document.getElementById('addTaskModal').classList.remove('active');
+            
+            if (currentPage === 'manage-tasks') {
+                loadAllTasks();
+            }
+            updateDashboard();
+        }
+
+        function createNewMaterial() {
+            const materialName = document.getElementById('materialNameModal').value;
+            const materialCategory = document.getElementById('materialCategory').value;
+            const materialQuantity = parseInt(document.getElementById('materialQuantityModal').value);
+            const materialUnit = document.getElementById('materialUnit').value;
+            const materialMinStock = parseInt(document.getElementById('materialMinStock').value);
+            const materialSupplier = document.getElementById('materialSupplier').value;
+            const materialCost = parseFloat(document.getElementById('materialCost').value) || 0;
+            const materialLocation = document.getElementById('materialLocation').value;
+            const materialDescription = document.getElementById('materialDescription').value;
+            
+            if (!materialName || !materialCategory || isNaN(materialQuantity) || !materialUnit || isNaN(materialMinStock)) {
+                showNotification('Completa todos los campos obligatorios', 'warning');
+                return;
+            }
+            
+            // Crear nuevo material
+            const newMaterial = {
+                id: generateId(),
+                name: materialName,
+                category: materialCategory,
+                quantity: materialQuantity,
+                unit: materialUnit,
+                minStock: materialMinStock,
+                supplier: materialSupplier,
+                cost: materialCost,
+                location: materialLocation,
+                description: materialDescription
+            };
+            
+            inventory.push(newMaterial);
+            saveInventory();
+            showNotification('Material creado correctamente', 'success');
+            document.getElementById('addMaterialModal').classList.remove('active');
+            loadInventory();
+            updateDashboard();
+        }
+
         // ==================== FUNCIONES FALTANTES ====================
         function openEditTaskModal(taskId) {
             const task = tasks.find(t => t.id === taskId);
@@ -3022,767 +4307,6 @@
                     updateDashboard();
                 }
             };
-        }
-
-        // ==================== SISTEMA DE EXPORTACIÓN MEJORADO ====================
-        function loadExportPage() {
-            document.getElementById('previewSection').style.display = 'none';
-            
-            // Configurar fechas por defecto
-            const today = new Date();
-            const oneWeekAgo = new Date(today);
-            oneWeekAgo.setDate(today.getDate() - 7);
-            
-            document.getElementById('startDate').value = oneWeekAgo.toISOString().split('T')[0];
-            document.getElementById('endDate').value = today.toISOString().split('T')[0];
-        }
-
-        function exportData() {
-            const exportType = document.getElementById('exportType').value;
-            const exportFormat = document.getElementById('exportFormat').value;
-            const startDate = document.getElementById('startDate').value;
-            const endDate = document.getElementById('endDate').value;
-            
-            let dataToExport = [];
-            
-            // Filtrar datos según el tipo de exportación
-            if (exportType === 'all') {
-                dataToExport = getAllExportData();
-            } else if (exportType === 'completed') {
-                dataToExport = getAllExportData().filter(item => 
-                    item.tipo === 'tarea' ? item.estado === 'Terminada' : true
-                );
-            } else if (exportType === 'pending') {
-                dataToExport = getAllExportData().filter(item => 
-                    item.tipo === 'tarea' ? item.estado !== 'Terminada' : true
-                );
-            } else if (exportType === 'date-range') {
-                if (!startDate || !endDate) {
-                    showNotification('Selecciona un rango de fechas válido', 'warning');
-                    return;
-                }
-                dataToExport = getAllExportData().filter(item => {
-                    const itemDate = new Date(item.fecha);
-                    const start = new Date(startDate);
-                    const end = new Date(endDate);
-                    end.setHours(23, 59, 59, 999);
-                    return itemDate >= start && itemDate <= end;
-                });
-            }
-            
-            if (dataToExport.length === 0) {
-                showNotification('No hay datos para exportar con los filtros seleccionados', 'warning');
-                return;
-            }
-            
-            // Exportar según el formato
-            if (exportFormat === 'excel') {
-                exportToExcel(dataToExport);
-            } else if (exportFormat === 'csv') {
-                exportToCSV(dataToExport);
-            } else if (exportFormat === 'pdf') {
-                exportToPDF(dataToExport);
-            }
-        }
-
-        function getAllExportData() {
-            const exportData = [];
-            
-            // Agregar tareas
-            tasks.forEach(task => {
-                const assignee = users.find(u => u.username === task.assignee);
-                const materialsText = task.materials && task.materials.length > 0 
-                    ? task.materials.map(m => {
-                        const material = inventory.find(mat => mat.id === m.materialId);
-                        return material ? `${material.name} (${m.quantity} ${material.unit})` : '';
-                    }).filter(Boolean).join(', ')
-                    : 'Ninguno';
-                
-                exportData.push({
-                    tipo: 'tarea',
-                    nombre: task.name,
-                    descripcion: task.description,
-                    responsable: assignee?.name || task.assignee,
-                    fecha_inicio: formatDate(task.startDate),
-                    fecha_limite: formatDate(task.dueDate),
-                    estado: getStatusText(task.status),
-                    urgencia: getUrgencyText(task.urgency),
-                    materiales: materialsText,
-                    fecha: task.createdAt,
-                    fecha_actualizacion: task.updatedAt
-                });
-            });
-            
-            // Agregar reportes
-            reports.forEach(report => {
-                const reporter = users.find(u => u.username === report.reporter);
-                const relatedTask = report.taskId ? tasks.find(t => t.id === report.taskId) : null;
-                
-                exportData.push({
-                    tipo: 'reporte',
-                    titulo: report.title,
-                    descripcion: report.description,
-                    tipo_reporte: report.type,
-                    urgencia: getUrgencyText(report.urgency),
-                    reportado_por: reporter?.name || report.reporter,
-                    tarea_relacionada: relatedTask?.name || 'Ninguna',
-                    bloquea_progreso: report.blocksProgress,
-                    fecha_requerida: formatDate(report.requiredDate),
-                    estado: report.status === 'resolved' ? 'Resuelto' : 'Pendiente',
-                    fecha: report.createdAt
-                });
-            });
-            
-            // Agregar materiales del inventario
-            inventory.forEach(material => {
-                exportData.push({
-                    tipo: 'inventario',
-                    nombre: material.name,
-                    categoria: material.category,
-                    cantidad: material.quantity,
-                    unidad: material.unit,
-                    stock_minimo: material.minStock,
-                    proveedor: material.supplier || 'No especificado',
-                    costo: material.cost ? `$${material.cost.toFixed(2)}` : 'No especificado',
-                    ubicacion: material.location || 'No especificado',
-                    descripcion: material.description || 'No especificado',
-                    fecha: new Date().toISOString()
-                });
-            });
-            
-            return exportData;
-        }
-
-        function exportToExcel(data) {
-            try {
-                // Crear libro de trabajo
-                const wb = XLSX.utils.book_new();
-                
-                // Convertir datos a hoja de trabajo
-                const ws = XLSX.utils.json_to_sheet(data);
-                
-                // Agregar hoja de trabajo al libro
-                XLSX.utils.book_append_sheet(wb, ws, "Actividades");
-                
-                // Generar archivo y descargar
-                const fileName = `taskmaster_export_${new Date().toISOString().split('T')[0]}.xlsx`;
-                XLSX.writeFile(wb, fileName);
-                
-                showNotification('Datos exportados exitosamente a Excel', 'success');
-            } catch (error) {
-                console.error('Error al exportar a Excel:', error);
-                showNotification('Error al exportar a Excel', 'danger');
-            }
-        }
-
-        function exportToCSV(data) {
-            try {
-                if (data.length === 0) {
-                    showNotification('No hay datos para exportar', 'warning');
-                    return;
-                }
-                
-                // Convertir a CSV
-                const headers = Object.keys(data[0]);
-                const csvContent = [
-                    headers.join(','),
-                    ...data.map(row => 
-                        headers.map(header => {
-                            const value = row[header] || '';
-                            return `"${String(value).replace(/"/g, '""')}"`;
-                        }).join(',')
-                    )
-                ].join('\n');
-                
-                // Crear y descargar archivo
-                const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-                const link = document.createElement('a');
-                const url = URL.createObjectURL(blob);
-                
-                link.setAttribute('href', url);
-                link.setAttribute('download', `taskmaster_export_${new Date().toISOString().split('T')[0]}.csv`);
-                link.style.visibility = 'hidden';
-                
-                document.body.appendChild(link);
-                link.click();
-                document.body.removeChild(link);
-                
-                showNotification('Datos exportados exitosamente a CSV', 'success');
-            } catch (error) {
-                console.error('Error al exportar a CSV:', error);
-                showNotification('Error al exportar a CSV', 'danger');
-            }
-        }
-
-        function exportToPDF(data) {
-            try {
-                if (typeof jsPDF === 'undefined') {
-                    showNotification('La funcionalidad PDF no está disponible', 'danger');
-                    return;
-                }
-                
-                const { jsPDF } = window.jspdf;
-                const doc = new jsPDF();
-                
-                // Título
-                doc.setFontSize(16);
-                doc.text('Reporte de Actividades - TaskMaster', 20, 20);
-                doc.setFontSize(10);
-                doc.text(`Generado el: ${new Date().toLocaleDateString('es-ES')}`, 20, 30);
-                
-                let yPosition = 50;
-                
-                // Agrupar por tipo
-                const groupedData = {
-                    tareas: data.filter(item => item.tipo === 'tarea'),
-                    reportes: data.filter(item => item.tipo === 'reporte'),
-                    inventario: data.filter(item => item.tipo === 'inventario')
-                };
-                
-                // Tareas
-                if (groupedData.tareas.length > 0) {
-                    doc.setFontSize(12);
-                    doc.text('TAREAS', 20, yPosition);
-                    yPosition += 10;
-                    
-                    groupedData.tareas.forEach((task, index) => {
-                        if (yPosition > 270) {
-                            doc.addPage();
-                            yPosition = 20;
-                        }
-                        
-                        doc.setFontSize(8);
-                        doc.text(`${index + 1}. ${task.nombre}`, 25, yPosition);
-                        yPosition += 5;
-                        doc.text(`   Responsable: ${task.responsable} | Estado: ${task.estado}`, 25, yPosition);
-                        yPosition += 5;
-                        doc.text(`   Fecha límite: ${task.fecha_limite} | Materiales: ${task.materiales}`, 25, yPosition);
-                        yPosition += 8;
-                    });
-                    yPosition += 5;
-                }
-                
-                // Reportes
-                if (groupedData.reportes.length > 0) {
-                    if (yPosition > 250) {
-                        doc.addPage();
-                        yPosition = 20;
-                    }
-                    
-                    doc.setFontSize(12);
-                    doc.text('REPORTES', 20, yPosition);
-                    yPosition += 10;
-                    
-                    groupedData.reportes.forEach((report, index) => {
-                        if (yPosition > 270) {
-                            doc.addPage();
-                            yPosition = 20;
-                        }
-                        
-                        doc.setFontSize(8);
-                        doc.text(`${index + 1}. ${report.titulo}`, 25, yPosition);
-                        yPosition += 5;
-                        doc.text(`   Tipo: ${report.tipo_reporte} | Urgencia: ${report.urgencia}`, 25, yPosition);
-                        yPosition += 5;
-                        doc.text(`   Reportado por: ${report.reportado_por} | Estado: ${report.estado}`, 25, yPosition);
-                        yPosition += 8;
-                    });
-                    yPosition += 5;
-                }
-                
-                // Inventario
-                if (groupedData.inventario.length > 0) {
-                    if (yPosition > 250) {
-                        doc.addPage();
-                        yPosition = 20;
-                    }
-                    
-                    doc.setFontSize(12);
-                    doc.text('INVENTARIO', 20, yPosition);
-                    yPosition += 10;
-                    
-                    groupedData.inventario.forEach((item, index) => {
-                        if (yPosition > 270) {
-                            doc.addPage();
-                            yPosition = 20;
-                        }
-                        
-                        doc.setFontSize(8);
-                        doc.text(`${index + 1}. ${item.nombre}`, 25, yPosition);
-                        yPosition += 5;
-                        doc.text(`   Cantidad: ${item.cantidad} ${item.unidad} | Stock mínimo: ${item.stock_minimo}`, 25, yPosition);
-                        yPosition += 5;
-                        doc.text(`   Categoría: ${item.categoria} | Ubicación: ${item.ubicacion}`, 25, yPosition);
-                        yPosition += 8;
-                    });
-                }
-                
-                // Guardar PDF
-                doc.save(`taskmaster_export_${new Date().toISOString().split('T')[0]}.pdf`);
-                showNotification('Datos exportados exitosamente a PDF', 'success');
-            } catch (error) {
-                console.error('Error al exportar a PDF:', error);
-                showNotification('Error al exportar a PDF', 'danger');
-            }
-        }
-
-        function previewData() {
-            const exportType = document.getElementById('exportType').value;
-            const startDate = document.getElementById('startDate').value;
-            const endDate = document.getElementById('endDate').value;
-            
-            let dataToShow = [];
-            
-            if (exportType === 'all') {
-                dataToShow = getAllExportData();
-            } else if (exportType === 'completed') {
-                dataToShow = getAllExportData().filter(item => 
-                    item.tipo === 'tarea' ? item.estado === 'Terminada' : true
-                );
-            } else if (exportType === 'pending') {
-                dataToShow = getAllExportData().filter(item => 
-                    item.tipo === 'tarea' ? item.estado !== 'Terminada' : true
-                );
-            } else if (exportType === 'date-range') {
-                if (!startDate || !endDate) {
-                    showNotification('Selecciona un rango de fechas válido', 'warning');
-                    return;
-                }
-                dataToShow = getAllExportData().filter(item => {
-                    const itemDate = new Date(item.fecha);
-                    const start = new Date(startDate);
-                    const end = new Date(endDate);
-                    end.setHours(23, 59, 59, 999);
-                    return itemDate >= start && itemDate <= end;
-                });
-            }
-            
-            const previewContent = document.getElementById('previewContent');
-            const previewSection = document.getElementById('previewSection');
-            
-            if (dataToShow.length === 0) {
-                previewContent.innerHTML = '<div style="text-align: center; padding: 2rem; color: var(--gray);">No hay datos para mostrar con los filtros seleccionados</div>';
-            } else {
-                let html = `
-                    <div style="margin-bottom: 1rem; color: var(--gray);">
-                        Mostrando ${dataToShow.length} registros
-                    </div>
-                    <div style="overflow-x: auto;">
-                        <table class="table">
-                            <thead>
-                                <tr>
-                                    <th>Tipo</th>
-                                    <th>Nombre/Título</th>
-                                    <th>Responsable</th>
-                                    <th>Estado</th>
-                                    <th>Fecha</th>
-                                    <th>Detalles</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                `;
-                
-                dataToShow.slice(0, 50).forEach(item => { // Mostrar máximo 50 registros en vista previa
-                    html += `
-                        <tr>
-                            <td><span class="badge" style="background: #f0f0f0; color: var(--dark);">${item.tipo}</span></td>
-                            <td>${item.nombre || item.titulo}</td>
-                            <td>${item.responsable || item.reportado_por || 'N/A'}</td>
-                            <td>${item.estado || 'N/A'}</td>
-                            <td>${formatDate(item.fecha)}</td>
-                            <td>${item.descripcion ? item.descripcion.substring(0, 50) + '...' : 'N/A'}</td>
-                        </tr>
-                    `;
-                });
-                
-                html += `
-                            </tbody>
-                        </table>
-                    </div>
-                    ${dataToShow.length > 50 ? `<div style="text-align: center; margin-top: 1rem; color: var(--gray);">... y ${dataToShow.length - 50} registros más</div>` : ''}
-                `;
-                
-                previewContent.innerHTML = html;
-            }
-            
-            previewSection.style.display = 'block';
-        }
-
-        // ==================== FUNCIONES RESTANTES ====================
-        function loadUserData() {
-            loadData();
-            updateDashboard();
-            
-            // Mostrar fecha actual
-            const now = new Date();
-            document.getElementById('currentDate').textContent = now.toLocaleDateString('es-ES', {
-                weekday: 'long',
-                year: 'numeric',
-                month: 'long',
-                day: 'numeric'
-            });
-        }
-
-        function populateTaskSelect() {
-            const taskSelect = document.getElementById('taskSelect');
-            taskSelect.innerHTML = '<option value="">Selecciona una tarea (opcional)</option>';
-            
-            const userTasks = currentUser.role === 'worker'
-                ? tasks.filter(task => task.assignee === currentUser.username)
-                : tasks;
-            
-            userTasks.forEach(task => {
-                const option = document.createElement('option');
-                option.value = task.id;
-                option.textContent = task.name;
-                taskSelect.appendChild(option);
-            });
-        }
-
-        function loadReports() {
-            // Implementar carga de reportes
-            const container = document.getElementById('reportsContainer');
-            container.innerHTML = '<div style="text-align: center; padding: 2rem; color: var(--gray);">Funcionalidad en desarrollo</div>';
-        }
-
-        function updateUsersTable() {
-            // Implementar actualización de tabla de usuarios
-            const tbody = document.getElementById('usersTable');
-            tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; padding: 2rem; color: var(--gray);">Funcionalidad en desarrollo</td></tr>';
-        }
-
-        function loadChangePasswordPage() {
-            // Implementar carga de página de cambio de contraseña
-            document.getElementById('currentUserDisplay').value = currentUser.username;
-        }
-
-        // ==================== INICIALIZACIÓN ====================
-        document.addEventListener('DOMContentLoaded', function() {
-            // Cargar datos
-            loadData();
-            
-            // Intentar cargar sesión
-            if (!loadSession()) {
-                document.getElementById('loginScreen').style.display = 'flex';
-                document.getElementById('app').style.display = 'none';
-            }
-            
-            // Event listeners
-            document.getElementById('loginForm').addEventListener('submit', handleLogin);
-            document.getElementById('logoutBtn').addEventListener('click', handleLogout);
-            document.getElementById('menuToggle').addEventListener('click', function() {
-                document.getElementById('sidebar').classList.toggle('active');
-            });
-            
-            // Navegación
-            document.querySelectorAll('.nav-item').forEach(item => {
-                item.addEventListener('click', function() {
-                    const page = this.getAttribute('data-page');
-                    switchPage(page);
-                    // Cerrar sidebar en móviles
-                    if (window.innerWidth <= 992) {
-                        document.getElementById('sidebar').classList.remove('active');
-                    }
-                });
-            });
-            
-            // Tabs
-            document.querySelectorAll('.tab').forEach(tab => {
-                tab.addEventListener('click', function() {
-                    const tabId = this.getAttribute('data-tab');
-                    
-                    // Actualizar tabs activos
-                    document.querySelectorAll('.tab').forEach(t => {
-                        t.classList.toggle('active', t === this);
-                    });
-                    
-                    // Mostrar contenido correspondiente
-                    document.querySelectorAll('.tab-content').forEach(content => {
-                        content.classList.toggle('active', content.id === `tab-${tabId}`);
-                    });
-                });
-            });
-            
-            // Botón para ver todas las tareas
-            document.getElementById('viewAllTasksBtn').addEventListener('click', function() {
-                switchPage('tasks');
-            });
-            
-            // Botón para agregar tarea
-            document.getElementById('addTaskBtn').addEventListener('click', function() {
-                // Limpiar formulario
-                document.getElementById('taskForm').reset();
-                
-                // Llenar select de trabajadores
-                const taskAssignee = document.getElementById('taskAssignee');
-                taskAssignee.innerHTML = '<option value="">Selecciona un trabajador</option>';
-                users.filter(u => u.role === 'worker').forEach(user => {
-                    const option = document.createElement('option');
-                    option.value = user.username;
-                    option.textContent = user.name;
-                    taskAssignee.appendChild(option);
-                });
-                
-                // Llenar select de materiales
-                const materialSelect = document.getElementById('materialSelect');
-                materialSelect.innerHTML = '<option value="">Seleccionar material</option>';
-                inventory.forEach(material => {
-                    const option = document.createElement('option');
-                    option.value = material.id;
-                    option.textContent = `${material.name} (${material.quantity} ${material.unit} disponible)`;
-                    materialSelect.appendChild(option);
-                });
-                
-                // Limpiar lista de materiales
-                document.getElementById('taskMaterialsList').innerHTML = '';
-                
-                // Mostrar modal
-                document.getElementById('addTaskModal').classList.add('active');
-                
-                // Configurar el botón de guardar para crear nueva tarea
-                document.getElementById('saveTaskBtn').onclick = function() {
-                    createNewTask();
-                };
-            });
-            
-            // Botón para agregar material
-            document.getElementById('addMaterialBtn').addEventListener('click', function() {
-                // Limpiar formulario
-                document.getElementById('materialForm').reset();
-                
-                // Mostrar modal
-                document.getElementById('addMaterialModal').classList.add('active');
-                
-                // Configurar el botón de guardar para crear nuevo material
-                document.getElementById('saveMaterialBtn').onclick = function() {
-                    createNewMaterial();
-                };
-            });
-            
-            // Botón para exportar inventario
-            document.getElementById('exportInventoryBtn').addEventListener('click', function() {
-                const inventoryData = inventory.map(item => ({
-                    nombre: item.name,
-                    categoria: item.category,
-                    cantidad: item.quantity,
-                    unidad: item.unit,
-                    stock_minimo: item.minStock,
-                    proveedor: item.supplier || 'No especificado',
-                    costo: item.cost ? `$${item.cost.toFixed(2)}` : 'No especificado',
-                    ubicacion: item.location || 'No especificado',
-                    descripcion: item.description || 'No especificado'
-                }));
-                
-                exportToExcel(inventoryData);
-            });
-            
-            // Botón para exportar datos
-            document.getElementById('exportDataBtn').addEventListener('click', exportData);
-            
-            // Botón para vista previa
-            document.getElementById('previewDataBtn').addEventListener('click', previewData);
-            
-            // Cambio de tipo de exportación
-            document.getElementById('exportType').addEventListener('change', function() {
-                const dateRangeGroup = document.getElementById('dateRangeGroup');
-                if (this.value === 'date-range') {
-                    dateRangeGroup.style.display = 'block';
-                } else {
-                    dateRangeGroup.style.display = 'none';
-                }
-            });
-            
-            // Cerrar modales
-            document.getElementById('closeTaskModal').addEventListener('click', function() {
-                document.getElementById('addTaskModal').classList.remove('active');
-            });
-            
-            document.getElementById('closeMaterialModal').addEventListener('click', function() {
-                document.getElementById('addMaterialModal').classList.remove('active');
-            });
-            
-            document.getElementById('closeAssignModal').addEventListener('click', function() {
-                document.getElementById('assignMaterialsModal').classList.remove('active');
-            });
-            
-            document.getElementById('cancelTaskBtn').addEventListener('click', function() {
-                document.getElementById('addTaskModal').classList.remove('active');
-            });
-            
-            document.getElementById('cancelMaterialBtn').addEventListener('click', function() {
-                document.getElementById('addMaterialModal').classList.remove('active');
-            });
-            
-            document.getElementById('cancelAssignBtn').addEventListener('click', function() {
-                document.getElementById('assignMaterialsModal').classList.remove('active');
-            });
-            
-            // Agregar material a tarea
-            document.getElementById('addMaterialToTask').addEventListener('click', function() {
-                const materialId = document.getElementById('materialSelect').value;
-                const quantity = parseInt(document.getElementById('materialQuantityTask').value);
-                
-                if (!materialId || !quantity || quantity <= 0) {
-                    showNotification('Selecciona un material y una cantidad válida', 'warning');
-                    return;
-                }
-                
-                const material = inventory.find(m => m.id === materialId);
-                if (quantity > material.quantity) {
-                    showNotification(`No hay suficiente stock. Disponible: ${material.quantity} ${material.unit}`, 'danger');
-                    return;
-                }
-                
-                // Agregar a la lista visual
-                const materialsList = document.getElementById('taskMaterialsList');
-                const item = document.createElement('div');
-                item.className = 'assignment-item';
-                item.innerHTML = `
-                    <span>${material.name} - ${quantity} ${material.unit}</span>
-                    <button class="btn btn-danger btn-sm remove-material-btn" data-material-id="${materialId}">
-                        <i class="fas fa-times"></i>
-                    </button>
-                `;
-                materialsList.appendChild(item);
-                
-                // Limpiar formulario
-                document.getElementById('materialSelect').value = '';
-                document.getElementById('materialQuantityTask').value = '';
-                
-                // Agregar event listener al botón de eliminar
-                item.querySelector('.remove-material-btn').addEventListener('click', function() {
-                    item.remove();
-                });
-            });
-            
-            // Búsqueda en inventario
-            document.getElementById('searchMaterial').addEventListener('input', function() {
-                loadInventory();
-            });
-            
-            // Cambio de tipo de reporte
-            document.getElementById('reportType').addEventListener('change', function() {
-                const materialSection = document.getElementById('materialSection');
-                const equipmentSection = document.getElementById('equipmentSection');
-                
-                if (this.value === 'material') {
-                    materialSection.style.display = 'block';
-                    equipmentSection.style.display = 'none';
-                } else if (this.value === 'equipment') {
-                    materialSection.style.display = 'none';
-                    equipmentSection.style.display = 'block';
-                } else {
-                    materialSection.style.display = 'none';
-                    equipmentSection.style.display = 'none';
-                }
-            });
-        });
-
-        // ==================== FUNCIONES DE CREACIÓN ====================
-        function createNewTask() {
-            const taskName = document.getElementById('taskName').value;
-            const taskDescription = document.getElementById('taskDescription').value;
-            const taskAssignee = document.getElementById('taskAssignee').value;
-            const taskStartDate = document.getElementById('taskStartDate').value;
-            const taskDueDate = document.getElementById('taskDueDate').value;
-            const taskUrgency = document.getElementById('taskUrgency').value;
-            
-            if (!taskName || !taskDescription || !taskAssignee || !taskStartDate || !taskDueDate) {
-                showNotification('Completa todos los campos obligatorios', 'warning');
-                return;
-            }
-            
-            // Recopilar materiales
-            const materials = [];
-            const materialsList = document.getElementById('taskMaterialsList');
-            materialsList.querySelectorAll('.assignment-item').forEach(item => {
-                const text = item.textContent.trim();
-                const match = text.match(/(.+) - (\d+) (.+)/);
-                if (match) {
-                    const materialName = match[1];
-                    const quantity = parseInt(match[2]);
-                    const unit = match[3];
-                    
-                    const material = inventory.find(m => m.name === materialName);
-                    if (material) {
-                        materials.push({
-                            materialId: material.id,
-                            quantity: quantity,
-                            delivered: false
-                        });
-                        
-                        // Descontar del inventario
-                        const materialIndex = inventory.findIndex(m => m.id === material.id);
-                        if (materialIndex !== -1) {
-                            inventory[materialIndex].quantity -= quantity;
-                        }
-                    }
-                }
-            });
-            
-            // Crear nueva tarea
-            const newTask = {
-                id: generateId(),
-                name: taskName,
-                description: taskDescription,
-                assignee: taskAssignee,
-                startDate: taskStartDate,
-                dueDate: taskDueDate,
-                urgency: taskUrgency,
-                status: 'pending',
-                materials: materials,
-                createdAt: new Date().toISOString(),
-                updatedAt: new Date().toISOString()
-            };
-            
-            tasks.push(newTask);
-            saveTasks();
-            saveInventory();
-            showNotification('Tarea creada correctamente', 'success');
-            document.getElementById('addTaskModal').classList.remove('active');
-            
-            if (currentPage === 'manage-tasks') {
-                loadAllTasks();
-            }
-            updateDashboard();
-        }
-
-        function createNewMaterial() {
-            const materialName = document.getElementById('materialNameModal').value;
-            const materialCategory = document.getElementById('materialCategory').value;
-            const materialQuantity = parseInt(document.getElementById('materialQuantityModal').value);
-            const materialUnit = document.getElementById('materialUnit').value;
-            const materialMinStock = parseInt(document.getElementById('materialMinStock').value);
-            const materialSupplier = document.getElementById('materialSupplier').value;
-            const materialCost = parseFloat(document.getElementById('materialCost').value) || 0;
-            const materialLocation = document.getElementById('materialLocation').value;
-            const materialDescription = document.getElementById('materialDescription').value;
-            
-            if (!materialName || !materialCategory || isNaN(materialQuantity) || !materialUnit || isNaN(materialMinStock)) {
-                showNotification('Completa todos los campos obligatorios', 'warning');
-                return;
-            }
-            
-            // Crear nuevo material
-            const newMaterial = {
-                id: generateId(),
-                name: materialName,
-                category: materialCategory,
-                quantity: materialQuantity,
-                unit: materialUnit,
-                minStock: materialMinStock,
-                supplier: materialSupplier,
-                cost: materialCost,
-                location: materialLocation,
-                description: materialDescription
-            };
-            
-            inventory.push(newMaterial);
-            saveInventory();
-            showNotification('Material creado correctamente', 'success');
-            document.getElementById('addMaterialModal').classList.remove('active');
-            loadInventory();
-            updateDashboard();
         }
     </script>
 </body>
