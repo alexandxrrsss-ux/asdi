@@ -9,6 +9,11 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
     
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+    
     <style>
         :root {
             --primary: #4361ee;
@@ -2101,6 +2106,22 @@
     </div>
 
     <script>
+        // ==================== CONFIGURACIÓN FIREBASE ====================
+        const firebaseConfig = {
+            apiKey: "AIzaSyCiuEJuVrLW0tF614Jvk-Wpt-rztppnqWQ",
+            authDomain: "tallerdask.firebaseapp.com",
+            projectId: "tallerdask",
+            storageBucket: "tallerdask.firebasestorage.app",
+            messagingSenderId: "525218470301",
+            appId: "1:525218470301:web:4bc5a1f304c04c7072b774",
+            measurementId: "G-GXE931PPX9"
+        };
+
+        // Inicializar Firebase
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+        const auth = firebase.auth();
+
         // ==================== VARIABLES GLOBALES ====================
         let currentUser = null;
         let tasks = [];
@@ -2109,6 +2130,7 @@
         let inventory = [];
         let notifications = [];
         let currentPage = "dashboard";
+        let firebaseInitialized = false;
 
         // ==================== FUNCIONES DE UTILIDAD ====================
         function generateId() {
@@ -2165,8 +2187,143 @@
             document.getElementById('loadingOverlay').classList.remove('active');
         }
 
-        // ==================== GESTIÓN DE DATOS ====================
-        function loadData() {
+        // ==================== GESTIÓN DE DATOS CON FIREBASE ====================
+        async function loadData() {
+            try {
+                showLoading();
+                
+                // Verificar conexión a Firebase
+                await db.collection('test').doc('test').get();
+                firebaseInitialized = true;
+                document.getElementById('loginError').style.display = 'none';
+                
+                // Cargar usuarios desde Firebase
+                const usersSnapshot = await db.collection('users').get();
+                if (usersSnapshot.empty) {
+                    // Si no hay usuarios, crear los usuarios por defecto
+                    await initializeDefaultUsers();
+                } else {
+                    users = [];
+                    usersSnapshot.forEach(doc => {
+                        users.push({ id: doc.id, ...doc.data() });
+                    });
+                }
+                
+                // Cargar tareas desde Firebase
+                const tasksSnapshot = await db.collection('tasks').get();
+                tasks = [];
+                tasksSnapshot.forEach(doc => {
+                    tasks.push({ id: doc.id, ...doc.data() });
+                });
+                
+                // Cargar reportes desde Firebase
+                const reportsSnapshot = await db.collection('reports').get();
+                reports = [];
+                reportsSnapshot.forEach(doc => {
+                    reports.push({ id: doc.id, ...doc.data() });
+                });
+                
+                // Cargar inventario desde Firebase
+                const inventorySnapshot = await db.collection('inventory').get();
+                if (inventorySnapshot.empty) {
+                    // Si no hay inventario, crear datos por defecto
+                    await initializeDefaultInventory();
+                } else {
+                    inventory = [];
+                    inventorySnapshot.forEach(doc => {
+                        inventory.push({ id: doc.id, ...doc.data() });
+                    });
+                }
+                
+                // Cargar notificaciones desde Firebase
+                const notificationsSnapshot = await db.collection('notifications').get();
+                notifications = [];
+                notificationsSnapshot.forEach(doc => {
+                    notifications.push({ id: doc.id, ...doc.data() });
+                });
+                
+                hideLoading();
+                
+            } catch (error) {
+                console.error('Error cargando datos de Firebase:', error);
+                firebaseInitialized = false;
+                document.getElementById('loginError').style.display = 'block';
+                
+                // Cargar datos por defecto desde localStorage como respaldo
+                loadDataFromLocalStorage();
+                hideLoading();
+            }
+        }
+
+        async function initializeDefaultUsers() {
+            const defaultUsers = [
+                { username: "admin", name: "Administrador", role: "admin", password: "admin123" },
+                { username: "juan", name: "Juan Pérez", role: "worker", password: "juan123" },
+                { username: "maria", name: "María García", role: "worker", password: "maria123" }
+            ];
+            
+            for (const user of defaultUsers) {
+                await db.collection('users').doc(user.username).set(user);
+            }
+            
+            // Recargar usuarios
+            const usersSnapshot = await db.collection('users').get();
+            users = [];
+            usersSnapshot.forEach(doc => {
+                users.push({ id: doc.id, ...doc.data() });
+            });
+        }
+
+        async function initializeDefaultInventory() {
+            const defaultInventory = [
+                {
+                    name: "Cable eléctrico 2.5mm",
+                    category: "Electricidad",
+                    quantity: 150,
+                    unit: "metros",
+                    minStock: 50,
+                    supplier: "Proveedor A",
+                    cost: 2.50,
+                    location: "Almacén A - Estante 3",
+                    description: "Cable eléctrico para instalaciones residenciales"
+                },
+                {
+                    name: "Tubería PVC 1/2\"",
+                    category: "Fontanería", 
+                    quantity: 80,
+                    unit: "metros",
+                    minStock: 30,
+                    supplier: "Proveedor B",
+                    cost: 1.80,
+                    location: "Almacén B - Estante 1",
+                    description: "Tubería para sistemas de agua"
+                },
+                {
+                    name: "Tornillos para madera 2\"",
+                    category: "Construcción",
+                    quantity: 500,
+                    unit: "unidades", 
+                    minStock: 200,
+                    supplier: "Proveedor C",
+                    cost: 0.15,
+                    location: "Almacén C - Estante 2",
+                    description: "Tornillos para trabajos en madera"
+                }
+            ];
+            
+            for (const material of defaultInventory) {
+                await db.collection('inventory').add(material);
+            }
+            
+            // Recargar inventario
+            const inventorySnapshot = await db.collection('inventory').get();
+            inventory = [];
+            inventorySnapshot.forEach(doc => {
+                inventory.push({ id: doc.id, ...doc.data() });
+            });
+        }
+
+        function loadDataFromLocalStorage() {
             // Cargar usuarios
             const savedUsers = localStorage.getItem('taskmaster_users');
             const defaultUsers = [
@@ -2231,28 +2388,129 @@
             notifications = savedNotifications ? JSON.parse(savedNotifications) : [];
             
             // Guardar datos iniciales si no existían
-            if (!savedUsers) saveUsers();
-            if (!savedInventory) saveInventory();
-            if (!savedNotifications) saveNotifications();
+            if (!savedUsers) saveUsersToLocalStorage();
+            if (!savedInventory) saveInventoryToLocalStorage();
+            if (!savedNotifications) saveNotificationsToLocalStorage();
         }
 
-        function saveUsers() {
+        // Funciones para guardar datos
+        async function saveUsers() {
+            if (firebaseInitialized) {
+                try {
+                    for (const user of users) {
+                        await db.collection('users').doc(user.id || user.username).set({
+                            username: user.username,
+                            name: user.name,
+                            role: user.role,
+                            password: user.password
+                        });
+                    }
+                } catch (error) {
+                    console.error('Error guardando usuarios en Firebase:', error);
+                    saveUsersToLocalStorage();
+                }
+            } else {
+                saveUsersToLocalStorage();
+            }
+        }
+
+        async function saveTasks() {
+            if (firebaseInitialized) {
+                try {
+                    for (const task of tasks) {
+                        await db.collection('tasks').doc(task.id).set({
+                            name: task.name,
+                            description: task.description,
+                            assignee: task.assignee,
+                            startDate: task.startDate,
+                            dueDate: task.dueDate,
+                            urgency: task.urgency,
+                            status: task.status,
+                            materials: task.materials || [],
+                            createdAt: task.createdAt,
+                            updatedAt: task.updatedAt
+                        });
+                    }
+                } catch (error) {
+                    console.error('Error guardando tareas en Firebase:', error);
+                    saveTasksToLocalStorage();
+                }
+            } else {
+                saveTasksToLocalStorage();
+            }
+        }
+
+        async function saveReports() {
+            if (firebaseInitialized) {
+                try {
+                    for (const report of reports) {
+                        await db.collection('reports').doc(report.id).set({
+                            type: report.type,
+                            taskId: report.taskId,
+                            title: report.title,
+                            description: report.description,
+                            urgency: report.urgency,
+                            blocksProgress: report.blocksProgress,
+                            requiredDate: report.requiredDate,
+                            additionalInfo: report.additionalInfo || {},
+                            reporter: report.reporter,
+                            status: report.status,
+                            createdAt: report.createdAt,
+                            resolvedAt: report.resolvedAt
+                        });
+                    }
+                } catch (error) {
+                    console.error('Error guardando reportes en Firebase:', error);
+                    saveReportsToLocalStorage();
+                }
+            } else {
+                saveReportsToLocalStorage();
+            }
+        }
+
+        async function saveInventory() {
+            if (firebaseInitialized) {
+                try {
+                    for (const material of inventory) {
+                        await db.collection('inventory').doc(material.id).set({
+                            name: material.name,
+                            category: material.category,
+                            quantity: material.quantity,
+                            unit: material.unit,
+                            minStock: material.minStock,
+                            supplier: material.supplier,
+                            cost: material.cost,
+                            location: material.location,
+                            description: material.description
+                        });
+                    }
+                } catch (error) {
+                    console.error('Error guardando inventario en Firebase:', error);
+                    saveInventoryToLocalStorage();
+                }
+            } else {
+                saveInventoryToLocalStorage();
+            }
+        }
+
+        // Funciones de respaldo para localStorage
+        function saveUsersToLocalStorage() {
             localStorage.setItem('taskmaster_users', JSON.stringify(users));
         }
 
-        function saveTasks() {
+        function saveTasksToLocalStorage() {
             localStorage.setItem('taskmaster_tasks', JSON.stringify(tasks));
         }
 
-        function saveReports() {
+        function saveReportsToLocalStorage() {
             localStorage.setItem('taskmaster_reports', JSON.stringify(reports));
         }
 
-        function saveInventory() {
+        function saveInventoryToLocalStorage() {
             localStorage.setItem('taskmaster_inventory', JSON.stringify(inventory));
         }
 
-        function saveNotifications() {
+        function saveNotificationsToLocalStorage() {
             localStorage.setItem('taskmaster_notifications', JSON.stringify(notifications));
         }
 
@@ -2594,13 +2852,13 @@
             });
         }
 
-        function updateTaskStatus(taskId, newStatus) {
+        async function updateTaskStatus(taskId, newStatus) {
             const taskIndex = tasks.findIndex(t => t.id === taskId);
             if (taskIndex !== -1) {
                 tasks[taskIndex].status = newStatus;
                 tasks[taskIndex].updatedAt = new Date().toISOString();
                 
-                saveTasks();
+                await saveTasks();
                 
                 showNotification(`Estado actualizado a: ${getStatusText(newStatus)}`, 'success');
                 
@@ -2802,13 +3060,13 @@
             });
         }
 
-        function updateMaterialQuantity(materialId, change) {
+        async function updateMaterialQuantity(materialId, change) {
             const materialIndex = inventory.findIndex(m => m.id === materialId);
             if (materialIndex !== -1) {
                 const newQuantity = inventory[materialIndex].quantity + change;
                 if (newQuantity >= 0) {
                     inventory[materialIndex].quantity = newQuantity;
-                    saveInventory();
+                    await saveInventory();
                     
                     loadInventory();
                     updateDashboard();
@@ -2832,7 +3090,7 @@
         }
 
         // ==================== SISTEMA DE REPORTES ====================
-        function submitReport(e) {
+        async function submitReport(e) {
             e.preventDefault();
             
             const reportType = document.getElementById('reportType').value;
@@ -2881,7 +3139,7 @@
             };
             
             reports.push(newReport);
-            saveReports();
+            await saveReports();
             
             showNotification('Reporte enviado correctamente', 'success');
             document.getElementById('reportForm').reset();
@@ -3002,13 +3260,13 @@
             });
         }
 
-        function resolveReport(reportId) {
+        async function resolveReport(reportId) {
             const reportIndex = reports.findIndex(r => r.id === reportId);
             if (reportIndex !== -1) {
                 reports[reportIndex].status = 'resolved';
                 reports[reportIndex].resolvedAt = new Date().toISOString();
                 
-                saveReports();
+                await saveReports();
                 
                 showNotification('Reporte marcado como resuelto', 'success');
                 loadReports();
@@ -3016,11 +3274,11 @@
             }
         }
 
-        function deleteReport(reportId) {
+        async function deleteReport(reportId) {
             if (confirm('¿Estás seguro de que quieres eliminar este reporte?')) {
                 reports = reports.filter(r => r.id !== reportId);
                 
-                saveReports();
+                await saveReports();
                 
                 showNotification('Reporte eliminado correctamente', 'success');
                 loadReports();
@@ -3222,7 +3480,7 @@
             return isValid;
         }
 
-        function createNewUser() {
+        async function createNewUser() {
             // Validar formulario
             if (!validateUserForm(false)) {
                 document.getElementById('userFormError').textContent = 'Por favor, corrige los errores en el formulario';
@@ -3254,14 +3512,14 @@
             };
             
             users.push(newUser);
-            saveUsers();
+            await saveUsers();
             
             showNotification('Usuario creado correctamente', 'success');
             document.getElementById('addUserModal').classList.remove('active');
             updateUsersTable();
         }
 
-        function updateUser(userId) {
+        async function updateUser(userId) {
             // Validar formulario (para edición)
             if (!validateUserForm(true)) {
                 document.getElementById('userFormError').textContent = 'Por favor, corrige los errores en el formulario';
@@ -3303,14 +3561,14 @@
             }
             
             users[userIndex] = { ...users[userIndex], ...updateData };
-            saveUsers();
+            await saveUsers();
             
             showNotification('Usuario actualizado correctamente', 'success');
             document.getElementById('addUserModal').classList.remove('active');
             updateUsersTable();
         }
 
-        function deleteUser(userId) {
+        async function deleteUser(userId) {
             const user = users.find(u => u.id === userId);
             if (!user) return;
 
@@ -3329,7 +3587,7 @@
 
             if (confirm(`¿Estás seguro de que quieres eliminar al usuario "${user.name}"?`)) {
                 users = users.filter(u => u.id !== userId);
-                saveUsers();
+                await saveUsers();
                 
                 showNotification('Usuario eliminado correctamente', 'success');
                 updateUsersTable();
@@ -4088,7 +4346,7 @@
         });
 
         // ==================== FUNCIONES DE CREACIÓN ====================
-        function createNewTask() {
+        async function createNewTask() {
             const taskName = document.getElementById('taskName').value;
             const taskDescription = document.getElementById('taskDescription').value;
             const taskAssignee = document.getElementById('taskAssignee').value;
@@ -4142,7 +4400,7 @@
             };
             
             tasks.push(newTask);
-            saveTasks();
+            await saveTasks();
             
             showNotification('Tarea creada correctamente', 'success');
             document.getElementById('addTaskModal').classList.remove('active');
@@ -4153,7 +4411,7 @@
             updateDashboard();
         }
 
-        function createNewMaterial() {
+        async function createNewMaterial() {
             const materialName = document.getElementById('materialNameModal').value;
             const materialCategory = document.getElementById('materialCategory').value;
             const materialQuantity = parseInt(document.getElementById('materialQuantityModal').value);
@@ -4184,7 +4442,7 @@
             };
             
             inventory.push(newMaterial);
-            saveInventory();
+            await saveInventory();
             
             showNotification('Material creado correctamente', 'success');
             document.getElementById('addMaterialModal').classList.remove('active');
@@ -4259,7 +4517,7 @@
             };
         }
 
-        function updateTask(taskId) {
+        async function updateTask(taskId) {
             const taskIndex = tasks.findIndex(t => t.id === taskId);
             if (taskIndex === -1) {
                 showNotification('Error: Tarea no encontrada', 'danger');
@@ -4313,7 +4571,7 @@
                 updatedAt: new Date().toISOString()
             };
             
-            saveTasks();
+            await saveTasks();
             
             showNotification('Tarea actualizada correctamente', 'success');
             document.getElementById('addTaskModal').classList.remove('active');
@@ -4324,11 +4582,11 @@
             updateDashboard();
         }
 
-        function deleteTask(taskId) {
+        async function deleteTask(taskId) {
             if (confirm('¿Estás seguro de que quieres eliminar esta tarea?')) {
                 tasks = tasks.filter(t => t.id !== taskId);
                 
-                saveTasks();
+                await saveTasks();
                 
                 showNotification('Tarea eliminada correctamente', 'success');
                 
@@ -4363,7 +4621,7 @@
             };
         }
 
-        function updateMaterial(materialId) {
+        async function updateMaterial(materialId) {
             const materialIndex = inventory.findIndex(m => m.id === materialId);
             if (materialIndex === -1) return;
             
@@ -4396,7 +4654,7 @@
                 description: materialDescription
             };
             
-            saveInventory();
+            await saveInventory();
             
             showNotification('Material actualizado correctamente', 'success');
             document.getElementById('addMaterialModal').classList.remove('active');
@@ -4404,7 +4662,7 @@
             updateDashboard();
         }
 
-        function deleteMaterial(materialId) {
+        async function deleteMaterial(materialId) {
             if (confirm('¿Estás seguro de que quieres eliminar este material?')) {
                 // Verificar si el material está siendo usado en alguna tarea
                 const isUsedInTasks = tasks.some(task => 
@@ -4418,7 +4676,7 @@
                 
                 inventory = inventory.filter(m => m.id !== materialId);
                 
-                saveInventory();
+                await saveInventory();
                 
                 showNotification('Material eliminado correctamente', 'success');
                 loadInventory();
@@ -4533,7 +4791,7 @@
             };
         }
 
-        function saveAssignedMaterials(taskId) {
+        async function saveAssignedMaterials(taskId) {
             const materialsList = document.getElementById('assignMaterialsList');
             const materials = [];
             
@@ -4565,7 +4823,7 @@
             if (taskIndex !== -1) {
                 tasks[taskIndex].materials = materials;
                 
-                saveTasks();
+                await saveTasks();
                 
                 showNotification('Materiales asignados correctamente', 'success');
                 document.getElementById('assignMaterialsModal').classList.remove('active');
