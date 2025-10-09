@@ -2041,32 +2041,41 @@
                 <button class="modal-close" id="closeUserModal">&times;</button>
             </div>
             <div class="modal-body">
+                <!-- MENSAJE DE ERROR MEJORADO -->
+                <div id="userFormError" class="error-message" style="display: none;"></div>
+                <div id="userFormSuccess" class="success-message" style="display: none;"></div>
+                
                 <form id="userForm">
                     <div class="form-group">
-                        <label class="form-label">Nombre de Usuario</label>
+                        <label class="form-label">Nombre de Usuario *</label>
                         <input type="text" class="form-control" id="userUsername" placeholder="Ej: juanperez" required maxlength="50">
+                        <small class="field-error" id="usernameError" style="color: var(--danger); display: none;"></small>
                     </div>
                     <div class="form-group">
-                        <label class="form-label">Nombre Completo</label>
+                        <label class="form-label">Nombre Completo *</label>
                         <input type="text" class="form-control" id="userName" placeholder="Ej: Juan Pérez" required maxlength="100">
+                        <small class="field-error" id="nameError" style="color: var(--danger); display: none;"></small>
                     </div>
                     <div class="form-group">
-                        <label class="form-label">Contraseña</label>
+                        <label class="form-label">Contraseña *</label>
                         <input type="password" class="form-control" id="userPassword" placeholder="Ingresa una contraseña" required minlength="6">
+                        <small class="field-error" id="passwordError" style="color: var(--danger); display: none;"></small>
                         <small style="color: var(--gray); margin-top: 5px; display: block;">
                             La contraseña debe tener al menos 6 caracteres
                         </small>
                     </div>
                     <div class="form-group">
-                        <label class="form-label">Confirmar Contraseña</label>
+                        <label class="form-label">Confirmar Contraseña *</label>
                         <input type="password" class="form-control" id="userConfirmPassword" placeholder="Confirma la contraseña" required minlength="6">
+                        <small class="field-error" id="confirmPasswordError" style="color: var(--danger); display: none;"></small>
                     </div>
                     <div class="form-group">
-                        <label class="form-label">Rol</label>
+                        <label class="form-label">Rol *</label>
                         <select class="form-select" id="userRole" required>
                             <option value="worker">Trabajador</option>
                             <option value="admin">Administrador</option>
                         </select>
+                        <small class="field-error" id="roleError" style="color: var(--danger); display: none;"></small>
                     </div>
                 </form>
             </div>
@@ -3459,7 +3468,7 @@
             }
         }
 
-        // ==================== GESTIÓN DE USUARIOS ====================
+        // ==================== GESTIÓN DE USUARIOS - FUNCIONES MEJORADAS ====================
         function updateUsersTable() {
             const tbody = document.getElementById('usersTable');
             tbody.innerHTML = '';
@@ -3497,27 +3506,24 @@
             document.querySelectorAll('.edit-user-btn').forEach(btn => {
                 btn.addEventListener('click', function() {
                     const userId = this.getAttribute('data-user-id');
-                    // Implementar edición de usuario
-                    showNotification('Funcionalidad de edición de usuario en desarrollo', 'warning');
+                    openEditUserModal(userId);
                 });
             });
 
             document.querySelectorAll('.delete-user-btn').forEach(btn => {
                 btn.addEventListener('click', function() {
                     const userId = this.getAttribute('data-user-id');
-                    if (confirm('¿Estás seguro de que quieres eliminar este usuario?')) {
-                        users = users.filter(u => u.id !== userId);
-                        saveUsers();
-                        showNotification('Usuario eliminado correctamente', 'success');
-                        updateUsersTable();
-                    }
+                    deleteUser(userId);
                 });
             });
         }
 
         function openAddUserModal() {
-            // Limpiar formulario
+            // Limpiar formulario y mensajes de error
             document.getElementById('userForm').reset();
+            hideAllUserFormErrors();
+            document.getElementById('userFormError').style.display = 'none';
+            document.getElementById('userFormSuccess').style.display = 'none';
             
             // Mostrar modal
             document.getElementById('addUserModal').classList.add('active');
@@ -3528,32 +3534,153 @@
             };
         }
 
-        async function createNewUser() {
-            const username = document.getElementById('userUsername').value;
-            const name = document.getElementById('userName').value;
+        function openEditUserModal(userId) {
+            const user = users.find(u => u.id === userId);
+            if (!user) {
+                showNotification('Usuario no encontrado', 'danger');
+                return;
+            }
+
+            // Limpiar mensajes de error
+            hideAllUserFormErrors();
+            document.getElementById('userFormError').style.display = 'none';
+            document.getElementById('userFormSuccess').style.display = 'none';
+
+            // Llenar formulario con datos del usuario
+            document.getElementById('userUsername').value = user.username;
+            document.getElementById('userName').value = user.name;
+            document.getElementById('userRole').value = user.role;
+            
+            // Para edición, no requerimos contraseña
+            document.getElementById('userPassword').required = false;
+            document.getElementById('userConfirmPassword').required = false;
+
+            // Mostrar modal
+            document.getElementById('addUserModal').classList.add('active');
+            
+            // Cambiar título del modal
+            document.querySelector('#addUserModal .modal-title').textContent = 'Editar Usuario';
+            
+            // Configurar el botón de guardar para actualizar usuario
+            document.getElementById('saveUserBtn').onclick = function() {
+                updateUser(userId);
+            };
+        }
+
+        function hideAllUserFormErrors() {
+            const errorElements = document.querySelectorAll('.field-error');
+            errorElements.forEach(el => {
+                el.style.display = 'none';
+                el.textContent = '';
+            });
+        }
+
+        function showUserFormError(fieldId, message) {
+            const errorElement = document.getElementById(fieldId + 'Error');
+            if (errorElement) {
+                errorElement.textContent = message;
+                errorElement.style.display = 'block';
+                
+                // Resaltar el campo con error
+                const field = document.getElementById(fieldId);
+                if (field) {
+                    field.style.borderColor = 'var(--danger)';
+                }
+            }
+        }
+
+        function clearUserFormError(fieldId) {
+            const errorElement = document.getElementById(fieldId + 'Error');
+            if (errorElement) {
+                errorElement.style.display = 'none';
+                errorElement.textContent = '';
+                
+                // Quitar resaltado del campo
+                const field = document.getElementById(fieldId);
+                if (field) {
+                    field.style.borderColor = '';
+                }
+            }
+        }
+
+        function validateUserForm(isEdit = false) {
+            let isValid = true;
+            hideAllUserFormErrors();
+
+            const username = document.getElementById('userUsername').value.trim();
+            const name = document.getElementById('userName').value.trim();
             const password = document.getElementById('userPassword').value;
             const confirmPassword = document.getElementById('userConfirmPassword').value;
             const role = document.getElementById('userRole').value;
-            
-            if (!username || !name || !password || !confirmPassword) {
-                showNotification('Completa todos los campos obligatorios', 'warning');
+
+            // Validar nombre de usuario
+            if (!username) {
+                showUserFormError('userUsername', 'El nombre de usuario es obligatorio');
+                isValid = false;
+            } else if (username.length < 3) {
+                showUserFormError('userUsername', 'El nombre de usuario debe tener al menos 3 caracteres');
+                isValid = false;
+            } else if (!/^[a-zA-Z0-9_]+$/.test(username)) {
+                showUserFormError('userUsername', 'El nombre de usuario solo puede contener letras, números y guiones bajos');
+                isValid = false;
+            }
+
+            // Validar nombre completo
+            if (!name) {
+                showUserFormError('userName', 'El nombre completo es obligatorio');
+                isValid = false;
+            } else if (name.length < 2) {
+                showUserFormError('userName', 'El nombre completo debe tener al menos 2 caracteres');
+                isValid = false;
+            }
+
+            // Validar contraseña (solo para creación, no para edición)
+            if (!isEdit) {
+                if (!password) {
+                    showUserFormError('userPassword', 'La contraseña es obligatoria');
+                    isValid = false;
+                } else if (password.length < 6) {
+                    showUserFormError('userPassword', 'La contraseña debe tener al menos 6 caracteres');
+                    isValid = false;
+                }
+
+                if (!confirmPassword) {
+                    showUserFormError('userConfirmPassword', 'Confirma la contraseña');
+                    isValid = false;
+                } else if (password !== confirmPassword) {
+                    showUserFormError('userConfirmPassword', 'Las contraseñas no coinciden');
+                    isValid = false;
+                }
+            }
+
+            // Validar rol
+            if (!role) {
+                showUserFormError('userRole', 'Selecciona un rol');
+                isValid = false;
+            }
+
+            return isValid;
+        }
+
+        async function createNewUser() {
+            // Validar formulario
+            if (!validateUserForm(false)) {
+                document.getElementById('userFormError').textContent = 'Por favor, corrige los errores en el formulario';
+                document.getElementById('userFormError').style.display = 'block';
                 return;
             }
-            
-            if (password !== confirmPassword) {
-                showNotification('Las contraseñas no coinciden', 'warning');
-                return;
-            }
-            
-            if (password.length < 6) {
-                showNotification('La contraseña debe tener al menos 6 caracteres', 'warning');
-                return;
-            }
+
+            const username = document.getElementById('userUsername').value.trim();
+            const name = document.getElementById('userName').value.trim();
+            const password = document.getElementById('userPassword').value;
+            const role = document.getElementById('userRole').value;
             
             // Verificar si el usuario ya existe
             const existingUser = users.find(u => u.username === username);
             if (existingUser) {
-                showNotification('El nombre de usuario ya existe', 'warning');
+                showUserFormError('userUsername', 'El nombre de usuario ya existe');
+                document.getElementById('userFormError').textContent = 'El nombre de usuario ya está en uso';
+                document.getElementById('userFormError').style.display = 'block';
                 return;
             }
             
@@ -3565,8 +3692,10 @@
                 role: role
             };
             
-            if (useFirebase && firebaseInitialized) {
-                try {
+            try {
+                showLoading();
+                
+                if (useFirebase && firebaseInitialized) {
                     await db.collection('users').add(newUser);
                     
                     // Recargar usuarios
@@ -3575,21 +3704,127 @@
                     usersSnapshot.forEach(doc => {
                         users.push({ id: doc.id, ...doc.data() });
                     });
-                } catch (error) {
-                    console.error('Error creando usuario en Firebase:', error);
+                } else {
                     newUser.id = generateId();
                     users.push(newUser);
                     saveUsers();
                 }
-            } else {
-                newUser.id = generateId();
-                users.push(newUser);
-                saveUsers();
+                
+                hideLoading();
+                showNotification('Usuario creado correctamente', 'success');
+                document.getElementById('addUserModal').classList.remove('active');
+                updateUsersTable();
+                
+            } catch (error) {
+                hideLoading();
+                console.error('Error creando usuario:', error);
+                document.getElementById('userFormError').textContent = 'Error al crear el usuario. Intenta nuevamente.';
+                document.getElementById('userFormError').style.display = 'block';
+            }
+        }
+
+        async function updateUser(userId) {
+            // Validar formulario (para edición)
+            if (!validateUserForm(true)) {
+                document.getElementById('userFormError').textContent = 'Por favor, corrige los errores en el formulario';
+                document.getElementById('userFormError').style.display = 'block';
+                return;
+            }
+
+            const username = document.getElementById('userUsername').value.trim();
+            const name = document.getElementById('userName').value.trim();
+            const password = document.getElementById('userPassword').value;
+            const role = document.getElementById('userRole').value;
+            
+            // Verificar si el usuario ya existe (excluyendo el usuario actual)
+            const existingUser = users.find(u => u.username === username && u.id !== userId);
+            if (existingUser) {
+                showUserFormError('userUsername', 'El nombre de usuario ya existe');
+                document.getElementById('userFormError').textContent = 'El nombre de usuario ya está en uso';
+                document.getElementById('userFormError').style.display = 'block';
+                return;
             }
             
-            showNotification('Usuario creado correctamente', 'success');
-            document.getElementById('addUserModal').classList.remove('active');
-            updateUsersTable();
+            // Buscar usuario a actualizar
+            const userIndex = users.findIndex(u => u.id === userId);
+            if (userIndex === -1) {
+                showNotification('Usuario no encontrado', 'danger');
+                return;
+            }
+            
+            // Preparar datos de actualización
+            const updateData = {
+                username: username,
+                name: name,
+                role: role
+            };
+            
+            // Si se proporcionó una nueva contraseña, actualizarla
+            if (password && password.length >= 6) {
+                updateData.password = password;
+            }
+            
+            try {
+                showLoading();
+                
+                if (useFirebase && firebaseInitialized) {
+                    await db.collection('users').doc(userId).update(updateData);
+                } else {
+                    users[userIndex] = { ...users[userIndex], ...updateData };
+                    saveUsers();
+                }
+                
+                hideLoading();
+                showNotification('Usuario actualizado correctamente', 'success');
+                document.getElementById('addUserModal').classList.remove('active');
+                updateUsersTable();
+                
+            } catch (error) {
+                hideLoading();
+                console.error('Error actualizando usuario:', error);
+                document.getElementById('userFormError').textContent = 'Error al actualizar el usuario. Intenta nuevamente.';
+                document.getElementById('userFormError').style.display = 'block';
+            }
+        }
+
+        async function deleteUser(userId) {
+            const user = users.find(u => u.id === userId);
+            if (!user) return;
+
+            // No permitir eliminar al usuario actual
+            if (user.username === currentUser.username) {
+                showNotification('No puedes eliminar tu propio usuario', 'danger');
+                return;
+            }
+
+            // Verificar si el usuario tiene tareas asignadas
+            const userTasks = tasks.filter(task => task.assignee === user.username && task.status !== 'completed');
+            if (userTasks.length > 0) {
+                showNotification(`No se puede eliminar el usuario porque tiene ${userTasks.length} tarea(s) activa(s) asignada(s)`, 'danger');
+                return;
+            }
+
+            if (confirm(`¿Estás seguro de que quieres eliminar al usuario "${user.name}"?`)) {
+                try {
+                    showLoading();
+                    
+                    if (useFirebase && firebaseInitialized) {
+                        await db.collection('users').doc(userId).delete();
+                    } else {
+                        users = users.filter(u => u.id !== userId);
+                        saveUsers();
+                    }
+                    
+                    hideLoading();
+                    showNotification('Usuario eliminado correctamente', 'success');
+                    updateUsersTable();
+                    
+                } catch (error) {
+                    hideLoading();
+                    console.error('Error eliminando usuario:', error);
+                    showNotification('Error al eliminar el usuario', 'danger');
+                }
+            }
         }
 
         // ==================== SISTEMA DE EXPORTACIÓN MEJORADO ====================
@@ -4259,6 +4494,11 @@
             
             document.getElementById('closeUserModal').addEventListener('click', function() {
                 document.getElementById('addUserModal').classList.remove('active');
+                // Restaurar título original
+                document.querySelector('#addUserModal .modal-title').textContent = 'Agregar Nuevo Usuario';
+                // Restaurar requerimiento de contraseña
+                document.getElementById('userPassword').required = true;
+                document.getElementById('userConfirmPassword').required = true;
             });
             
             document.getElementById('closeAssignModal').addEventListener('click', function() {
@@ -4275,6 +4515,11 @@
             
             document.getElementById('cancelUserBtn').addEventListener('click', function() {
                 document.getElementById('addUserModal').classList.remove('active');
+                // Restaurar título original
+                document.querySelector('#addUserModal .modal-title').textContent = 'Agregar Nuevo Usuario';
+                // Restaurar requerimiento de contraseña
+                document.getElementById('userPassword').required = true;
+                document.getElementById('userConfirmPassword').required = true;
             });
             
             document.getElementById('cancelAssignBtn').addEventListener('click', function() {
@@ -4322,6 +4567,32 @@
             // Búsqueda en inventario
             document.getElementById('searchMaterial').addEventListener('input', function() {
                 loadInventory();
+            });
+
+            // Event listeners para limpiar errores en tiempo real en el formulario de usuarios
+            document.getElementById('userUsername').addEventListener('input', function() {
+                clearUserFormError('userUsername');
+                document.getElementById('userFormError').style.display = 'none';
+            });
+
+            document.getElementById('userName').addEventListener('input', function() {
+                clearUserFormError('userName');
+                document.getElementById('userFormError').style.display = 'none';
+            });
+
+            document.getElementById('userPassword').addEventListener('input', function() {
+                clearUserFormError('userPassword');
+                document.getElementById('userFormError').style.display = 'none';
+            });
+
+            document.getElementById('userConfirmPassword').addEventListener('input', function() {
+                clearUserFormError('userConfirmPassword');
+                document.getElementById('userFormError').style.display = 'none';
+            });
+
+            document.getElementById('userRole').addEventListener('change', function() {
+                clearUserFormError('userRole');
+                document.getElementById('userFormError').style.display = 'none';
             });
         });
 
@@ -4489,6 +4760,7 @@
                 const option = document.createElement('option');
                 option.value = user.username;
                 option.textContent = user.name;
+                option.selected = user.username === task.assignee;
                 taskAssignee.appendChild(option);
             });
             
