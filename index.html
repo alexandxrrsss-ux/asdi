@@ -8,6 +8,12 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
+    
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-auth-compat.js"></script>
+    
     <style>
         :root {
             --primary: #4361ee;
@@ -1274,6 +1280,24 @@
                 right: -100px;
             }
         }
+
+        .firebase-error {
+            background: #fee;
+            border-left: 4px solid var(--danger);
+            padding: 1rem;
+            margin: 1rem 0;
+            border-radius: 8px;
+            color: var(--danger);
+        }
+        
+        .firebase-success {
+            background: #efe;
+            border-left: 4px solid var(--success);
+            padding: 1rem;
+            margin: 1rem 0;
+            border-radius: 8px;
+            color: #04a777;
+        }
     </style>
 </head>
 <body>
@@ -1286,6 +1310,9 @@
                 <p style="color: var(--gray); margin-top: 5px;">Sistema Completo de Gestión</p>
             </div>
             <h2 class="login-title">Iniciar Sesión</h2>
+            <div id="loginError" class="firebase-error" style="display: none;">
+                Error al conectar con Firebase. Usando modo offline.
+            </div>
             <form id="loginForm">
                 <div class="form-group">
                     <label class="form-label">Usuario</label>
@@ -2006,6 +2033,50 @@
         </div>
     </div>
 
+    <!-- Add User Modal -->
+    <div class="modal-overlay" id="addUserModal">
+        <div class="modal">
+            <div class="modal-header">
+                <div class="modal-title">Agregar Nuevo Usuario</div>
+                <button class="modal-close" id="closeUserModal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="userForm">
+                    <div class="form-group">
+                        <label class="form-label">Nombre de Usuario</label>
+                        <input type="text" class="form-control" id="userUsername" placeholder="Ej: juanperez" required maxlength="50">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Nombre Completo</label>
+                        <input type="text" class="form-control" id="userName" placeholder="Ej: Juan Pérez" required maxlength="100">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Contraseña</label>
+                        <input type="password" class="form-control" id="userPassword" placeholder="Ingresa una contraseña" required minlength="6">
+                        <small style="color: var(--gray); margin-top: 5px; display: block;">
+                            La contraseña debe tener al menos 6 caracteres
+                        </small>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Confirmar Contraseña</label>
+                        <input type="password" class="form-control" id="userConfirmPassword" placeholder="Confirma la contraseña" required minlength="6">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Rol</label>
+                        <select class="form-select" id="userRole" required>
+                            <option value="worker">Trabajador</option>
+                            <option value="admin">Administrador</option>
+                        </select>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-outline" id="cancelUserBtn">Cancelar</button>
+                <button class="btn btn-primary" id="saveUserBtn">Guardar Usuario</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Assign Materials Modal -->
     <div class="modal-overlay" id="assignMaterialsModal">
         <div class="modal">
@@ -2026,7 +2097,32 @@
     </div>
 
     <script>
-        // ==================== CONFIGURACIÓN INICIAL ====================
+        // ==================== CONFIGURACIÓN DE FIREBASE ====================
+        const firebaseConfig = {
+            apiKey: "AIzaSyCiuEJuVrLW0tF614Jvk-Wpt-rztppnqWQ",
+            authDomain: "tallerdask.firebaseapp.com",
+            projectId: "tallerdask",
+            storageBucket: "tallerdask.firebasestorage.app",
+            messagingSenderId: "525218470301",
+            appId: "1:525218470301:web:4bc5a1f304c04c7072b774",
+            measurementId: "G-GXE931PPX9"
+        };
+
+        // Inicializar Firebase
+        let firebaseInitialized = false;
+        let db;
+        
+        try {
+            firebase.initializeApp(firebaseConfig);
+            db = firebase.firestore();
+            firebaseInitialized = true;
+            console.log("Firebase inicializado correctamente");
+        } catch (error) {
+            console.error("Error inicializando Firebase:", error);
+            document.getElementById('loginError').style.display = 'block';
+        }
+
+        // ==================== VARIABLES GLOBALES ====================
         let currentUser = null;
         let tasks = [];
         let users = [];
@@ -2034,101 +2130,7 @@
         let inventory = [];
         let notifications = [];
         let currentPage = "dashboard";
-
-        // ==================== PERSISTENCIA DE SESIÓN ====================
-        function saveSession() {
-            if (currentUser) {
-                const sessionData = {
-                    user: currentUser,
-                    timestamp: new Date().getTime()
-                };
-                localStorage.setItem('taskmaster_session', JSON.stringify(sessionData));
-            }
-        }
-
-        function loadSession() {
-            const savedSession = localStorage.getItem('taskmaster_session');
-            if (savedSession) {
-                const sessionData = JSON.parse(savedSession);
-                // Verificar si la sesión es reciente (menos de 24 horas)
-                const now = new Date().getTime();
-                if (now - sessionData.timestamp < 24 * 60 * 60 * 1000) {
-                    currentUser = sessionData.user;
-                    document.getElementById('loginScreen').style.display = 'none';
-                    document.getElementById('app').style.display = 'block';
-                    
-                    document.getElementById('userInitials').textContent = currentUser.name.charAt(0).toUpperCase();
-                    document.getElementById('userName').textContent = currentUser.name;
-                    document.getElementById('userRole').textContent = currentUser.role === 'admin' ? 'Administrador' : 'Trabajador';
-                    
-                    // Ocultar elementos de admin si el usuario no es admin
-                    document.querySelectorAll('.admin-only').forEach(el => {
-                        el.style.display = currentUser.role === 'admin' ? 'flex' : 'none';
-                    });
-                    
-                    // Si el usuario no es admin, asegurarse de que esté en una página permitida
-                    if (currentUser.role !== 'admin') {
-                        const adminPages = ['manage-tasks', 'reports-admin', 'users', 'export', 'inventory'];
-                        if (adminPages.includes(currentPage)) {
-                            switchPage('dashboard');
-                        }
-                    }
-                    
-                    loadUserData();
-                    return true;
-                } else {
-                    // Sesión expirada
-                    localStorage.removeItem('taskmaster_session');
-                }
-            }
-            return false;
-        }
-
-        // ==================== DATOS INICIALES ====================
-        const defaultUsers = [
-            { username: "admin", name: "Administrador", role: "admin", password: "admin123" },
-            { username: "juan", name: "Juan Pérez", role: "worker", password: "juan123" },
-            { username: "maria", name: "María García", role: "worker", password: "maria123" }
-        ];
-
-        const defaultInventory = [
-            {
-                id: "mat-001",
-                name: "Cable eléctrico 2.5mm",
-                category: "Electricidad",
-                quantity: 150,
-                unit: "metros",
-                minStock: 50,
-                supplier: "Proveedor A",
-                cost: 2.50,
-                location: "Almacén A - Estante 3",
-                description: "Cable eléctrico para instalaciones residenciales"
-            },
-            {
-                id: "mat-002",
-                name: "Tubería PVC 1/2\"",
-                category: "Fontanería", 
-                quantity: 80,
-                unit: "metros",
-                minStock: 30,
-                supplier: "Proveedor B",
-                cost: 1.80,
-                location: "Almacén B - Estante 1",
-                description: "Tubería para sistemas de agua"
-            },
-            {
-                id: "mat-003",
-                name: "Tornillos para madera 2\"",
-                category: "Construcción",
-                quantity: 500,
-                unit: "unidades", 
-                minStock: 200,
-                supplier: "Proveedor C",
-                cost: 0.15,
-                location: "Almacén C - Estante 2",
-                description: "Tornillos para trabajos en madera"
-            }
-        ];
+        let useFirebase = firebaseInitialized;
 
         // ==================== FUNCIONES DE UTILIDAD ====================
         function generateId() {
@@ -2177,10 +2179,92 @@
             return urgencyMap[urgency] || urgency;
         }
 
+        function showLoading() {
+            document.getElementById('loadingOverlay').classList.add('active');
+        }
+
+        function hideLoading() {
+            document.getElementById('loadingOverlay').classList.remove('active');
+        }
+
         // ==================== GESTIÓN DE DATOS ====================
-        function loadData() {
+        async function loadData() {
+            try {
+                showLoading();
+                
+                if (useFirebase && firebaseInitialized) {
+                    // Cargar desde Firebase
+                    await loadDataFromFirebase();
+                } else {
+                    // Cargar desde localStorage
+                    loadDataFromLocalStorage();
+                }
+                
+                hideLoading();
+            } catch (error) {
+                console.error('Error cargando datos:', error);
+                // Fallback a localStorage
+                useFirebase = false;
+                loadDataFromLocalStorage();
+                hideLoading();
+            }
+        }
+
+        async function loadDataFromFirebase() {
+            // Cargar usuarios desde Firebase
+            const usersSnapshot = await db.collection('users').get();
+            users = [];
+            usersSnapshot.forEach(doc => {
+                users.push({ id: doc.id, ...doc.data() });
+            });
+            
+            // Si no hay usuarios, crear los usuarios por defecto
+            if (users.length === 0) {
+                await createDefaultUsers();
+            }
+            
+            // Cargar tareas desde Firebase
+            const tasksSnapshot = await db.collection('tasks').get();
+            tasks = [];
+            tasksSnapshot.forEach(doc => {
+                tasks.push({ id: doc.id, ...doc.data() });
+            });
+            
+            // Cargar reportes desde Firebase
+            const reportsSnapshot = await db.collection('reports').get();
+            reports = [];
+            reportsSnapshot.forEach(doc => {
+                reports.push({ id: doc.id, ...doc.data() });
+            });
+            
+            // Cargar inventario desde Firebase
+            const inventorySnapshot = await db.collection('inventory').get();
+            inventory = [];
+            inventorySnapshot.forEach(doc => {
+                inventory.push({ id: doc.id, ...doc.data() });
+            });
+            
+            // Si no hay inventario, crear el inventario por defecto
+            if (inventory.length === 0) {
+                await createDefaultInventory();
+            }
+            
+            // Cargar notificaciones desde Firebase
+            const notificationsSnapshot = await db.collection('notifications').get();
+            notifications = [];
+            notificationsSnapshot.forEach(doc => {
+                notifications.push({ id: doc.id, ...doc.data() });
+            });
+        }
+
+        function loadDataFromLocalStorage() {
             // Cargar usuarios
             const savedUsers = localStorage.getItem('taskmaster_users');
+            const defaultUsers = [
+                { id: '1', username: "admin", name: "Administrador", role: "admin", password: "admin123" },
+                { id: '2', username: "juan", name: "Juan Pérez", role: "worker", password: "juan123" },
+                { id: '3', username: "maria", name: "María García", role: "worker", password: "maria123" }
+            ];
             users = savedUsers ? JSON.parse(savedUsers) : defaultUsers;
             
             // Cargar tareas
@@ -2193,6 +2277,44 @@
             
             // Cargar inventario
             const savedInventory = localStorage.getItem('taskmaster_inventory');
+            const defaultInventory = [
+                {
+                    id: "mat-001",
+                    name: "Cable eléctrico 2.5mm",
+                    category: "Electricidad",
+                    quantity: 150,
+                    unit: "metros",
+                    minStock: 50,
+                    supplier: "Proveedor A",
+                    cost: 2.50,
+                    location: "Almacén A - Estante 3",
+                    description: "Cable eléctrico para instalaciones residenciales"
+                },
+                {
+                    id: "mat-002",
+                    name: "Tubería PVC 1/2\"",
+                    category: "Fontanería", 
+                    quantity: 80,
+                    unit: "metros",
+                    minStock: 30,
+                    supplier: "Proveedor B",
+                    cost: 1.80,
+                    location: "Almacén B - Estante 1",
+                    description: "Tubería para sistemas de agua"
+                },
+                {
+                    id: "mat-003",
+                    name: "Tornillos para madera 2\"",
+                    category: "Construcción",
+                    quantity: 500,
+                    unit: "unidades", 
+                    minStock: 200,
+                    supplier: "Proveedor C",
+                    cost: 0.15,
+                    location: "Almacén C - Estante 2",
+                    description: "Tornillos para trabajos en madera"
+                }
+            ];
             inventory = savedInventory ? JSON.parse(savedInventory) : defaultInventory;
             
             // Cargar notificaciones
@@ -2205,30 +2327,117 @@
             if (!savedNotifications) saveNotifications();
         }
 
+        async function createDefaultUsers() {
+            const defaultUsers = [
+                { username: "admin", name: "Administrador", role: "admin", password: "admin123" },
+                { username: "juan", name: "Juan Pérez", role: "worker", password: "juan123" },
+                { username: "maria", name: "María García", role: "worker", password: "maria123" }
+            ];
+            
+            for (const user of defaultUsers) {
+                await db.collection('users').add(user);
+            }
+            
+            // Recargar usuarios
+            const usersSnapshot = await db.collection('users').get();
+            users = [];
+            usersSnapshot.forEach(doc => {
+                users.push({ id: doc.id, ...doc.data() });
+            });
+        }
+
+        async function createDefaultInventory() {
+            const defaultInventory = [
+                {
+                    name: "Cable eléctrico 2.5mm",
+                    category: "Electricidad",
+                    quantity: 150,
+                    unit: "metros",
+                    minStock: 50,
+                    supplier: "Proveedor A",
+                    cost: 2.50,
+                    location: "Almacén A - Estante 3",
+                    description: "Cable eléctrico para instalaciones residenciales"
+                },
+                {
+                    name: "Tubería PVC 1/2\"",
+                    category: "Fontanería", 
+                    quantity: 80,
+                    unit: "metros",
+                    minStock: 30,
+                    supplier: "Proveedor B",
+                    cost: 1.80,
+                    location: "Almacén B - Estante 1",
+                    description: "Tubería para sistemas de agua"
+                },
+                {
+                    name: "Tornillos para madera 2\"",
+                    category: "Construcción",
+                    quantity: 500,
+                    unit: "unidades", 
+                    minStock: 200,
+                    supplier: "Proveedor C",
+                    cost: 0.15,
+                    location: "Almacén C - Estante 2",
+                    description: "Tornillos para trabajos en madera"
+                }
+            ];
+            
+            for (const material of defaultInventory) {
+                await db.collection('inventory').add(material);
+            }
+            
+            // Recargar inventario
+            const inventorySnapshot = await db.collection('inventory').get();
+            inventory = [];
+            inventorySnapshot.forEach(doc => {
+                inventory.push({ id: doc.id, ...doc.data() });
+            });
+        }
+
         function saveUsers() {
+            if (useFirebase && firebaseInitialized) {
+                // Los usuarios se guardan individualmente en Firebase
+                return;
+            }
             localStorage.setItem('taskmaster_users', JSON.stringify(users));
         }
 
         function saveTasks() {
+            if (useFirebase && firebaseInitialized) {
+                // Las tareas se guardan individualmente en Firebase
+                return;
+            }
             localStorage.setItem('taskmaster_tasks', JSON.stringify(tasks));
         }
 
         function saveReports() {
+            if (useFirebase && firebaseInitialized) {
+                // Los reportes se guardan individualmente en Firebase
+                return;
+            }
             localStorage.setItem('taskmaster_reports', JSON.stringify(reports));
         }
 
         function saveInventory() {
+            if (useFirebase && firebaseInitialized) {
+                // El inventario se guarda individualmente en Firebase
+                return;
+            }
             localStorage.setItem('taskmaster_inventory', JSON.stringify(inventory));
         }
 
         function saveNotifications() {
+            if (useFirebase && firebaseInitialized) {
+                // Las notificaciones se guardan individualmente en Firebase
+                return;
+            }
             localStorage.setItem('taskmaster_notifications', JSON.stringify(notifications));
         }
 
         // ==================== SISTEMA DE NOTIFICACIONES ====================
-        function createNotification(title, message, type = 'info', relatedTo = null) {
+        async function createNotification(title, message, type = 'info', relatedTo = null) {
             const notification = {
-                id: generateId(),
                 title: title,
                 message: message,
                 type: type,
@@ -2237,8 +2446,29 @@
                 createdAt: new Date().toISOString()
             };
             
-            notifications.push(notification);
-            saveNotifications();
+            if (useFirebase && firebaseInitialized) {
+                try {
+                    await db.collection('notifications').add(notification);
+                    
+                    // Recargar notificaciones
+                    const notificationsSnapshot = await db.collection('notifications').get();
+                    notifications = [];
+                    notificationsSnapshot.forEach(doc => {
+                        notifications.push({ id: doc.id, ...doc.data() });
+                    });
+                } catch (error) {
+                    console.error('Error creando notificación en Firebase:', error);
+                    // Fallback a localStorage
+                    notification.id = generateId();
+                    notifications.push(notification);
+                    saveNotifications();
+                }
+            } else {
+                notification.id = generateId();
+                notifications.push(notification);
+                saveNotifications();
+            }
+            
             updateNotificationBadge();
             
             // Mostrar notificación en tiempo real si el usuario actual es admin
@@ -2297,21 +2527,74 @@
             });
         }
 
-        function markNotificationAsRead(notificationId) {
-            const notificationIndex = notifications.findIndex(n => n.id === notificationId);
-            if (notificationIndex !== -1) {
-                notifications[notificationIndex].read = true;
-                saveNotifications();
-                updateNotificationBadge();
-                loadNotifications();
+        async function markNotificationAsRead(notificationId) {
+            if (useFirebase && firebaseInitialized) {
+                try {
+                    await db.collection('notifications').doc(notificationId).update({
+                        read: true
+                    });
+                    
+                    // Recargar notificaciones
+                    const notificationsSnapshot = await db.collection('notifications').get();
+                    notifications = [];
+                    notificationsSnapshot.forEach(doc => {
+                        notifications.push({ id: doc.id, ...doc.data() });
+                    });
+                } catch (error) {
+                    console.error('Error marcando notificación como leída en Firebase:', error);
+                    // Fallback a localStorage
+                    const notificationIndex = notifications.findIndex(n => n.id === notificationId);
+                    if (notificationIndex !== -1) {
+                        notifications[notificationIndex].read = true;
+                        saveNotifications();
+                    }
+                }
+            } else {
+                const notificationIndex = notifications.findIndex(n => n.id === notificationId);
+                if (notificationIndex !== -1) {
+                    notifications[notificationIndex].read = true;
+                    saveNotifications();
+                }
             }
+            
+            updateNotificationBadge();
+            loadNotifications();
         }
 
-        function markAllNotificationsAsRead() {
-            notifications.forEach(notification => {
-                notification.read = true;
-            });
-            saveNotifications();
+        async function markAllNotificationsAsRead() {
+            if (useFirebase && firebaseInitialized) {
+                try {
+                    const batch = db.batch();
+                    const unreadNotifications = notifications.filter(n => !n.read);
+                    
+                    unreadNotifications.forEach(notification => {
+                        const notificationRef = db.collection('notifications').doc(notification.id);
+                        batch.update(notificationRef, { read: true });
+                    });
+                    
+                    await batch.commit();
+                    
+                    // Recargar notificaciones
+                    const notificationsSnapshot = await db.collection('notifications').get();
+                    notifications = [];
+                    notificationsSnapshot.forEach(doc => {
+                        notifications.push({ id: doc.id, ...doc.data() });
+                    });
+                } catch (error) {
+                    console.error('Error marcando todas las notificaciones como leídas en Firebase:', error);
+                    // Fallback a localStorage
+                    notifications.forEach(notification => {
+                        notification.read = true;
+                    });
+                    saveNotifications();
+                }
+            } else {
+                notifications.forEach(notification => {
+                    notification.read = true;
+                });
+                saveNotifications();
+            }
+            
             updateNotificationBadge();
             loadNotifications();
         }
@@ -2328,6 +2611,7 @@
                 return;
             }
 
+            // Buscar usuario
             const user = users.find(u => u.username === username && u.password === password);
             
             if (user) {
@@ -2365,6 +2649,55 @@
             document.getElementById('app').style.display = 'none';
             document.getElementById('loginForm').reset();
             showNotification('Sesión cerrada correctamente', 'success');
+        }
+
+        // ==================== PERSISTENCIA DE SESIÓN ====================
+        function saveSession() {
+            if (currentUser) {
+                const sessionData = {
+                    user: currentUser,
+                    timestamp: new Date().getTime()
+                };
+                localStorage.setItem('taskmaster_session', JSON.stringify(sessionData));
+            }
+        }
+
+        function loadSession() {
+            const savedSession = localStorage.getItem('taskmaster_session');
+            if (savedSession) {
+                const sessionData = JSON.parse(savedSession);
+                // Verificar si la sesión es reciente (menos de 24 horas)
+                const now = new Date().getTime();
+                if (now - sessionData.timestamp < 24 * 60 * 60 * 1000) {
+                    currentUser = sessionData.user;
+                    document.getElementById('loginScreen').style.display = 'none';
+                    document.getElementById('app').style.display = 'block';
+                    
+                    document.getElementById('userInitials').textContent = currentUser.name.charAt(0).toUpperCase();
+                    document.getElementById('userName').textContent = currentUser.name;
+                    document.getElementById('userRole').textContent = currentUser.role === 'admin' ? 'Administrador' : 'Trabajador';
+                    
+                    // Ocultar elementos de admin si el usuario no es admin
+                    document.querySelectorAll('.admin-only').forEach(el => {
+                        el.style.display = currentUser.role === 'admin' ? 'flex' : 'none';
+                    });
+                    
+                    // Si el usuario no es admin, asegurarse de que esté en una página permitida
+                    if (currentUser.role !== 'admin') {
+                        const adminPages = ['manage-tasks', 'reports-admin', 'users', 'export', 'inventory'];
+                        if (adminPages.includes(currentPage)) {
+                            switchPage('dashboard');
+                        }
+                    }
+                    
+                    loadUserData();
+                    return true;
+                } else {
+                    // Sesión expirada
+                    localStorage.removeItem('taskmaster_session');
+                }
+            }
+            return false;
         }
 
         // ==================== NAVEGACIÓN ====================
@@ -2612,13 +2945,26 @@
             });
         }
 
-        function updateTaskStatus(taskId, newStatus) {
+        async function updateTaskStatus(taskId, newStatus) {
             const taskIndex = tasks.findIndex(t => t.id == taskId);
             if (taskIndex !== -1) {
                 tasks[taskIndex].status = newStatus;
                 tasks[taskIndex].updatedAt = new Date().toISOString();
                 
-                saveTasks();
+                if (useFirebase && firebaseInitialized) {
+                    try {
+                        await db.collection('tasks').doc(taskId).update({
+                            status: newStatus,
+                            updatedAt: new Date().toISOString()
+                        });
+                    } catch (error) {
+                        console.error('Error actualizando estado de tarea en Firebase:', error);
+                        saveTasks();
+                    }
+                } else {
+                    saveTasks();
+                }
+                
                 showNotification(`Estado actualizado a: ${getStatusText(newStatus)}`, 'success');
                 
                 if (currentPage === 'tasks') {
@@ -2828,13 +3174,26 @@
             });
         }
 
-        function updateMaterialQuantity(materialId, change) {
+        async function updateMaterialQuantity(materialId, change) {
             const materialIndex = inventory.findIndex(m => m.id === materialId);
             if (materialIndex !== -1) {
                 const newQuantity = inventory[materialIndex].quantity + change;
                 if (newQuantity >= 0) {
                     inventory[materialIndex].quantity = newQuantity;
-                    saveInventory();
+                    
+                    if (useFirebase && firebaseInitialized) {
+                        try {
+                            await db.collection('inventory').doc(materialId).update({
+                                quantity: newQuantity
+                            });
+                        } catch (error) {
+                            console.error('Error actualizando cantidad de material en Firebase:', error);
+                            saveInventory();
+                        }
+                    } else {
+                        saveInventory();
+                    }
+                    
                     loadInventory();
                     updateDashboard();
                     showNotification(`Cantidad actualizada: ${newQuantity}`, 'success');
@@ -2857,7 +3216,7 @@
         }
 
         // ==================== SISTEMA DE REPORTES ====================
-        function submitReport(e) {
+        async function submitReport(e) {
             e.preventDefault();
             
             const reportType = document.getElementById('reportType').value;
@@ -2891,7 +3250,6 @@
             
             // Crear nuevo reporte
             const newReport = {
-                id: generateId(),
                 type: reportType,
                 taskId: taskId,
                 title: reportTitle,
@@ -2905,8 +3263,27 @@
                 createdAt: new Date().toISOString()
             };
             
-            reports.push(newReport);
-            saveReports();
+            if (useFirebase && firebaseInitialized) {
+                try {
+                    await db.collection('reports').add(newReport);
+                    
+                    // Recargar reportes
+                    const reportsSnapshot = await db.collection('reports').get();
+                    reports = [];
+                    reportsSnapshot.forEach(doc => {
+                        reports.push({ id: doc.id, ...doc.data() });
+                    });
+                } catch (error) {
+                    console.error('Error enviando reporte a Firebase:', error);
+                    newReport.id = generateId();
+                    reports.push(newReport);
+                    saveReports();
+                }
+            } else {
+                newReport.id = generateId();
+                reports.push(newReport);
+                saveReports();
+            }
             
             // Crear notificación para el administrador
             createNotification(
@@ -3035,26 +3412,184 @@
             });
         }
 
-        function resolveReport(reportId) {
+        async function resolveReport(reportId) {
             const reportIndex = reports.findIndex(r => r.id === reportId);
             if (reportIndex !== -1) {
                 reports[reportIndex].status = 'resolved';
                 reports[reportIndex].resolvedAt = new Date().toISOString();
-                saveReports();
+                
+                if (useFirebase && firebaseInitialized) {
+                    try {
+                        await db.collection('reports').doc(reportId).update({
+                            status: 'resolved',
+                            resolvedAt: new Date().toISOString()
+                        });
+                    } catch (error) {
+                        console.error('Error resolviendo reporte en Firebase:', error);
+                        saveReports();
+                    }
+                } else {
+                    saveReports();
+                }
+                
                 showNotification('Reporte marcado como resuelto', 'success');
                 loadReports();
                 updateDashboard();
             }
         }
 
-        function deleteReport(reportId) {
+        async function deleteReport(reportId) {
             if (confirm('¿Estás seguro de que quieres eliminar este reporte?')) {
                 reports = reports.filter(r => r.id !== reportId);
-                saveReports();
+                
+                if (useFirebase && firebaseInitialized) {
+                    try {
+                        await db.collection('reports').doc(reportId).delete();
+                    } catch (error) {
+                        console.error('Error eliminando reporte en Firebase:', error);
+                        saveReports();
+                    }
+                } else {
+                    saveReports();
+                }
+                
                 showNotification('Reporte eliminado correctamente', 'success');
                 loadReports();
                 updateDashboard();
             }
+        }
+
+        // ==================== GESTIÓN DE USUARIOS ====================
+        function updateUsersTable() {
+            const tbody = document.getElementById('usersTable');
+            tbody.innerHTML = '';
+
+            if (users.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; padding: 2rem; color: var(--gray);">No hay usuarios registrados</td></tr>';
+                return;
+            }
+
+            users.forEach(user => {
+                const userTasks = tasks.filter(task => task.assignee === user.username);
+                const activeTasks = userTasks.filter(task => task.status !== 'completed').length;
+                
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${user.username}</td>
+                    <td>${user.name}</td>
+                    <td><span class="badge ${user.role === 'admin' ? 'badge-primary' : 'badge-secondary'}">${user.role === 'admin' ? 'Administrador' : 'Trabajador'}</span></td>
+                    <td>${activeTasks}</td>
+                    <td>
+                        <button class="btn btn-outline edit-user-btn" data-user-id="${user.id}" style="margin-bottom: 5px;">
+                            <i class="fas fa-edit"></i> Editar
+                        </button>
+                        ${user.username !== currentUser.username ? `
+                        <button class="btn btn-danger delete-user-btn" data-user-id="${user.id}">
+                            <i class="fas fa-trash"></i> Eliminar
+                        </button>
+                        ` : ''}
+                    </td>
+                `;
+                tbody.appendChild(row);
+            });
+
+            // Agregar event listeners
+            document.querySelectorAll('.edit-user-btn').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    const userId = this.getAttribute('data-user-id');
+                    // Implementar edición de usuario
+                    showNotification('Funcionalidad de edición de usuario en desarrollo', 'warning');
+                });
+            });
+
+            document.querySelectorAll('.delete-user-btn').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    const userId = this.getAttribute('data-user-id');
+                    if (confirm('¿Estás seguro de que quieres eliminar este usuario?')) {
+                        users = users.filter(u => u.id !== userId);
+                        saveUsers();
+                        showNotification('Usuario eliminado correctamente', 'success');
+                        updateUsersTable();
+                    }
+                });
+            });
+        }
+
+        function openAddUserModal() {
+            // Limpiar formulario
+            document.getElementById('userForm').reset();
+            
+            // Mostrar modal
+            document.getElementById('addUserModal').classList.add('active');
+            
+            // Configurar el botón de guardar para crear nuevo usuario
+            document.getElementById('saveUserBtn').onclick = function() {
+                createNewUser();
+            };
+        }
+
+        async function createNewUser() {
+            const username = document.getElementById('userUsername').value;
+            const name = document.getElementById('userName').value;
+            const password = document.getElementById('userPassword').value;
+            const confirmPassword = document.getElementById('userConfirmPassword').value;
+            const role = document.getElementById('userRole').value;
+            
+            if (!username || !name || !password || !confirmPassword) {
+                showNotification('Completa todos los campos obligatorios', 'warning');
+                return;
+            }
+            
+            if (password !== confirmPassword) {
+                showNotification('Las contraseñas no coinciden', 'warning');
+                return;
+            }
+            
+            if (password.length < 6) {
+                showNotification('La contraseña debe tener al menos 6 caracteres', 'warning');
+                return;
+            }
+            
+            // Verificar si el usuario ya existe
+            const existingUser = users.find(u => u.username === username);
+            if (existingUser) {
+                showNotification('El nombre de usuario ya existe', 'warning');
+                return;
+            }
+            
+            // Crear nuevo usuario
+            const newUser = {
+                username: username,
+                name: name,
+                password: password,
+                role: role
+            };
+            
+            if (useFirebase && firebaseInitialized) {
+                try {
+                    await db.collection('users').add(newUser);
+                    
+                    // Recargar usuarios
+                    const usersSnapshot = await db.collection('users').get();
+                    users = [];
+                    usersSnapshot.forEach(doc => {
+                        users.push({ id: doc.id, ...doc.data() });
+                    });
+                } catch (error) {
+                    console.error('Error creando usuario en Firebase:', error);
+                    newUser.id = generateId();
+                    users.push(newUser);
+                    saveUsers();
+                }
+            } else {
+                newUser.id = generateId();
+                users.push(newUser);
+                saveUsers();
+            }
+            
+            showNotification('Usuario creado correctamente', 'success');
+            document.getElementById('addUserModal').classList.remove('active');
+            updateUsersTable();
         }
 
         // ==================== SISTEMA DE EXPORTACIÓN MEJORADO ====================
@@ -3537,61 +4072,6 @@
             });
         }
 
-        function updateUsersTable() {
-            const tbody = document.getElementById('usersTable');
-            tbody.innerHTML = '';
-
-            if (users.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; padding: 2rem; color: var(--gray);">No hay usuarios registrados</td></tr>';
-                return;
-            }
-
-            users.forEach(user => {
-                const userTasks = tasks.filter(task => task.assignee === user.username);
-                const activeTasks = userTasks.filter(task => task.status !== 'completed').length;
-                
-                const row = document.createElement('tr');
-                row.innerHTML = `
-                    <td>${user.username}</td>
-                    <td>${user.name}</td>
-                    <td><span class="badge ${user.role === 'admin' ? 'badge-primary' : 'badge-secondary'}">${user.role === 'admin' ? 'Administrador' : 'Trabajador'}</span></td>
-                    <td>${activeTasks}</td>
-                    <td>
-                        <button class="btn btn-outline edit-user-btn" data-user-id="${user.username}" style="margin-bottom: 5px;">
-                            <i class="fas fa-edit"></i> Editar
-                        </button>
-                        ${user.username !== currentUser.username ? `
-                        <button class="btn btn-danger delete-user-btn" data-user-id="${user.username}">
-                            <i class="fas fa-trash"></i> Eliminar
-                        </button>
-                        ` : ''}
-                    </td>
-                `;
-                tbody.appendChild(row);
-            });
-
-            // Agregar event listeners
-            document.querySelectorAll('.edit-user-btn').forEach(btn => {
-                btn.addEventListener('click', function() {
-                    const userId = this.getAttribute('data-user-id');
-                    // Implementar edición de usuario
-                    showNotification('Funcionalidad de edición de usuario en desarrollo', 'warning');
-                });
-            });
-
-            document.querySelectorAll('.delete-user-btn').forEach(btn => {
-                btn.addEventListener('click', function() {
-                    const userId = this.getAttribute('data-user-id');
-                    if (confirm('¿Estás seguro de que quieres eliminar este usuario?')) {
-                        users = users.filter(u => u.username !== userId);
-                        saveUsers();
-                        showNotification('Usuario eliminado correctamente', 'success');
-                        updateUsersTable();
-                    }
-                });
-            });
-        }
-
         function loadChangePasswordPage() {
             document.getElementById('currentUserDisplay').value = currentUser.username;
         }
@@ -3721,6 +4201,11 @@
                 };
             });
             
+            // Botón para agregar usuario
+            document.getElementById('addUserBtn').addEventListener('click', function() {
+                openAddUserModal();
+            });
+            
             // Botón para exportar inventario
             document.getElementById('exportInventoryBtn').addEventListener('click', function() {
                 const inventoryData = getInventoryExportData();
@@ -3772,6 +4257,10 @@
                 document.getElementById('addMaterialModal').classList.remove('active');
             });
             
+            document.getElementById('closeUserModal').addEventListener('click', function() {
+                document.getElementById('addUserModal').classList.remove('active');
+            });
+            
             document.getElementById('closeAssignModal').addEventListener('click', function() {
                 document.getElementById('assignMaterialsModal').classList.remove('active');
             });
@@ -3782,6 +4271,10 @@
             
             document.getElementById('cancelMaterialBtn').addEventListener('click', function() {
                 document.getElementById('addMaterialModal').classList.remove('active');
+            });
+            
+            document.getElementById('cancelUserBtn').addEventListener('click', function() {
+                document.getElementById('addUserModal').classList.remove('active');
             });
             
             document.getElementById('cancelAssignBtn').addEventListener('click', function() {
@@ -3833,7 +4326,7 @@
         });
 
         // ==================== FUNCIONES DE CREACIÓN ====================
-        function createNewTask() {
+        async function createNewTask() {
             const taskName = document.getElementById('taskName').value;
             const taskDescription = document.getElementById('taskDescription').value;
             const taskAssignee = document.getElementById('taskAssignee').value;
@@ -3866,17 +4359,13 @@
                         });
                         
                         // Descontar del inventario
-                        const materialIndex = inventory.findIndex(m => m.id === material.id);
-                        if (materialIndex !== -1) {
-                            inventory[materialIndex].quantity -= quantity;
-                        }
+                        updateMaterialQuantity(material.id, -quantity);
                     }
                 }
             });
             
             // Crear nueva tarea
             const newTask = {
-                id: generateId(),
                 name: taskName,
                 description: taskDescription,
                 assignee: taskAssignee,
@@ -3889,9 +4378,28 @@
                 updatedAt: new Date().toISOString()
             };
             
-            tasks.push(newTask);
-            saveTasks();
-            saveInventory();
+            if (useFirebase && firebaseInitialized) {
+                try {
+                    await db.collection('tasks').add(newTask);
+                    
+                    // Recargar tareas
+                    const tasksSnapshot = await db.collection('tasks').get();
+                    tasks = [];
+                    tasksSnapshot.forEach(doc => {
+                        tasks.push({ id: doc.id, ...doc.data() });
+                    });
+                } catch (error) {
+                    console.error('Error creando tarea en Firebase:', error);
+                    newTask.id = generateId();
+                    tasks.push(newTask);
+                    saveTasks();
+                }
+            } else {
+                newTask.id = generateId();
+                tasks.push(newTask);
+                saveTasks();
+            }
+            
             showNotification('Tarea creada correctamente', 'success');
             document.getElementById('addTaskModal').classList.remove('active');
             
@@ -3901,7 +4409,7 @@
             updateDashboard();
         }
 
-        function createNewMaterial() {
+        async function createNewMaterial() {
             const materialName = document.getElementById('materialNameModal').value;
             const materialCategory = document.getElementById('materialCategory').value;
             const materialQuantity = parseInt(document.getElementById('materialQuantityModal').value);
@@ -3919,7 +4427,6 @@
             
             // Crear nuevo material
             const newMaterial = {
-                id: generateId(),
                 name: materialName,
                 category: materialCategory,
                 quantity: materialQuantity,
@@ -3931,8 +4438,28 @@
                 description: materialDescription
             };
             
-            inventory.push(newMaterial);
-            saveInventory();
+            if (useFirebase && firebaseInitialized) {
+                try {
+                    await db.collection('inventory').add(newMaterial);
+                    
+                    // Recargar inventario
+                    const inventorySnapshot = await db.collection('inventory').get();
+                    inventory = [];
+                    inventorySnapshot.forEach(doc => {
+                        inventory.push({ id: doc.id, ...doc.data() });
+                    });
+                } catch (error) {
+                    console.error('Error creando material en Firebase:', error);
+                    newMaterial.id = generateId();
+                    inventory.push(newMaterial);
+                    saveInventory();
+                }
+            } else {
+                newMaterial.id = generateId();
+                inventory.push(newMaterial);
+                saveInventory();
+            }
+            
             showNotification('Material creado correctamente', 'success');
             document.getElementById('addMaterialModal').classList.remove('active');
             loadInventory();
@@ -4005,7 +4532,7 @@
             };
         }
 
-        function updateTask(taskId) {
+        async function updateTask(taskId) {
             const taskIndex = tasks.findIndex(t => t.id === taskId);
             if (taskIndex === -1) return;
             
@@ -4056,7 +4583,26 @@
                 updatedAt: new Date().toISOString()
             };
             
-            saveTasks();
+            if (useFirebase && firebaseInitialized) {
+                try {
+                    await db.collection('tasks').doc(taskId).update({
+                        name: taskName,
+                        description: taskDescription,
+                        assignee: taskAssignee,
+                        startDate: taskStartDate,
+                        dueDate: taskDueDate,
+                        urgency: taskUrgency,
+                        materials: materials,
+                        updatedAt: new Date().toISOString()
+                    });
+                } catch (error) {
+                    console.error('Error actualizando tarea en Firebase:', error);
+                    saveTasks();
+                }
+            } else {
+                saveTasks();
+            }
+            
             showNotification('Tarea actualizada correctamente', 'success');
             document.getElementById('addTaskModal').classList.remove('active');
             
@@ -4066,10 +4612,21 @@
             updateDashboard();
         }
 
-        function deleteTask(taskId) {
+        async function deleteTask(taskId) {
             if (confirm('¿Estás seguro de que quieres eliminar esta tarea?')) {
                 tasks = tasks.filter(t => t.id !== taskId);
-                saveTasks();
+                
+                if (useFirebase && firebaseInitialized) {
+                    try {
+                        await db.collection('tasks').doc(taskId).delete();
+                    } catch (error) {
+                        console.error('Error eliminando tarea en Firebase:', error);
+                        saveTasks();
+                    }
+                } else {
+                    saveTasks();
+                }
+                
                 showNotification('Tarea eliminada correctamente', 'success');
                 
                 if (currentPage === 'manage-tasks') {
@@ -4103,7 +4660,7 @@
             };
         }
 
-        function updateMaterial(materialId) {
+        async function updateMaterial(materialId) {
             const materialIndex = inventory.findIndex(m => m.id === materialId);
             if (materialIndex === -1) return;
             
@@ -4136,14 +4693,34 @@
                 description: materialDescription
             };
             
-            saveInventory();
+            if (useFirebase && firebaseInitialized) {
+                try {
+                    await db.collection('inventory').doc(materialId).update({
+                        name: materialName,
+                        category: materialCategory,
+                        quantity: materialQuantity,
+                        unit: materialUnit,
+                        minStock: materialMinStock,
+                        supplier: materialSupplier,
+                        cost: materialCost,
+                        location: materialLocation,
+                        description: materialDescription
+                    });
+                } catch (error) {
+                    console.error('Error actualizando material en Firebase:', error);
+                    saveInventory();
+                }
+            } else {
+                saveInventory();
+            }
+            
             showNotification('Material actualizado correctamente', 'success');
             document.getElementById('addMaterialModal').classList.remove('active');
             loadInventory();
             updateDashboard();
         }
 
-        function deleteMaterial(materialId) {
+        async function deleteMaterial(materialId) {
             if (confirm('¿Estás seguro de que quieres eliminar este material?')) {
                 // Verificar si el material está siendo usado en alguna tarea
                 const isUsedInTasks = tasks.some(task => 
@@ -4156,7 +4733,18 @@
                 }
                 
                 inventory = inventory.filter(m => m.id !== materialId);
-                saveInventory();
+                
+                if (useFirebase && firebaseInitialized) {
+                    try {
+                        await db.collection('inventory').doc(materialId).delete();
+                    } catch (error) {
+                        console.error('Error eliminando material en Firebase:', error);
+                        saveInventory();
+                    }
+                } else {
+                    saveInventory();
+                }
+                
                 showNotification('Material eliminado correctamente', 'success');
                 loadInventory();
                 updateDashboard();
@@ -4266,47 +4854,63 @@
             
             // Guardar materiales al hacer clic en guardar
             document.getElementById('saveAssignBtn').onclick = function() {
-                const materials = [];
-                materialsList.querySelectorAll('.assignment-item').forEach(item => {
-                    const text = item.textContent.trim();
-                    const match = text.match(/(.+) - (\d+) (.+)/);
-                    if (match) {
-                        const materialName = match[1];
-                        const quantity = parseInt(match[2]);
-                        const unit = match[3];
-                        
-                        const material = inventory.find(m => m.name === materialName);
-                        if (material) {
-                            materials.push({
-                                materialId: material.id,
-                                quantity: quantity,
-                                delivered: false
-                            });
-                            
-                            // Descontar del inventario
-                            const materialIndex = inventory.findIndex(m => m.id === material.id);
-                            if (materialIndex !== -1) {
-                                inventory[materialIndex].quantity -= quantity;
-                            }
-                        }
-                    }
-                });
-                
-                // Actualizar tarea
-                const taskIndex = tasks.findIndex(t => t.id === taskId);
-                if (taskIndex !== -1) {
-                    tasks[taskIndex].materials = materials;
-                    saveTasks();
-                    saveInventory();
-                    showNotification('Materiales asignados correctamente', 'success');
-                    document.getElementById('assignMaterialsModal').classList.remove('active');
-                    
-                    if (currentPage === 'manage-tasks') {
-                        loadAllTasks();
-                    }
-                    updateDashboard();
-                }
+                saveAssignedMaterials(taskId);
             };
+        }
+
+        async function saveAssignedMaterials(taskId) {
+            const materialsList = document.getElementById('assignMaterialsList');
+            const materials = [];
+            
+            // Recopilar materiales de la lista
+            materialsList.querySelectorAll('.assignment-item').forEach(item => {
+                const text = item.textContent.trim();
+                const match = text.match(/(.+) - (\d+) (.+)/);
+                if (match) {
+                    const materialName = match[1];
+                    const quantity = parseInt(match[2]);
+                    const unit = match[3];
+                    
+                    const material = inventory.find(m => m.name === materialName);
+                    if (material) {
+                        materials.push({
+                            materialId: material.id,
+                            quantity: quantity,
+                            delivered: false
+                        });
+                        
+                        // Descontar del inventario
+                        updateMaterialQuantity(material.id, -quantity);
+                    }
+                }
+            });
+            
+            // Actualizar tarea
+            const taskIndex = tasks.findIndex(t => t.id === taskId);
+            if (taskIndex !== -1) {
+                tasks[taskIndex].materials = materials;
+                
+                if (useFirebase && firebaseInitialized) {
+                    try {
+                        await db.collection('tasks').doc(taskId).update({
+                            materials: materials
+                        });
+                    } catch (error) {
+                        console.error('Error asignando materiales en Firebase:', error);
+                        saveTasks();
+                    }
+                } else {
+                    saveTasks();
+                }
+                
+                showNotification('Materiales asignados correctamente', 'success');
+                document.getElementById('assignMaterialsModal').classList.remove('active');
+                
+                if (currentPage === 'manage-tasks') {
+                    loadAllTasks();
+                }
+                updateDashboard();
+            }
         }
     </script>
 </body>
