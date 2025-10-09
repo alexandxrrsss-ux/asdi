@@ -6,6 +6,8 @@
     <title>TaskMaster PRO Plus 🚀</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
     <style>
         :root {
             --primary: #4361ee;
@@ -1368,10 +1370,11 @@
                                         <th>Fecha Límite</th>
                                         <th>Estado</th>
                                         <th>Urgencia</th>
+                                        <th>Material Solicitado</th>
                                     </tr>
                                 </thead>
                                 <tbody id="recentTasksTable">
-                                    <tr><td colspan="5" style="text-align: center; padding: 2rem; color: var(--gray);">Cargando...</td></tr>
+                                    <tr><td colspan="6" style="text-align: center; padding: 2rem; color: var(--gray);">Cargando...</td></tr>
                                 </tbody>
                             </table>
                         </div>
@@ -1432,11 +1435,12 @@
                                         <th>Fecha Límite</th>
                                         <th>Estado</th>
                                         <th>Urgencia</th>
+                                        <th>Material Solicitado</th>
                                         <th>Acciones</th>
                                     </tr>
                                 </thead>
                                 <tbody id="allTasksTable">
-                                    <tr><td colspan="6" style="text-align: center; padding: 2rem; color: var(--gray);">Cargando...</td></tr>
+                                    <tr><td colspan="7" style="text-align: center; padding: 2rem; color: var(--gray);">Cargando...</td></tr>
                                 </tbody>
                             </table>
                         </div>
@@ -2215,12 +2219,19 @@
             tbody.innerHTML = '';
             
             if (recentTasks.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; padding: 2rem; color: var(--gray);">No hay tareas registradas</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 2rem; color: var(--gray);">No hay tareas registradas</td></tr>';
                 return;
             }
             
             recentTasks.forEach(task => {
                 const assignee = users.find(u => u.username === task.assignee);
+                const materialsText = task.materials && task.materials.length > 0 
+                    ? task.materials.map(m => {
+                        const material = inventory.find(mat => mat.id === m.materialId);
+                        return material ? `${material.name} (${m.quantity} ${material.unit})` : '';
+                    }).filter(Boolean).join(', ')
+                    : 'Ninguno';
+                
                 const row = document.createElement('tr');
                 row.innerHTML = `
                     <td>${sanitizeInput(task.name)}</td>
@@ -2228,6 +2239,7 @@
                     <td>${formatDate(task.dueDate)}</td>
                     <td><span class="badge badge-${task.status}">${getStatusText(task.status)}</span></td>
                     <td><span class="badge badge-${task.urgency}">${getUrgencyText(task.urgency)}</span></td>
+                    <td>${materialsText}</td>
                 `;
                 tbody.appendChild(row);
             });
@@ -2416,18 +2428,27 @@
             }
         }
 
-        // ==================== CORRECCIÓN: FUNCIÓN LOAD ALL TASKS MEJORADA ====================
+        // ==================== GESTIÓN COMPLETA DE TAREAS ====================
         function loadAllTasks() {
             const tbody = document.getElementById('allTasksTable');
             tbody.innerHTML = '';
 
             if (tasks.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 2rem; color: var(--gray);">No hay tareas registradas</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 2rem; color: var(--gray);">No hay tareas registradas</td></tr>';
                 return;
             }
 
             tasks.forEach(task => {
                 const assignee = users.find(u => u.username === task.assignee);
+                
+                // Obtener información de materiales
+                const materialsText = task.materials && task.materials.length > 0 
+                    ? task.materials.map(m => {
+                        const material = inventory.find(mat => mat.id === m.materialId);
+                        return material ? `${material.name} (${m.quantity} ${material.unit})` : '';
+                    }).filter(Boolean).join(', ')
+                    : 'Ninguno';
+
                 const row = document.createElement('tr');
                 row.innerHTML = `
                     <td>
@@ -2438,6 +2459,7 @@
                     <td>${formatDate(task.dueDate)}</td>
                     <td><span class="badge badge-${task.status}">${getStatusText(task.status)}</span></td>
                     <td><span class="badge badge-${task.urgency}">${getUrgencyText(task.urgency)}</span></td>
+                    <td>${materialsText}</td>
                     <td style="white-space: nowrap;">
                         <button class="btn btn-outline edit-task-btn" data-task-id="${task.id}" style="margin-bottom: 5px;">
                             <i class="fas fa-edit"></i> Editar
@@ -2455,11 +2477,10 @@
                 tbody.appendChild(row);
             });
 
-            // CORRECCIÓN: Agregar event listeners inmediatamente después de crear la tabla
+            // Agregar event listeners
             addTaskTableEventListeners();
         }
 
-        // CORRECCIÓN: Función separada para agregar event listeners
         function addTaskTableEventListeners() {
             // Limpiar event listeners anteriores
             document.querySelectorAll('.edit-task-btn').forEach(btn => {
@@ -2476,7 +2497,6 @@
             document.querySelectorAll('.edit-task-btn').forEach(btn => {
                 btn.addEventListener('click', function() {
                     const taskId = this.getAttribute('data-task-id');
-                    console.log('Editando tarea:', taskId);
                     openEditTaskModal(taskId);
                 });
             });
@@ -2484,7 +2504,6 @@
             document.querySelectorAll('.assign-materials-btn').forEach(btn => {
                 btn.addEventListener('click', function() {
                     const taskId = this.getAttribute('data-task-id');
-                    console.log('Asignando materiales a tarea:', taskId);
                     openAssignMaterialsModal(taskId);
                 });
             });
@@ -2493,7 +2512,6 @@
                 document.querySelectorAll('.delete-task-btn').forEach(btn => {
                     btn.addEventListener('click', function() {
                         const taskId = this.getAttribute('data-task-id');
-                        console.log('Eliminando tarea:', taskId);
                         deleteTask(taskId);
                     });
                 });
@@ -2637,15 +2655,12 @@
         }
 
         // ==================== FUNCIONES FALTANTES ====================
-        // Función para abrir el modal de edición de tarea
         function openEditTaskModal(taskId) {
             const task = tasks.find(t => t.id === taskId);
             if (!task) {
                 showNotification('Tarea no encontrada', 'danger');
                 return;
             }
-            
-            console.log('Abriendo modal para editar tarea:', taskId);
             
             // Llenar el formulario con los datos de la tarea
             document.getElementById('taskName').value = task.name;
@@ -2705,7 +2720,6 @@
             };
         }
 
-        // Función para actualizar una tarea
         function updateTask(taskId) {
             const taskIndex = tasks.findIndex(t => t.id === taskId);
             if (taskIndex === -1) return;
@@ -2767,7 +2781,6 @@
             updateDashboard();
         }
 
-        // Función para eliminar una tarea
         function deleteTask(taskId) {
             if (confirm('¿Estás seguro de que quieres eliminar esta tarea?')) {
                 tasks = tasks.filter(t => t.id !== taskId);
@@ -2781,7 +2794,6 @@
             }
         }
 
-        // Función para abrir el modal de edición de material
         function openEditMaterialModal(materialId) {
             const material = inventory.find(m => m.id === materialId);
             if (!material) return;
@@ -2806,7 +2818,6 @@
             };
         }
 
-        // Función para actualizar un material
         function updateMaterial(materialId) {
             const materialIndex = inventory.findIndex(m => m.id === materialId);
             if (materialIndex === -1) return;
@@ -2847,7 +2858,6 @@
             updateDashboard();
         }
 
-        // Función para eliminar un material
         function deleteMaterial(materialId) {
             if (confirm('¿Estás seguro de que quieres eliminar este material?')) {
                 // Verificar si el material está siendo usado en alguna tarea
@@ -2875,8 +2885,6 @@
                 showNotification('Tarea no encontrada', 'danger');
                 return;
             }
-            
-            console.log('Abriendo modal para asignar materiales a tarea:', taskId);
             
             const content = document.getElementById('assignMaterialsContent');
             content.innerHTML = `
@@ -3016,6 +3024,390 @@
             };
         }
 
+        // ==================== SISTEMA DE EXPORTACIÓN MEJORADO ====================
+        function loadExportPage() {
+            document.getElementById('previewSection').style.display = 'none';
+            
+            // Configurar fechas por defecto
+            const today = new Date();
+            const oneWeekAgo = new Date(today);
+            oneWeekAgo.setDate(today.getDate() - 7);
+            
+            document.getElementById('startDate').value = oneWeekAgo.toISOString().split('T')[0];
+            document.getElementById('endDate').value = today.toISOString().split('T')[0];
+        }
+
+        function exportData() {
+            const exportType = document.getElementById('exportType').value;
+            const exportFormat = document.getElementById('exportFormat').value;
+            const startDate = document.getElementById('startDate').value;
+            const endDate = document.getElementById('endDate').value;
+            
+            let dataToExport = [];
+            
+            // Filtrar datos según el tipo de exportación
+            if (exportType === 'all') {
+                dataToExport = getAllExportData();
+            } else if (exportType === 'completed') {
+                dataToExport = getAllExportData().filter(item => 
+                    item.tipo === 'tarea' ? item.estado === 'Terminada' : true
+                );
+            } else if (exportType === 'pending') {
+                dataToExport = getAllExportData().filter(item => 
+                    item.tipo === 'tarea' ? item.estado !== 'Terminada' : true
+                );
+            } else if (exportType === 'date-range') {
+                if (!startDate || !endDate) {
+                    showNotification('Selecciona un rango de fechas válido', 'warning');
+                    return;
+                }
+                dataToExport = getAllExportData().filter(item => {
+                    const itemDate = new Date(item.fecha);
+                    const start = new Date(startDate);
+                    const end = new Date(endDate);
+                    end.setHours(23, 59, 59, 999);
+                    return itemDate >= start && itemDate <= end;
+                });
+            }
+            
+            if (dataToExport.length === 0) {
+                showNotification('No hay datos para exportar con los filtros seleccionados', 'warning');
+                return;
+            }
+            
+            // Exportar según el formato
+            if (exportFormat === 'excel') {
+                exportToExcel(dataToExport);
+            } else if (exportFormat === 'csv') {
+                exportToCSV(dataToExport);
+            } else if (exportFormat === 'pdf') {
+                exportToPDF(dataToExport);
+            }
+        }
+
+        function getAllExportData() {
+            const exportData = [];
+            
+            // Agregar tareas
+            tasks.forEach(task => {
+                const assignee = users.find(u => u.username === task.assignee);
+                const materialsText = task.materials && task.materials.length > 0 
+                    ? task.materials.map(m => {
+                        const material = inventory.find(mat => mat.id === m.materialId);
+                        return material ? `${material.name} (${m.quantity} ${material.unit})` : '';
+                    }).filter(Boolean).join(', ')
+                    : 'Ninguno';
+                
+                exportData.push({
+                    tipo: 'tarea',
+                    nombre: task.name,
+                    descripcion: task.description,
+                    responsable: assignee?.name || task.assignee,
+                    fecha_inicio: formatDate(task.startDate),
+                    fecha_limite: formatDate(task.dueDate),
+                    estado: getStatusText(task.status),
+                    urgencia: getUrgencyText(task.urgency),
+                    materiales: materialsText,
+                    fecha: task.createdAt,
+                    fecha_actualizacion: task.updatedAt
+                });
+            });
+            
+            // Agregar reportes
+            reports.forEach(report => {
+                const reporter = users.find(u => u.username === report.reporter);
+                const relatedTask = report.taskId ? tasks.find(t => t.id === report.taskId) : null;
+                
+                exportData.push({
+                    tipo: 'reporte',
+                    titulo: report.title,
+                    descripcion: report.description,
+                    tipo_reporte: report.type,
+                    urgencia: getUrgencyText(report.urgency),
+                    reportado_por: reporter?.name || report.reporter,
+                    tarea_relacionada: relatedTask?.name || 'Ninguna',
+                    bloquea_progreso: report.blocksProgress,
+                    fecha_requerida: formatDate(report.requiredDate),
+                    estado: report.status === 'resolved' ? 'Resuelto' : 'Pendiente',
+                    fecha: report.createdAt
+                });
+            });
+            
+            // Agregar materiales del inventario
+            inventory.forEach(material => {
+                exportData.push({
+                    tipo: 'inventario',
+                    nombre: material.name,
+                    categoria: material.category,
+                    cantidad: material.quantity,
+                    unidad: material.unit,
+                    stock_minimo: material.minStock,
+                    proveedor: material.supplier || 'No especificado',
+                    costo: material.cost ? `$${material.cost.toFixed(2)}` : 'No especificado',
+                    ubicacion: material.location || 'No especificado',
+                    descripcion: material.description || 'No especificado',
+                    fecha: new Date().toISOString()
+                });
+            });
+            
+            return exportData;
+        }
+
+        function exportToExcel(data) {
+            try {
+                // Crear libro de trabajo
+                const wb = XLSX.utils.book_new();
+                
+                // Convertir datos a hoja de trabajo
+                const ws = XLSX.utils.json_to_sheet(data);
+                
+                // Agregar hoja de trabajo al libro
+                XLSX.utils.book_append_sheet(wb, ws, "Actividades");
+                
+                // Generar archivo y descargar
+                const fileName = `taskmaster_export_${new Date().toISOString().split('T')[0]}.xlsx`;
+                XLSX.writeFile(wb, fileName);
+                
+                showNotification('Datos exportados exitosamente a Excel', 'success');
+            } catch (error) {
+                console.error('Error al exportar a Excel:', error);
+                showNotification('Error al exportar a Excel', 'danger');
+            }
+        }
+
+        function exportToCSV(data) {
+            try {
+                if (data.length === 0) {
+                    showNotification('No hay datos para exportar', 'warning');
+                    return;
+                }
+                
+                // Convertir a CSV
+                const headers = Object.keys(data[0]);
+                const csvContent = [
+                    headers.join(','),
+                    ...data.map(row => 
+                        headers.map(header => {
+                            const value = row[header] || '';
+                            return `"${String(value).replace(/"/g, '""')}"`;
+                        }).join(',')
+                    )
+                ].join('\n');
+                
+                // Crear y descargar archivo
+                const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+                const link = document.createElement('a');
+                const url = URL.createObjectURL(blob);
+                
+                link.setAttribute('href', url);
+                link.setAttribute('download', `taskmaster_export_${new Date().toISOString().split('T')[0]}.csv`);
+                link.style.visibility = 'hidden';
+                
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                
+                showNotification('Datos exportados exitosamente a CSV', 'success');
+            } catch (error) {
+                console.error('Error al exportar a CSV:', error);
+                showNotification('Error al exportar a CSV', 'danger');
+            }
+        }
+
+        function exportToPDF(data) {
+            try {
+                if (typeof jsPDF === 'undefined') {
+                    showNotification('La funcionalidad PDF no está disponible', 'danger');
+                    return;
+                }
+                
+                const { jsPDF } = window.jspdf;
+                const doc = new jsPDF();
+                
+                // Título
+                doc.setFontSize(16);
+                doc.text('Reporte de Actividades - TaskMaster', 20, 20);
+                doc.setFontSize(10);
+                doc.text(`Generado el: ${new Date().toLocaleDateString('es-ES')}`, 20, 30);
+                
+                let yPosition = 50;
+                
+                // Agrupar por tipo
+                const groupedData = {
+                    tareas: data.filter(item => item.tipo === 'tarea'),
+                    reportes: data.filter(item => item.tipo === 'reporte'),
+                    inventario: data.filter(item => item.tipo === 'inventario')
+                };
+                
+                // Tareas
+                if (groupedData.tareas.length > 0) {
+                    doc.setFontSize(12);
+                    doc.text('TAREAS', 20, yPosition);
+                    yPosition += 10;
+                    
+                    groupedData.tareas.forEach((task, index) => {
+                        if (yPosition > 270) {
+                            doc.addPage();
+                            yPosition = 20;
+                        }
+                        
+                        doc.setFontSize(8);
+                        doc.text(`${index + 1}. ${task.nombre}`, 25, yPosition);
+                        yPosition += 5;
+                        doc.text(`   Responsable: ${task.responsable} | Estado: ${task.estado}`, 25, yPosition);
+                        yPosition += 5;
+                        doc.text(`   Fecha límite: ${task.fecha_limite} | Materiales: ${task.materiales}`, 25, yPosition);
+                        yPosition += 8;
+                    });
+                    yPosition += 5;
+                }
+                
+                // Reportes
+                if (groupedData.reportes.length > 0) {
+                    if (yPosition > 250) {
+                        doc.addPage();
+                        yPosition = 20;
+                    }
+                    
+                    doc.setFontSize(12);
+                    doc.text('REPORTES', 20, yPosition);
+                    yPosition += 10;
+                    
+                    groupedData.reportes.forEach((report, index) => {
+                        if (yPosition > 270) {
+                            doc.addPage();
+                            yPosition = 20;
+                        }
+                        
+                        doc.setFontSize(8);
+                        doc.text(`${index + 1}. ${report.titulo}`, 25, yPosition);
+                        yPosition += 5;
+                        doc.text(`   Tipo: ${report.tipo_reporte} | Urgencia: ${report.urgencia}`, 25, yPosition);
+                        yPosition += 5;
+                        doc.text(`   Reportado por: ${report.reportado_por} | Estado: ${report.estado}`, 25, yPosition);
+                        yPosition += 8;
+                    });
+                    yPosition += 5;
+                }
+                
+                // Inventario
+                if (groupedData.inventario.length > 0) {
+                    if (yPosition > 250) {
+                        doc.addPage();
+                        yPosition = 20;
+                    }
+                    
+                    doc.setFontSize(12);
+                    doc.text('INVENTARIO', 20, yPosition);
+                    yPosition += 10;
+                    
+                    groupedData.inventario.forEach((item, index) => {
+                        if (yPosition > 270) {
+                            doc.addPage();
+                            yPosition = 20;
+                        }
+                        
+                        doc.setFontSize(8);
+                        doc.text(`${index + 1}. ${item.nombre}`, 25, yPosition);
+                        yPosition += 5;
+                        doc.text(`   Cantidad: ${item.cantidad} ${item.unidad} | Stock mínimo: ${item.stock_minimo}`, 25, yPosition);
+                        yPosition += 5;
+                        doc.text(`   Categoría: ${item.categoria} | Ubicación: ${item.ubicacion}`, 25, yPosition);
+                        yPosition += 8;
+                    });
+                }
+                
+                // Guardar PDF
+                doc.save(`taskmaster_export_${new Date().toISOString().split('T')[0]}.pdf`);
+                showNotification('Datos exportados exitosamente a PDF', 'success');
+            } catch (error) {
+                console.error('Error al exportar a PDF:', error);
+                showNotification('Error al exportar a PDF', 'danger');
+            }
+        }
+
+        function previewData() {
+            const exportType = document.getElementById('exportType').value;
+            const startDate = document.getElementById('startDate').value;
+            const endDate = document.getElementById('endDate').value;
+            
+            let dataToShow = [];
+            
+            if (exportType === 'all') {
+                dataToShow = getAllExportData();
+            } else if (exportType === 'completed') {
+                dataToShow = getAllExportData().filter(item => 
+                    item.tipo === 'tarea' ? item.estado === 'Terminada' : true
+                );
+            } else if (exportType === 'pending') {
+                dataToShow = getAllExportData().filter(item => 
+                    item.tipo === 'tarea' ? item.estado !== 'Terminada' : true
+                );
+            } else if (exportType === 'date-range') {
+                if (!startDate || !endDate) {
+                    showNotification('Selecciona un rango de fechas válido', 'warning');
+                    return;
+                }
+                dataToShow = getAllExportData().filter(item => {
+                    const itemDate = new Date(item.fecha);
+                    const start = new Date(startDate);
+                    const end = new Date(endDate);
+                    end.setHours(23, 59, 59, 999);
+                    return itemDate >= start && itemDate <= end;
+                });
+            }
+            
+            const previewContent = document.getElementById('previewContent');
+            const previewSection = document.getElementById('previewSection');
+            
+            if (dataToShow.length === 0) {
+                previewContent.innerHTML = '<div style="text-align: center; padding: 2rem; color: var(--gray);">No hay datos para mostrar con los filtros seleccionados</div>';
+            } else {
+                let html = `
+                    <div style="margin-bottom: 1rem; color: var(--gray);">
+                        Mostrando ${dataToShow.length} registros
+                    </div>
+                    <div style="overflow-x: auto;">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>Tipo</th>
+                                    <th>Nombre/Título</th>
+                                    <th>Responsable</th>
+                                    <th>Estado</th>
+                                    <th>Fecha</th>
+                                    <th>Detalles</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                `;
+                
+                dataToShow.slice(0, 50).forEach(item => { // Mostrar máximo 50 registros en vista previa
+                    html += `
+                        <tr>
+                            <td><span class="badge" style="background: #f0f0f0; color: var(--dark);">${item.tipo}</span></td>
+                            <td>${item.nombre || item.titulo}</td>
+                            <td>${item.responsable || item.reportado_por || 'N/A'}</td>
+                            <td>${item.estado || 'N/A'}</td>
+                            <td>${formatDate(item.fecha)}</td>
+                            <td>${item.descripcion ? item.descripcion.substring(0, 50) + '...' : 'N/A'}</td>
+                        </tr>
+                    `;
+                });
+                
+                html += `
+                            </tbody>
+                        </table>
+                    </div>
+                    ${dataToShow.length > 50 ? `<div style="text-align: center; margin-top: 1rem; color: var(--gray);">... y ${dataToShow.length - 50} registros más</div>` : ''}
+                `;
+                
+                previewContent.innerHTML = html;
+            }
+            
+            previewSection.style.display = 'block';
+        }
+
         // ==================== FUNCIONES RESTANTES ====================
         function loadUserData() {
             loadData();
@@ -3057,11 +3449,6 @@
             // Implementar actualización de tabla de usuarios
             const tbody = document.getElementById('usersTable');
             tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; padding: 2rem; color: var(--gray);">Funcionalidad en desarrollo</td></tr>';
-        }
-
-        function loadExportPage() {
-            // Implementar carga de página de exportación
-            document.getElementById('previewSection').style.display = 'none';
         }
 
         function loadChangePasswordPage() {
@@ -3172,6 +3559,39 @@
                 };
             });
             
+            // Botón para exportar inventario
+            document.getElementById('exportInventoryBtn').addEventListener('click', function() {
+                const inventoryData = inventory.map(item => ({
+                    nombre: item.name,
+                    categoria: item.category,
+                    cantidad: item.quantity,
+                    unidad: item.unit,
+                    stock_minimo: item.minStock,
+                    proveedor: item.supplier || 'No especificado',
+                    costo: item.cost ? `$${item.cost.toFixed(2)}` : 'No especificado',
+                    ubicacion: item.location || 'No especificado',
+                    descripcion: item.description || 'No especificado'
+                }));
+                
+                exportToExcel(inventoryData);
+            });
+            
+            // Botón para exportar datos
+            document.getElementById('exportDataBtn').addEventListener('click', exportData);
+            
+            // Botón para vista previa
+            document.getElementById('previewDataBtn').addEventListener('click', previewData);
+            
+            // Cambio de tipo de exportación
+            document.getElementById('exportType').addEventListener('change', function() {
+                const dateRangeGroup = document.getElementById('dateRangeGroup');
+                if (this.value === 'date-range') {
+                    dateRangeGroup.style.display = 'block';
+                } else {
+                    dateRangeGroup.style.display = 'none';
+                }
+            });
+            
             // Cerrar modales
             document.getElementById('closeTaskModal').addEventListener('click', function() {
                 document.getElementById('addTaskModal').classList.remove('active');
@@ -3238,16 +3658,6 @@
             // Búsqueda en inventario
             document.getElementById('searchMaterial').addEventListener('input', function() {
                 loadInventory();
-            });
-            
-            // Cambio de tipo de exportación
-            document.getElementById('exportType').addEventListener('change', function() {
-                const dateRangeGroup = document.getElementById('dateRangeGroup');
-                if (this.value === 'date-range') {
-                    dateRangeGroup.style.display = 'block';
-                } else {
-                    dateRangeGroup.style.display = 'none';
-                }
             });
             
             // Cambio de tipo de reporte
@@ -3377,4 +3787,3 @@
     </script>
 </body>
 </html>
-
