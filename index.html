@@ -1,0 +1,3380 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TaskMaster PRO Plus 🚀</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <style>
+        :root {
+            --primary: #4361ee;
+            --secondary: #3a0ca3;
+            --success: #06d6a0;
+            --warning: #f72585;
+            --danger: #e63946;
+            --light: #f8f9fa;
+            --dark: #212529;
+            --gray: #6c757d;
+            --border-radius: 12px;
+            --shadow: 0 6px 15px rgba(0, 0, 0, 0.1);
+            --transition: all 0.3s ease;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            color: var(--dark);
+            line-height: 1.6;
+            min-height: 100vh;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 15px;
+        }
+
+        header {
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            color: white;
+            padding: 1rem 0;
+            box-shadow: var(--shadow);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .header-content {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 1.5rem;
+            font-weight: 700;
+        }
+
+        .logo i {
+            font-size: 1.8rem;
+        }
+
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .user-avatar {
+            width: 45px;
+            height: 45px;
+            border-radius: 50%;
+            background-color: white;
+            color: var(--primary);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 1.2rem;
+            box-shadow: 0 3px 8px rgba(0,0,0,0.2);
+        }
+
+        .main-layout {
+            display: flex;
+            min-height: calc(100vh - 80px);
+        }
+
+        .sidebar {
+            width: 280px;
+            background-color: white;
+            box-shadow: var(--shadow);
+            padding: 1.5rem 0;
+            transition: var(--transition);
+            border-radius: 0 0 var(--border-radius) 0;
+        }
+
+        .nav-item {
+            padding: 1rem 1.5rem;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            cursor: pointer;
+            transition: var(--transition);
+            border-left: 5px solid transparent;
+            margin: 5px 10px;
+            border-radius: 10px;
+        }
+
+        .nav-item:hover, .nav-item.active {
+            background: linear-gradient(135deg, rgba(67, 97, 238, 0.1), rgba(67, 97, 238, 0.05));
+            border-left-color: var(--primary);
+            color: var(--primary);
+            transform: translateX(5px);
+        }
+
+        .nav-item i {
+            width: 25px;
+            text-align: center;
+            font-size: 1.2rem;
+        }
+
+        .content {
+            flex: 1;
+            padding: 2rem;
+            overflow-y: auto;
+        }
+
+        .page {
+            display: none;
+            animation: fadeIn 0.5s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .page.active {
+            display: block;
+        }
+
+        .page-title {
+            margin-bottom: 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+
+        .page-title h1 {
+            font-size: 2rem;
+            color: var(--dark);
+            font-weight: 700;
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .card {
+            background-color: white;
+            border-radius: var(--border-radius);
+            box-shadow: var(--shadow);
+            padding: 1.8rem;
+            margin-bottom: 1.8rem;
+            transition: var(--transition);
+            border: 1px solid rgba(0,0,0,0.05);
+        }
+
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 12px 20px rgba(0,0,0,0.15);
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.2rem;
+            padding-bottom: 1rem;
+            border-bottom: 2px solid #f0f0f0;
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+
+        .card-title {
+            font-size: 1.4rem;
+            font-weight: 600;
+            color: var(--dark);
+        }
+
+        .btn {
+            padding: 0.8rem 1.5rem;
+            border: none;
+            border-radius: 50px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: var(--transition);
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 0.95rem;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            color: white;
+        }
+
+        .btn-primary:hover:not(:disabled) {
+            transform: translateY(-3px);
+            box-shadow: 0 6px 12px rgba(67, 97, 238, 0.3);
+        }
+
+        .btn-success {
+            background: linear-gradient(135deg, var(--success), #04a777);
+            color: white;
+        }
+
+        .btn-warning {
+            background: linear-gradient(135deg, var(--warning), #b5179e);
+            color: white;
+        }
+
+        .btn-danger {
+            background: linear-gradient(135deg, var(--danger), #d00000);
+            color: white;
+        }
+
+        .btn-outline {
+            background-color: transparent;
+            border: 2px solid var(--primary);
+            color: var(--primary);
+        }
+
+        .btn-outline:hover {
+            background-color: rgba(67, 97, 238, 0.1);
+            transform: translateY(-3px);
+        }
+
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+
+        .form-label {
+            display: block;
+            margin-bottom: 0.7rem;
+            font-weight: 600;
+            color: var(--dark);
+        }
+
+        .form-control {
+            width: 100%;
+            padding: 1rem;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            font-size: 1rem;
+            transition: var(--transition);
+        }
+
+        .form-control:focus {
+            border-color: var(--primary);
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(67, 97, 238, 0.2);
+        }
+
+        .form-select {
+            width: 100%;
+            padding: 1rem;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            font-size: 1rem;
+            background-color: white;
+            cursor: pointer;
+            transition: var(--transition);
+        }
+
+        .form-select:focus {
+            border-color: var(--primary);
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(67, 97, 238, 0.2);
+        }
+
+        .table {
+            width: 100%;
+            border-collapse: collapse;
+            box-shadow: 0 0 10px rgba(0,0,0,0.05);
+            border-radius: 10px;
+            overflow: hidden;
+        }
+
+        .table th, .table td {
+            padding: 1.2rem;
+            text-align: left;
+            border-bottom: 1px solid #eee;
+        }
+
+        .table th {
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            color: white;
+            font-weight: 600;
+            font-size: 1rem;
+        }
+
+        .table tr {
+            transition: var(--transition);
+        }
+
+        .table tr:hover {
+            background-color: #f8f9fa;
+        }
+
+        .badge {
+            padding: 0.5rem 1rem;
+            border-radius: 50px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            display: inline-block;
+            box-shadow: 0 3px 6px rgba(0,0,0,0.1);
+        }
+
+        .badge-pending {
+            background: linear-gradient(135deg, #ffd166, #ff9e00);
+            color: #7a5c00;
+        }
+
+        .badge-in-progress {
+            background: linear-gradient(135deg, #4cc9f0, #3a86ff);
+            color: #004085;
+        }
+
+        .badge-completed {
+            background: linear-gradient(135deg, #06d6a0, #04a777);
+            color: #004d26;
+        }
+
+        .badge-urgent {
+            background: linear-gradient(135deg, #f72585, #b5179e);
+            color: white;
+        }
+
+        .badge-high {
+            background: linear-gradient(135deg, #ef476f, #e63946);
+            color: white;
+        }
+
+        .badge-medium {
+            background: linear-gradient(135deg, #ffd166, #ff9e00);
+            color: #7a5c00;
+        }
+
+        .badge-low {
+            background: linear-gradient(135deg, #06d6a0, #04a777);
+            color: #004d26;
+        }
+
+        .stats-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+            gap: 1.8rem;
+            margin-bottom: 2rem;
+        }
+
+        .stat-card {
+            background: linear-gradient(135deg, white, #f8f9fa);
+            border-radius: var(--border-radius);
+            box-shadow: var(--shadow);
+            padding: 1.8rem;
+            text-align: center;
+            transition: var(--transition);
+            border: 1px solid rgba(0,0,0,0.05);
+        }
+
+        .stat-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 12px 20px rgba(0,0,0,0.15);
+        }
+
+        .stat-icon {
+            font-size: 2.5rem;
+            margin-bottom: 1rem;
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .stat-value {
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .stat-label {
+            color: var(--gray);
+            font-size: 1rem;
+            font-weight: 500;
+        }
+
+        .login-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            padding: 1rem;
+        }
+
+        .login-card {
+            background-color: white;
+            border-radius: var(--border-radius);
+            box-shadow: var(--shadow);
+            padding: 2.5rem;
+            width: 100%;
+            max-width: 450px;
+            transition: var(--transition);
+        }
+
+        .login-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 30px rgba(0,0,0,0.2);
+        }
+
+        .login-title {
+            font-size: 1.8rem;
+            font-weight: 700;
+            color: var(--dark);
+            margin-bottom: 2rem;
+            text-align: center;
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .tabs {
+            display: flex;
+            border-bottom: 2px solid #e0e0e0;
+            margin-bottom: 1.8rem;
+            overflow-x: auto;
+        }
+
+        .tab {
+            padding: 1rem 1.5rem;
+            cursor: pointer;
+            border-bottom: 3px solid transparent;
+            transition: var(--transition);
+            font-weight: 500;
+            white-space: nowrap;
+        }
+
+        .tab.active {
+            border-bottom-color: var(--primary);
+            color: var(--primary);
+            font-weight: 600;
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 1.2rem 1.8rem;
+            background-color: white;
+            border-radius: var(--border-radius);
+            box-shadow: var(--shadow);
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            z-index: 1000;
+            transform: translateX(150%);
+            transition: transform 0.4s ease;
+            max-width: 400px;
+        }
+
+        .notification.show {
+            transform: translateX(0);
+        }
+
+        .notification-icon {
+            font-size: 1.5rem;
+        }
+
+        .notification-success .notification-icon {
+            color: var(--success);
+        }
+
+        .notification-warning .notification-icon {
+            color: var(--warning);
+        }
+
+        .notification-danger .notification-icon {
+            color: var(--danger);
+        }
+
+        .notification-content {
+            flex: 1;
+        }
+
+        .notification-title {
+            font-weight: 600;
+            margin-bottom: 0.3rem;
+        }
+
+        .notification-message {
+            color: var(--gray);
+        }
+
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(0, 0, 0, 0.5);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            opacity: 0;
+            visibility: hidden;
+            transition: var(--transition);
+            padding: 1rem;
+        }
+
+        .modal-overlay.active {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .modal {
+            background-color: white;
+            border-radius: var(--border-radius);
+            box-shadow: var(--shadow);
+            width: 90%;
+            max-width: 600px;
+            max-height: 90vh;
+            overflow-y: auto;
+            transform: translateY(-20px);
+            transition: var(--transition);
+        }
+
+        .modal-overlay.active .modal {
+            transform: translateY(0);
+        }
+
+        .modal-header {
+            padding: 1.8rem;
+            border-bottom: 2px solid #f0f0f0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: linear-gradient(135deg, #f8f9fa, white);
+            border-radius: var(--border-radius) var(--border-radius) 0 0;
+        }
+
+        .modal-title {
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: var(--dark);
+        }
+
+        .modal-close {
+            background: none;
+            border: none;
+            font-size: 1.8rem;
+            cursor: pointer;
+            color: var(--gray);
+            transition: var(--transition);
+        }
+
+        .modal-close:hover {
+            color: var(--danger);
+            transform: rotate(90deg);
+        }
+
+        .modal-body {
+            padding: 1.8rem;
+        }
+
+        .modal-footer {
+            padding: 1.5rem 1.8rem;
+            border-top: 2px solid #f0f0f0;
+            display: flex;
+            justify-content: flex-end;
+            gap: 15px;
+            background: linear-gradient(135deg, white, #f8f9fa);
+            border-radius: 0 0 var(--border-radius) var(--border-radius);
+            flex-wrap: wrap;
+        }
+
+        .task-card {
+            background: white;
+            border-radius: var(--border-radius);
+            box-shadow: var(--shadow);
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+            transition: var(--transition);
+            border-left: 5px solid var(--primary);
+        }
+
+        .task-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 20px rgba(0,0,0,0.15);
+        }
+
+        .task-card.urgent {
+            border-left-color: var(--danger);
+        }
+
+        .task-card.high {
+            border-left-color: var(--warning);
+        }
+
+        .task-card.medium {
+            border-left-color: #ff9e00;
+        }
+
+        .task-card.low {
+            border-left-color: var(--success);
+        }
+
+        .task-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 1rem;
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+
+        .task-title {
+            font-size: 1.3rem;
+            font-weight: 600;
+            color: var(--dark);
+            margin-bottom: 0.5rem;
+        }
+
+        .task-description {
+            color: var(--gray);
+            margin-bottom: 1rem;
+        }
+
+        .task-meta {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .task-meta-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: var(--gray);
+            font-size: 0.9rem;
+        }
+
+        .task-actions {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .date-display {
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            color: white;
+            padding: 0.7rem 1.2rem;
+            border-radius: 50px;
+            font-weight: 600;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        .menu-toggle {
+            display: none;
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            color: white;
+            cursor: pointer;
+        }
+
+        .material-details {
+            background: #f8f9fa;
+            padding: 1rem;
+            border-radius: 8px;
+            margin-top: 1rem;
+            border-left: 3px solid var(--success);
+        }
+
+        .export-options {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-bottom: 1.5rem;
+        }
+
+        .export-btn {
+            background: linear-gradient(135deg, #06d6a0, #04a777);
+            color: white;
+        }
+
+        .export-btn:hover:not(:disabled) {
+            transform: translateY(-3px);
+            box-shadow: 0 6px 12px rgba(6, 214, 160, 0.3);
+        }
+
+        .overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.5);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 2000;
+        }
+
+        .overlay.active {
+            display: flex;
+        }
+
+        .loading-spinner {
+            background: white;
+            padding: 2rem;
+            border-radius: var(--border-radius);
+            text-align: center;
+        }
+
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid var(--primary);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 1rem;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .report-card {
+            background: white;
+            border-radius: var(--border-radius);
+            box-shadow: var(--shadow);
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+            border-left: 5px solid var(--warning);
+            transition: var(--transition);
+        }
+
+        .report-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 15px rgba(0,0,0,0.15);
+        }
+
+        .report-card.resolved {
+            border-left-color: var(--success);
+            opacity: 0.8;
+        }
+
+        .report-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 1rem;
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+
+        .report-title {
+            font-size: 1.2rem;
+            font-weight: 600;
+            color: var(--dark);
+        }
+
+        .report-meta {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 1rem;
+            flex-wrap: wrap;
+        }
+
+        .report-meta-item {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            color: var(--gray);
+            font-size: 0.9rem;
+        }
+
+        .report-description {
+            background: #f8f9fa;
+            padding: 1rem;
+            border-radius: 8px;
+            margin-bottom: 1rem;
+            border-left: 3px solid var(--primary);
+        }
+
+        .report-actions {
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+            flex-wrap: wrap;
+        }
+
+        .badge-new {
+            background: linear-gradient(135deg, #f72585, #b5179e);
+            color: white;
+        }
+
+        .badge-resolved {
+            background: linear-gradient(135deg, #06d6a0, #04a777);
+            color: white;
+        }
+
+        .error-message {
+            background: #fee;
+            border-left: 4px solid var(--danger);
+            padding: 1rem;
+            margin-bottom: 1rem;
+            border-radius: 8px;
+            color: var(--danger);
+        }
+
+        .success-message {
+            background: #efe;
+            border-left: 4px solid var(--success);
+            padding: 1rem;
+            margin-bottom: 1rem;
+            border-radius: 8px;
+            color: #04a777;
+        }
+
+        /* Nuevos estilos para inventario */
+        .inventory-card {
+            background: white;
+            border-radius: var(--border-radius);
+            box-shadow: var(--shadow);
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+            border-left: 5px solid var(--success);
+            transition: var(--transition);
+        }
+
+        .inventory-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 15px rgba(0,0,0,0.15);
+        }
+
+        .inventory-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 1rem;
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+
+        .inventory-title {
+            font-size: 1.2rem;
+            font-weight: 600;
+            color: var(--dark);
+        }
+
+        .stock-info {
+            display: flex;
+            gap: 1rem;
+            margin-top: 1rem;
+            flex-wrap: wrap;
+        }
+
+        .stock-item {
+            background: #f8f9fa;
+            padding: 0.8rem;
+            border-radius: 8px;
+            flex: 1;
+            min-width: 150px;
+        }
+
+        .stock-value {
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin-bottom: 0.3rem;
+        }
+
+        .stock-label {
+            color: var(--gray);
+            font-size: 0.9rem;
+        }
+
+        .low-stock {
+            color: var(--danger);
+            font-weight: 600;
+        }
+
+        .medium-stock {
+            color: var(--warning);
+        }
+
+        .good-stock {
+            color: var(--success);
+        }
+
+        /* Estilos para asignación de materiales */
+        .material-assignment {
+            background: #f8f9fa;
+            padding: 1rem;
+            border-radius: 8px;
+            margin-top: 1rem;
+            border-left: 3px solid var(--primary);
+        }
+
+        .assignment-form {
+            display: grid;
+            grid-template-columns: 2fr 1fr 1fr auto;
+            gap: 10px;
+            align-items: end;
+        }
+
+        .assignment-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.8rem;
+            background: white;
+            border-radius: 8px;
+            margin-bottom: 0.5rem;
+            border-left: 3px solid var(--success);
+        }
+
+        .quantity-controls {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .quantity-btn {
+            width: 35px;
+            height: 35px;
+            border: none;
+            border-radius: 50%;
+            background: var(--primary);
+            color: white;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            transition: var(--transition);
+        }
+
+        .quantity-btn:hover {
+            transform: scale(1.1);
+        }
+
+        .quantity-display {
+            min-width: 50px;
+            text-align: center;
+            font-weight: 600;
+            font-size: 1.1rem;
+        }
+
+        @media (max-width: 992px) {
+            .main-layout {
+                flex-direction: column;
+            }
+
+            .sidebar {
+                width: 100%;
+                padding: 1rem 0;
+                border-radius: 0;
+                position: fixed;
+                top: 80px;
+                left: 0;
+                height: calc(100vh - 80px);
+                z-index: 99;
+                transform: translateX(-100%);
+                transition: transform 0.3s ease;
+            }
+
+            .sidebar.active {
+                transform: translateX(0);
+            }
+
+            .nav-items {
+                display: flex;
+                flex-direction: column;
+                overflow-y: auto;
+                padding: 0 1rem;
+                height: 100%;
+            }
+
+            .nav-item {
+                flex-shrink: 0;
+                border-left: none;
+                border-bottom: 4px solid transparent;
+                margin: 5px 0;
+                padding: 1.2rem 1rem;
+            }
+
+            .nav-item:hover, .nav-item.active {
+                border-left: none;
+                border-bottom-color: var(--primary);
+                transform: translateY(-3px);
+            }
+
+            .content {
+                padding: 1.5rem;
+                margin-top: 0;
+            }
+
+            .stats-container {
+                grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+                gap: 1rem;
+            }
+
+            .page-title {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 15px;
+            }
+
+            .page-title h1 {
+                font-size: 1.5rem;
+            }
+
+            .card-header {
+                flex-direction: column;
+                gap: 15px;
+                align-items: flex-start;
+            }
+
+            .btn {
+                padding: 0.7rem 1.2rem;
+                font-size: 0.9rem;
+            }
+
+            .menu-toggle {
+                display: block;
+            }
+
+            .assignment-form {
+                grid-template-columns: 1fr;
+                gap: 15px;
+            }
+
+            .stock-info {
+                flex-direction: column;
+            }
+
+            .stock-item {
+                min-width: 100%;
+            }
+
+            .task-actions, .report-actions {
+                flex-direction: column;
+            }
+
+            .task-actions .btn, .report-actions .btn {
+                width: 100%;
+                justify-content: center;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .header-content {
+                gap: 10px;
+            }
+
+            .user-info {
+                flex-wrap: wrap;
+            }
+
+            .stats-container {
+                grid-template-columns: 1fr 1fr;
+            }
+
+            .table {
+                display: block;
+                overflow-x: auto;
+                white-space: nowrap;
+            }
+
+            .table th, .table td {
+                padding: 0.8rem;
+                font-size: 0.9rem;
+            }
+
+            .card {
+                padding: 1.2rem;
+                margin-bottom: 1.2rem;
+            }
+
+            .modal {
+                width: 95%;
+                margin: 1rem;
+            }
+
+            .task-actions, .report-actions {
+                flex-direction: column;
+                gap: 8px;
+            }
+
+            .task-actions .btn, .report-actions .btn {
+                width: 100%;
+                justify-content: center;
+            }
+
+            .modal-footer {
+                flex-direction: column;
+            }
+
+            .modal-footer .btn {
+                width: 100%;
+            }
+        }
+
+        @media (max-width: 576px) {
+            .content {
+                padding: 1rem;
+            }
+
+            .stats-container {
+                grid-template-columns: 1fr;
+            }
+
+            .stat-card {
+                padding: 1.2rem;
+            }
+
+            .stat-value {
+                font-size: 2rem;
+            }
+
+            .user-info span:not(.user-avatar) {
+                font-size: 0.9rem;
+            }
+
+            .logo span {
+                font-size: 1.2rem;
+            }
+
+            .login-card {
+                padding: 1.5rem;
+            }
+
+            .login-title {
+                font-size: 1.5rem;
+            }
+
+            .form-control, .form-select {
+                padding: 0.8rem;
+            }
+
+            .btn {
+                padding: 0.8rem 1rem;
+                font-size: 0.85rem;
+            }
+
+            .card {
+                padding: 1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Login Screen -->
+    <div id="loginScreen" class="login-container">
+        <div class="login-card">
+            <div style="text-align: center;">
+                <i class="fas fa-tasks" style="font-size: 4rem; background: linear-gradient(135deg, var(--primary), var(--secondary)); -webkit-background-clip: text; -webkit-text-fill-color: transparent;"></i>
+                <h1 style="margin-top: 15px; font-size: 2.2rem;">TaskMaster PRO Plus</h1>
+                <p style="color: var(--gray); margin-top: 5px;">Sistema Completo de Gestión</p>
+            </div>
+            <h2 class="login-title">Iniciar Sesión</h2>
+            <form id="loginForm">
+                <div class="form-group">
+                    <label class="form-label">Usuario</label>
+                    <input type="text" class="form-control" id="username" placeholder="Ingresa tu usuario" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Contraseña</label>
+                    <input type="password" class="form-control" id="password" placeholder="Ingresa tu contraseña" required>
+                </div>
+                <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 1.5rem; padding: 1rem;">
+                    <i class="fas fa-sign-in-alt"></i> Ingresar al Sistema
+                </button>
+            </form>
+            <div style="margin-top: 2rem; text-align: center; color: var(--gray); padding: 1rem; background: #f8f9fa; border-radius: 10px;">
+                <p style="font-weight: 600; margin-bottom: 0.5rem;">Credenciales de prueba:</p>
+                <p>Administrador: <strong>admin</strong> / <strong>admin123</strong></p>
+                <p>Trabajador: <strong>juan</strong> / <strong>juan123</strong></p>
+                <p>Trabajador: <strong>maria</strong> / <strong>maria123</strong></p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Application -->
+    <div id="app" style="display: none;">
+        <!-- Header -->
+        <header>
+            <div class="container">
+                <div class="header-content">
+                    <div style="display: flex; align-items: center; gap: 15px;">
+                        <button class="menu-toggle" id="menuToggle">
+                            <i class="fas fa-bars"></i>
+                        </button>
+                        <div class="logo">
+                            <i class="fas fa-tasks"></i>
+                            <span>TaskMaster PRO Plus</span>
+                        </div>
+                    </div>
+                    <div class="user-info">
+                        <div class="user-avatar" id="userInitials">A</div>
+                        <span id="userName">Administrador</span>
+                        <span id="userRole" style="background: rgba(255,255,255,0.2); padding: 0.3rem 0.8rem; border-radius: 20px; font-size: 0.8rem;"></span>
+                        <button class="btn btn-outline" id="logoutBtn" style="box-shadow: none;">
+                            <i class="fas fa-sign-out-alt"></i> <span class="logout-text">Salir</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Layout -->
+        <div class="main-layout">
+            <!-- Sidebar -->
+            <div class="sidebar" id="sidebar">
+                <div class="nav-items">
+                    <div class="nav-item active" data-page="dashboard">
+                        <i class="fas fa-chart-pie"></i>
+                        <span>Dashboard</span>
+                    </div>
+                    <div class="nav-item" data-page="tasks">
+                        <i class="fas fa-tasks"></i>
+                        <span>Mis Tareas</span>
+                    </div>
+                    <div class="nav-item admin-only" data-page="manage-tasks">
+                        <i class="fas fa-cog"></i>
+                        <span>Gestión de Tareas</span>
+                    </div>
+                    <div class="nav-item admin-only" data-page="inventory">
+                        <i class="fas fa-boxes"></i>
+                        <span>Gestión de Inventario</span>
+                    </div>
+                    <div class="nav-item admin-only" data-page="reports-admin">
+                        <i class="fas fa-flag"></i>
+                        <span>Reportes Recibidos</span>
+                        <span class="badge badge-new" id="reportsBadge" style="margin-left: auto; display: none;">0</span>
+                    </div>
+                    <div class="nav-item" data-page="reports">
+                        <i class="fas fa-exclamation-circle"></i>
+                        <span>Reportar Problema</span>
+                    </div>
+                    <div class="nav-item admin-only" data-page="users">
+                        <i class="fas fa-users"></i>
+                        <span>Gestión de Usuarios</span>
+                    </div>
+                    <div class="nav-item admin-only" data-page="export">
+                        <i class="fas fa-file-export"></i>
+                        <span>Exportar Actividades</span>
+                    </div>
+                    <div class="nav-item" data-page="change-password">
+                        <i class="fas fa-key"></i>
+                        <span>Cambiar Contraseña</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Content Area -->
+            <div class="content">
+                <!-- Dashboard Page -->
+                <div id="dashboard" class="page active">
+                    <div class="page-title">
+                        <h1>Dashboard de Gestión</h1>
+                        <div class="date-display" id="currentDate"></div>
+                    </div>
+
+                    <!-- Stats -->
+                    <div class="stats-container">
+                        <div class="stat-card">
+                            <div class="stat-icon">
+                                <i class="fas fa-tasks"></i>
+                            </div>
+                            <div class="stat-value" id="totalTasks">0</div>
+                            <div class="stat-label">Total de Tareas</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon">
+                                <i class="fas fa-clock"></i>
+                            </div>
+                            <div class="stat-value" id="pendingTasks">0</div>
+                            <div class="stat-label">Pendientes</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon">
+                                <i class="fas fa-spinner"></i>
+                            </div>
+                            <div class="stat-value" id="inProgressTasks">0</div>
+                            <div class="stat-label">En Progreso</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon">
+                                <i class="fas fa-check-circle"></i>
+                            </div>
+                            <div class="stat-value" id="completedTasks">0</div>
+                            <div class="stat-label">Completadas</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon">
+                                <i class="fas fa-flag"></i>
+                            </div>
+                            <div class="stat-value" id="totalReports">0</div>
+                            <div class="stat-label">Reportes Activos</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon">
+                                <i class="fas fa-boxes"></i>
+                            </div>
+                            <div class="stat-value" id="totalMaterials">0</div>
+                            <div class="stat-label">Materiales</div>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-title">Tareas Recientes</div>
+                            <button class="btn btn-primary" id="viewAllTasksBtn">
+                                <i class="fas fa-list"></i> Ver Todas
+                            </button>
+                        </div>
+                        <div style="overflow-x: auto;">
+                            <table class="table">
+                                <thead>
+                                    <tr>
+                                        <th>Tarea</th>
+                                        <th>Asignada a</th>
+                                        <th>Fecha Límite</th>
+                                        <th>Estado</th>
+                                        <th>Urgencia</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="recentTasksTable">
+                                    <tr><td colspan="5" style="text-align: center; padding: 2rem; color: var(--gray);">Cargando...</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Materiales con stock bajo -->
+                    <div class="card" id="lowStockAlert" style="display: none;">
+                        <div class="card-header">
+                            <div class="card-title" style="color: var(--danger);">
+                                <i class="fas fa-exclamation-triangle"></i> Materiales con Stock Bajo
+                            </div>
+                        </div>
+                        <div id="lowStockItems"></div>
+                    </div>
+                </div>
+
+                <!-- Tasks Page -->
+                <div id="tasks" class="page">
+                    <div class="page-title">
+                        <h1>Mis Tareas</h1>
+                    </div>
+                    <div class="tabs">
+                        <div class="tab active" data-tab="all">Todas</div>
+                        <div class="tab" data-tab="pending">Pendientes</div>
+                        <div class="tab" data-tab="in-progress">En Progreso</div>
+                        <div class="tab" data-tab="completed">Completadas</div>
+                    </div>
+                    <div class="tab-content active" id="tab-all">
+                        <!-- Las tareas de TODAS se cargarán aquí -->
+                    </div>
+                    <div class="tab-content" id="tab-pending">
+                        <!-- Las tareas PENDIENTES se cargarán aquí -->
+                    </div>
+                    <div class="tab-content" id="tab-in-progress">
+                        <!-- Las tareas EN PROGRESO se cargarán aquí -->
+                    </div>
+                    <div class="tab-content" id="tab-completed">
+                        <!-- Las tareas COMPLETADAS se cargarán aquí -->
+                    </div>
+                </div>
+
+                <!-- Manage Tasks Page (Admin Only) -->
+                <div id="manage-tasks" class="page">
+                    <div class="page-title">
+                        <h1>Gestión de Tareas</h1>
+                        <button class="btn btn-primary" id="addTaskBtn">
+                            <i class="fas fa-plus"></i> Nueva Tarea
+                        </button>
+                    </div>
+
+                    <div class="card">
+                        <div style="overflow-x: auto;">
+                            <table class="table">
+                                <thead>
+                                    <tr>
+                                        <th>Tarea</th>
+                                        <th>Asignada a</th>
+                                        <th>Fecha Límite</th>
+                                        <th>Estado</th>
+                                        <th>Urgencia</th>
+                                        <th>Acciones</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="allTasksTable">
+                                    <tr><td colspan="6" style="text-align: center; padding: 2rem; color: var(--gray);">Cargando...</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Inventory Page -->
+                <div id="inventory" class="page">
+                    <div class="page-title">
+                        <h1>Gestión de Inventario</h1>
+                        <div>
+                            <button class="btn btn-primary" id="addMaterialBtn">
+                                <i class="fas fa-plus"></i> Nuevo Material
+                            </button>
+                            <button class="btn btn-success" id="exportInventoryBtn">
+                                <i class="fas fa-file-excel"></i> Exportar Excel
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-title">Resumen de Inventario</div>
+                        </div>
+                        <div class="stock-info">
+                            <div class="stock-item">
+                                <div class="stock-value" id="totalItems">0</div>
+                                <div class="stock-label">Total de Items</div>
+                            </div>
+                            <div class="stock-item">
+                                <div class="stock-value good-stock" id="goodStock">0</div>
+                                <div class="stock-label">Stock Bueno</div>
+                            </div>
+                            <div class="stock-item">
+                                <div class="stock-value medium-stock" id="mediumStock">0</div>
+                                <div class="stock-label">Stock Medio</div>
+                            </div>
+                            <div class="stock-item">
+                                <div class="stock-value low-stock" id="lowStock">0</div>
+                                <div class="stock-label">Stock Bajo</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-title">Todos los Materiales</div>
+                            <div class="form-group" style="margin: 0; min-width: 200px;">
+                                <input type="text" class="form-control" id="searchMaterial" placeholder="Buscar material...">
+                            </div>
+                        </div>
+                        <div id="inventoryContainer">
+                            <div style="text-align: center; padding: 2rem; color: var(--gray);">Cargando inventario...</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Reports Admin Page -->
+                <div id="reports-admin" class="page">
+                    <div class="page-title">
+                        <h1>Reportes Recibidos</h1>
+                    </div>
+                    <div class="tabs">
+                        <div class="tab active" data-tab="reports-all">Todos</div>
+                        <div class="tab" data-tab="reports-pending">Pendientes</div>
+                        <div class="tab" data-tab="reports-resolved">Resueltos</div>
+                    </div>
+
+                    <div class="tab-content active" id="tab-reports-all">
+                        <div id="reportsContainer">
+                            <div style="text-align: center; padding: 2rem; color: var(--gray);">Cargando reportes...</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Reports Page -->
+                <div id="reports" class="page">
+                    <div class="page-title">
+                        <h1>Reportar Problema o Solicitar Material</h1>
+                    </div>
+
+                    <div class="card">
+                        <form id="reportForm">
+                            <div class="form-group">
+                                <label class="form-label">Tipo de reporte</label>
+                                <select class="form-select" id="reportType" required>
+                                    <option value="problem">Problema en tarea</option>
+                                    <option value="material">Solicitud de material</option>
+                                    <option value="equipment">Solicitud de equipo</option>
+                                    <option value="assistance">Solicitud de asistencia</option>
+                                    <option value="other">Otro tipo de reporte</option>
+                                </select>
+                            </div>
+
+                            <div class="form-group">
+                                <label class="form-label">Tarea relacionada</label>
+                                <select class="form-select" id="taskSelect">
+                                    <option value="">Selecciona una tarea (opcional)</option>
+                                </select>
+                            </div>
+
+                            <div class="form-group">
+                                <label class="form-label">Título del reporte</label>
+                                <input type="text" class="form-control" id="reportTitle" placeholder="Ej: Falta material para completar la tarea" required maxlength="200">
+                            </div>
+
+                            <div class="form-group">
+                                <label class="form-label">Descripción detallada</label>
+                                <textarea class="form-control" id="problemDescription" rows="5" placeholder="Describe el problema, los materiales que necesitas o la asistencia requerida..." required maxlength="1000"></textarea>
+                            </div>
+
+                            <div id="materialSection" style="display: none;">
+                                <div class="material-details">
+                                    <h4 style="margin-bottom: 1rem; color: var(--dark);">Detalles del Material Solicitado</h4>
+                                    <div class="form-group">
+                                        <label class="form-label">Material necesario</label>
+                                        <input type="text" class="form-control" id="materialNameInput" placeholder="Ej: Tornillos de 2 pulgadas" maxlength="150">
+                                    </div>
+                                    <div class="form-group">
+                                        <label class="form-label">Cantidad requerida</label>
+                                        <input type="text" class="form-control" id="materialQuantityInput" placeholder="Ej: 50 unidades" maxlength="100">
+                                    </div>
+                                    <div class="form-group">
+                                        <label class="form-label">Especificaciones técnicas</label>
+                                        <textarea class="form-control" id="materialSpecs" rows="2" placeholder="Especificaciones, medidas, tipo, modelo, etc." maxlength="500"></textarea>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div id="equipmentSection" style="display: none;">
+                                <div class="material-details">
+                                    <h4 style="margin-bottom: 1rem; color: var(--dark);">Detalles del Equipo Solicitado</h4>
+                                    <div class="form-group">
+                                        <label class="form-label">Tipo de equipo</label>
+                                        <input type="text" class="form-control" id="equipmentType" placeholder="Ej: Taladro, andamio" maxlength="150">
+                                    </div>
+                                    <div class="form-group">
+                                        <label class="form-label">Tiempo de uso estimado</label>
+                                        <input type="text" class="form-control" id="equipmentTime" placeholder="Ej: 3 días, 1 semana" maxlength="100">
+                                    </div>
+                                    <div class="form-group">
+                                        <label class="form-label">Especificaciones del equipo</label>
+                                        <textarea class="form-control" id="equipmentSpecs" rows="2" placeholder="Características, capacidad, voltaje, etc." maxlength="500"></textarea>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="form-group">
+                                <label class="form-label">Imagen del problema (opcional)</label>
+                                <input type="file" class="form-control" id="reportImage" accept="image/*">
+                                <small style="color: var(--gray); margin-top: 5px; display: block;">
+                                    Puedes subir una foto del problema o material necesario
+                                </small>
+                            </div>
+
+                            <div class="form-group">
+                                <label class="form-label">Nivel de urgencia</label>
+                                <select class="form-select" id="reportUrgency" required>
+                                    <option value="low">Baja (Puede esperar varios días)</option>
+                                    <option value="medium">Media (Necesario en 1-2 días)</option>
+                                    <option value="high">Alta (Necesario hoy)</option>
+                                    <option value="urgent">Urgente (Inmediato - Detiene el trabajo)</option>
+                                </select>
+                            </div>
+
+                            <div class="form-group">
+                                <label class="form-label">¿Este reporte detiene el avance de la tarea?</label>
+                                <select class="form-select" id="blocksProgress" required>
+                                    <option value="no">No, puedo continuar con otras actividades</option>
+                                    <option value="partial">Parcialmente, reduce la productividad</option>
+                                    <option value="complete">Sí, detiene completamente el trabajo</option>
+                                </select>
+                            </div>
+
+                            <div class="form-group">
+                                <label class="form-label">Fecha límite requerida</label>
+                                <input type="date" class="form-control" id="requiredDate">
+                                <small style="color: var(--gray); margin-top: 5px; display: block;">
+                                    ¿Para cuándo necesitas resolver este reporte?
+                                </small>
+                            </div>
+
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-paper-plane"></i> Enviar Reporte
+                            </button>
+                        </form>
+                    </div>
+                </div>
+
+                <!-- Users Page -->
+                <div id="users" class="page">
+                    <div class="page-title">
+                        <h1>Gestión de Usuarios</h1>
+                        <button class="btn btn-primary" id="addUserBtn">
+                            <i class="fas fa-user-plus"></i> Nuevo Usuario
+                        </button>
+                    </div>
+
+                    <div class="card">
+                        <div style="overflow-x: auto;">
+                            <table class="table">
+                                <thead>
+                                    <tr>
+                                        <th>Usuario</th>
+                                        <th>Nombre</th>
+                                        <th>Rol</th>
+                                        <th>Tareas Activas</th>
+                                        <th>Acciones</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="usersTable">
+                                    <tr><td colspan="5" style="text-align: center; padding: 2rem; color: var(--gray);">Cargando...</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Export Page -->
+                <div id="export" class="page">
+                    <div class="page-title">
+                        <h1>Exportar Actividades</h1>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-title">Exportar Datos del Sistema</div>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label class="form-label">Tipo de Exportación</label>
+                            <select class="form-select" id="exportType">
+                                <option value="all">Todas las actividades</option>
+                                <option value="completed">Solo actividades completadas</option>
+                                <option value="pending">Solo actividades pendientes</option>
+                                <option value="date-range">Por rango de fechas</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group" id="dateRangeGroup" style="display: none;">
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                                <div>
+                                    <label class="form-label">Fecha inicial</label>
+                                    <input type="date" class="form-control" id="startDate">
+                                </div>
+                                <div>
+                                    <label class="form-label">Fecha final</label>
+                                    <input type="date" class="form-control" id="endDate">
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label">Formato de exportación</label>
+                            <select class="form-select" id="exportFormat">
+                                <option value="excel">Excel (.xlsx)</option>
+                                <option value="csv">CSV (.csv)</option>
+                                <option value="pdf">PDF (.pdf)</option>
+                            </select>
+                        </div>
+
+                        <div class="export-options">
+                            <button class="btn export-btn" id="exportDataBtn">
+                                <i class="fas fa-download"></i> Exportar Datos
+                            </button>
+                            <button class="btn btn-primary" id="previewDataBtn">
+                                <i class="fas fa-eye"></i> Vista Previa
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="card" id="previewSection" style="display: none;">
+                        <div class="card-header">
+                            <div class="card-title">Vista Previa de Datos</div>
+                        </div>
+                        <div id="previewContent"></div>
+                    </div>
+                </div>
+
+                <!-- Change Password Page -->
+                <div id="change-password" class="page">
+                    <div class="page-title">
+                        <h1>Cambiar Contraseña</h1>
+                    </div>
+
+                    <div class="card">
+                        <form id="changePasswordForm">
+                            <div class="form-group">
+                                <label class="form-label">Usuario Actual</label>
+                                <input type="text" class="form-control" id="currentUserDisplay" readonly style="background-color: #f8f9fa;">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Contraseña Actual</label>
+                                <input type="password" class="form-control" id="currentPassword" placeholder="Ingresa tu contraseña actual" required>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Nueva Contraseña</label>
+                                <input type="password" class="form-control" id="newPassword" placeholder="Ingresa nueva contraseña" required minlength="6">
+                                <small style="color: var(--gray); margin-top: 5px; display: block;">
+                                    La contraseña debe tener al menos 6 caracteres
+                                </small>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Confirmar Nueva Contraseña</label>
+                                <input type="password" class="form-control" id="confirmPassword" placeholder="Confirma la nueva contraseña" required minlength="6">
+                            </div>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save"></i> Actualizar Contraseña
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Notification -->
+    <div class="notification" id="notification">
+        <i class="fas fa-bell notification-icon"></i>
+        <div class="notification-content">
+            <div class="notification-title">Notificación</div>
+            <div class="notification-message" id="notificationMessage">Mensaje</div>
+        </div>
+    </div>
+
+    <!-- Loading Overlay -->
+    <div class="overlay" id="loadingOverlay">
+        <div class="loading-spinner">
+            <div class="spinner"></div>
+            <p>Procesando...</p>
+        </div>
+    </div>
+
+    <!-- Add Task Modal -->
+    <div class="modal-overlay" id="addTaskModal">
+        <div class="modal">
+            <div class="modal-header">
+                <div class="modal-title">Crear Nueva Tarea</div>
+                <button class="modal-close" id="closeTaskModal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="taskForm">
+                    <div class="form-group">
+                        <label class="form-label">Nombre de la actividad</label>
+                        <input type="text" class="form-control" id="taskName" placeholder="Ej: Revisar informe mensual" required maxlength="200">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Descripción</label>
+                        <textarea class="form-control" id="taskDescription" rows="3" placeholder="Describe la tarea en detalle..." required maxlength="1000"></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Responsable</label>
+                        <select class="form-select" id="taskAssignee" required>
+                            <option value="">Selecciona un trabajador</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Fecha de inicio</label>
+                        <input type="date" class="form-control" id="taskStartDate" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Fecha límite</label>
+                        <input type="date" class="form-control" id="taskDueDate" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Nivel de urgencia</label>
+                        <select class="form-select" id="taskUrgency" required>
+                            <option value="low">Baja</option>
+                            <option value="medium">Media</option>
+                            <option value="high">Alta</option>
+                            <option value="urgent">Urgente</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Materiales necesarios (opcional)</label>
+                        <div id="taskMaterialsContainer">
+                            <div class="assignment-form">
+                                <select class="form-select" id="materialSelect">
+                                    <option value="">Seleccionar material</option>
+                                </select>
+                                <input type="number" class="form-control" id="materialQuantityTask" placeholder="Cantidad" min="1">
+                                <button type="button" class="btn btn-outline" id="addMaterialToTask">
+                                    <i class="fas fa-plus"></i> Agregar
+                                </button>
+                            </div>
+                            <div id="taskMaterialsList" style="margin-top: 1rem;"></div>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Imagen de la tarea (opcional)</label>
+                        <input type="file" class="form-control" id="taskImage" accept="image/*">
+                        <small style="color: var(--gray);">Puedes subir una foto relacionada con la tarea</small>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-outline" id="cancelTaskBtn">Cancelar</button>
+                <button class="btn btn-primary" id="saveTaskBtn">Guardar Tarea</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Material Modal -->
+    <div class="modal-overlay" id="addMaterialModal">
+        <div class="modal">
+            <div class="modal-header">
+                <div class="modal-title">Agregar Nuevo Material</div>
+                <button class="modal-close" id="closeMaterialModal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="materialForm">
+                    <div class="form-group">
+                        <label class="form-label">Nombre del Material</label>
+                        <input type="text" class="form-control" id="materialNameModal" placeholder="Ej: Cable eléctrico 2.5mm" required maxlength="100">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Categoría</label>
+                        <select class="form-select" id="materialCategory" required>
+                            <option value="">Selecciona una categoría</option>
+                            <option value="Electricidad">Electricidad</option>
+                            <option value="Fontanería">Fontanería</option>
+                            <option value="Construcción">Construcción</option>
+                            <option value="Herramientas">Herramientas</option>
+                            <option value="Seguridad">Seguridad</option>
+                            <option value="Otros">Otros</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Cantidad en Stock</label>
+                        <input type="number" class="form-control" id="materialQuantityModal" placeholder="0" min="0" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Unidad de Medida</label>
+                        <input type="text" class="form-control" id="materialUnit" placeholder="Ej: metros, unidades, kg" required maxlength="20">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Stock Mínimo</label>
+                        <input type="number" class="form-control" id="materialMinStock" placeholder="Stock mínimo alerta" min="0" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Proveedor</label>
+                        <input type="text" class="form-control" id="materialSupplier" placeholder="Nombre del proveedor" maxlength="100">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Costo Unitario</label>
+                        <input type="number" class="form-control" id="materialCost" placeholder="0.00" min="0" step="0.01">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Ubicación en Almacén</label>
+                        <input type="text" class="form-control" id="materialLocation" placeholder="Ej: Almacén A - Estante 3" maxlength="100">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Descripción</label>
+                        <textarea class="form-control" id="materialDescription" rows="3" placeholder="Descripción detallada del material..." maxlength="500"></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-outline" id="cancelMaterialBtn">Cancelar</button>
+                <button class="btn btn-primary" id="saveMaterialBtn">Guardar Material</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Assign Materials Modal -->
+    <div class="modal-overlay" id="assignMaterialsModal">
+        <div class="modal">
+            <div class="modal-header">
+                <div class="modal-title">Asignar Materiales a Tarea</div>
+                <button class="modal-close" id="closeAssignModal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div id="assignMaterialsContent">
+                    <!-- Contenido dinámico para asignar materiales -->
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-outline" id="cancelAssignBtn">Cancelar</button>
+                <button class="btn btn-primary" id="saveAssignBtn">Asignar Materiales</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ==================== CONFIGURACIÓN INICIAL ====================
+        let currentUser = null;
+        let tasks = [];
+        let users = [];
+        let reports = [];
+        let inventory = [];
+        let currentPage = "dashboard";
+
+        // ==================== PERSISTENCIA DE SESIÓN ====================
+        function saveSession() {
+            if (currentUser) {
+                const sessionData = {
+                    user: currentUser,
+                    timestamp: new Date().getTime()
+                };
+                localStorage.setItem('taskmaster_session', JSON.stringify(sessionData));
+            }
+        }
+
+        function loadSession() {
+            const savedSession = localStorage.getItem('taskmaster_session');
+            if (savedSession) {
+                const sessionData = JSON.parse(savedSession);
+                // Verificar si la sesión es reciente (menos de 24 horas)
+                const now = new Date().getTime();
+                if (now - sessionData.timestamp < 24 * 60 * 60 * 1000) {
+                    currentUser = sessionData.user;
+                    document.getElementById('loginScreen').style.display = 'none';
+                    document.getElementById('app').style.display = 'block';
+                    
+                    document.getElementById('userInitials').textContent = currentUser.name.charAt(0).toUpperCase();
+                    document.getElementById('userName').textContent = currentUser.name;
+                    document.getElementById('userRole').textContent = currentUser.role === 'admin' ? 'Administrador' : 'Trabajador';
+                    
+                    // Ocultar elementos de admin si el usuario no es admin
+                    document.querySelectorAll('.admin-only').forEach(el => {
+                        el.style.display = currentUser.role === 'admin' ? 'flex' : 'none';
+                    });
+                    
+                    // Si el usuario no es admin, asegurarse de que esté en una página permitida
+                    if (currentUser.role !== 'admin') {
+                        const adminPages = ['manage-tasks', 'reports-admin', 'users', 'export', 'inventory'];
+                        if (adminPages.includes(currentPage)) {
+                            switchPage('dashboard');
+                        }
+                    }
+                    
+                    loadUserData();
+                    return true;
+                } else {
+                    // Sesión expirada
+                    localStorage.removeItem('taskmaster_session');
+                }
+            }
+            return false;
+        }
+
+        // ==================== DATOS INICIALES ====================
+        const defaultUsers = [
+            { username: "admin", name: "Administrador", role: "admin", password: "admin123" },
+            { username: "juan", name: "Juan Pérez", role: "worker", password: "juan123" },
+            { username: "maria", name: "María García", role: "worker", password: "maria123" }
+        ];
+
+        const defaultInventory = [
+            {
+                id: "mat-001",
+                name: "Cable eléctrico 2.5mm",
+                category: "Electricidad",
+                quantity: 150,
+                unit: "metros",
+                minStock: 50,
+                supplier: "Proveedor A",
+                cost: 2.50,
+                location: "Almacén A - Estante 3",
+                description: "Cable eléctrico para instalaciones residenciales"
+            },
+            {
+                id: "mat-002",
+                name: "Tubería PVC 1/2\"",
+                category: "Fontanería", 
+                quantity: 80,
+                unit: "metros",
+                minStock: 30,
+                supplier: "Proveedor B",
+                cost: 1.80,
+                location: "Almacén B - Estante 1",
+                description: "Tubería para sistemas de agua"
+            },
+            {
+                id: "mat-003",
+                name: "Tornillos para madera 2\"",
+                category: "Construcción",
+                quantity: 500,
+                unit: "unidades", 
+                minStock: 200,
+                supplier: "Proveedor C",
+                cost: 0.15,
+                location: "Almacén C - Estante 2",
+                description: "Tornillos para trabajos en madera"
+            }
+        ];
+
+        // ==================== FUNCIONES DE UTILIDAD ====================
+        function generateId() {
+            return Date.now() + '-' + Math.random().toString(36).substr(2, 9);
+        }
+
+        function sanitizeInput(input) {
+            if (typeof input !== 'string') return '';
+            return input.replace(/[<>]/g, '').trim();
+        }
+
+        function formatDate(dateString) {
+            if (!dateString) return 'N/A';
+            return new Date(dateString).toLocaleDateString('es-ES');
+        }
+
+        function showNotification(message, type = 'success') {
+            const notification = document.getElementById('notification');
+            const messageEl = document.getElementById('notificationMessage');
+            
+            messageEl.textContent = sanitizeInput(message);
+            notification.className = `notification notification-${type}`;
+            notification.classList.add('show');
+            
+            setTimeout(() => {
+                notification.classList.remove('show');
+            }, 4000);
+        }
+
+        function getStatusText(status) {
+            const statusMap = {
+                'pending': 'Pendiente',
+                'in-progress': 'En Progreso', 
+                'completed': 'Terminada'
+            };
+            return statusMap[status] || status;
+        }
+
+        function getUrgencyText(urgency) {
+            const urgencyMap = {
+                'low': 'Baja',
+                'medium': 'Media',
+                'high': 'Alta',
+                'urgent': 'Urgente'
+            };
+            return urgencyMap[urgency] || urgency;
+        }
+
+        // ==================== GESTIÓN DE DATOS ====================
+        function loadData() {
+            // Cargar usuarios
+            const savedUsers = localStorage.getItem('taskmaster_users');
+            users = savedUsers ? JSON.parse(savedUsers) : defaultUsers;
+            
+            // Cargar tareas
+            const savedTasks = localStorage.getItem('taskmaster_tasks');
+            tasks = savedTasks ? JSON.parse(savedTasks) : [];
+            
+            // Cargar reportes
+            const savedReports = localStorage.getItem('taskmaster_reports');
+            reports = savedReports ? JSON.parse(savedReports) : [];
+            
+            // Cargar inventario
+            const savedInventory = localStorage.getItem('taskmaster_inventory');
+            inventory = savedInventory ? JSON.parse(savedInventory) : defaultInventory;
+            
+            // Guardar datos iniciales si no existían
+            if (!savedUsers) saveUsers();
+            if (!savedInventory) saveInventory();
+        }
+
+        function saveUsers() {
+            localStorage.setItem('taskmaster_users', JSON.stringify(users));
+        }
+
+        function saveTasks() {
+            localStorage.setItem('taskmaster_tasks', JSON.stringify(tasks));
+        }
+
+        function saveReports() {
+            localStorage.setItem('taskmaster_reports', JSON.stringify(reports));
+        }
+
+        function saveInventory() {
+            localStorage.setItem('taskmaster_inventory', JSON.stringify(inventory));
+        }
+
+        // ==================== LOGIN ====================
+        function handleLogin(e) {
+            e.preventDefault();
+            
+            const username = sanitizeInput(document.getElementById('username').value);
+            const password = document.getElementById('password').value;
+
+            if (!username || !password) {
+                showNotification('Completa todos los campos', 'warning');
+                return;
+            }
+
+            const user = users.find(u => u.username === username && u.password === password);
+            
+            if (user) {
+                currentUser = user;
+                saveSession();
+                
+                document.getElementById('loginScreen').style.display = 'none';
+                document.getElementById('app').style.display = 'block';
+                
+                document.getElementById('userInitials').textContent = user.name.charAt(0).toUpperCase();
+                document.getElementById('userName').textContent = user.name;
+                document.getElementById('userRole').textContent = user.role === 'admin' ? 'Administrador' : 'Trabajador';
+                
+                // Ocultar elementos de admin si el usuario no es admin
+                document.querySelectorAll('.admin-only').forEach(el => {
+                    el.style.display = user.role === 'admin' ? 'flex' : 'none';
+                });
+                
+                // Si el usuario no es admin, redirigir al dashboard
+                if (user.role !== 'admin' && currentPage !== 'dashboard') {
+                    switchPage('dashboard');
+                }
+                
+                loadUserData();
+                showNotification(`Bienvenido ${user.name}`, 'success');
+            } else {
+                showNotification('Usuario o contraseña incorrectos', 'danger');
+            }
+        }
+
+        function handleLogout() {
+            currentUser = null;
+            localStorage.removeItem('taskmaster_session');
+            document.getElementById('loginScreen').style.display = 'flex';
+            document.getElementById('app').style.display = 'none';
+            document.getElementById('loginForm').reset();
+            showNotification('Sesión cerrada correctamente', 'success');
+        }
+
+        // ==================== NAVEGACIÓN ====================
+        function switchPage(page) {
+            const adminPages = ['manage-tasks', 'reports-admin', 'users', 'export', 'inventory'];
+            
+            // Verificar permisos
+            if (adminPages.includes(page) && currentUser.role !== 'admin') {
+                showNotification('No tienes permisos para acceder a esta página', 'danger');
+                return;
+            }
+            
+            document.querySelectorAll('.nav-item').forEach(item => {
+                item.classList.toggle('active', item.getAttribute('data-page') === page);
+            });
+            
+            document.querySelectorAll('.page').forEach(p => {
+                p.classList.toggle('active', p.id === page);
+            });
+            
+            currentPage = page;
+            
+            if (page === 'dashboard') updateDashboard();
+            else if (page === 'tasks') loadMyTasks();
+            else if (page === 'manage-tasks') loadAllTasks();
+            else if (page === 'inventory') loadInventory();
+            else if (page === 'reports') populateTaskSelect();
+            else if (page === 'reports-admin') loadReports();
+            else if (page === 'users') updateUsersTable();
+            else if (page === 'export') loadExportPage();
+            else if (page === 'change-password') loadChangePasswordPage();
+        }
+
+        // ==================== DASHBOARD ====================
+        function updateDashboard() {
+            if (!currentUser) return;
+            
+            const userTasks = currentUser.role === 'worker' 
+                ? tasks.filter(task => task.assignee === currentUser.username)
+                : tasks;
+
+            document.getElementById('totalTasks').textContent = userTasks.length;
+            document.getElementById('pendingTasks').textContent = userTasks.filter(t => t.status === 'pending').length;
+            document.getElementById('inProgressTasks').textContent = userTasks.filter(t => t.status === 'in-progress').length;
+            document.getElementById('completedTasks').textContent = userTasks.filter(t => t.status === 'completed').length;
+            document.getElementById('totalReports').textContent = reports.filter(r => r.status === 'pending').length;
+            document.getElementById('totalMaterials').textContent = inventory.length;
+
+            // Actualizar alertas de stock bajo
+            updateLowStockAlerts();
+
+            const recentTasks = userTasks.slice(-5).reverse();
+            const tbody = document.getElementById('recentTasksTable');
+            tbody.innerHTML = '';
+            
+            if (recentTasks.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; padding: 2rem; color: var(--gray);">No hay tareas registradas</td></tr>';
+                return;
+            }
+            
+            recentTasks.forEach(task => {
+                const assignee = users.find(u => u.username === task.assignee);
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${sanitizeInput(task.name)}</td>
+                    <td>${assignee?.name || task.assignee}</td>
+                    <td>${formatDate(task.dueDate)}</td>
+                    <td><span class="badge badge-${task.status}">${getStatusText(task.status)}</span></td>
+                    <td><span class="badge badge-${task.urgency}">${getUrgencyText(task.urgency)}</span></td>
+                `;
+                tbody.appendChild(row);
+            });
+        }
+
+        function updateLowStockAlerts() {
+            const lowStockItems = inventory.filter(item => item.quantity <= item.minStock);
+            const alertContainer = document.getElementById('lowStockAlert');
+            const itemsContainer = document.getElementById('lowStockItems');
+            
+            if (lowStockItems.length === 0) {
+                alertContainer.style.display = 'none';
+                return;
+            }
+            
+            alertContainer.style.display = 'block';
+            itemsContainer.innerHTML = '';
+            
+            lowStockItems.forEach(item => {
+                const itemEl = document.createElement('div');
+                itemEl.className = 'assignment-item';
+                itemEl.innerHTML = `
+                    <div>
+                        <strong>${sanitizeInput(item.name)}</strong>
+                        <div style="color: var(--gray); font-size: 0.9rem;">
+                            Stock: ${item.quantity} ${item.unit} | Mínimo: ${item.minStock} ${item.unit}
+                        </div>
+                    </div>
+                    <span class="badge badge-danger">Stock Bajo</span>
+                `;
+                itemsContainer.appendChild(itemEl);
+            });
+        }
+
+        // ==================== GESTIÓN DE TAREAS ====================
+        function loadMyTasks() {
+            const userTasks = currentUser.role === 'worker'
+                ? tasks.filter(task => task.assignee === currentUser.username)
+                : tasks;
+            
+            updateMyTasksCards(userTasks, 'all');
+            updateMyTasksCards(userTasks.filter(t => t.status === 'pending'), 'pending');
+            updateMyTasksCards(userTasks.filter(t => t.status === 'in-progress'), 'in-progress');
+            updateMyTasksCards(userTasks.filter(t => t.status === 'completed'), 'completed');
+        }
+
+        function updateMyTasksCards(taskList, currentFilter = 'all') {
+            const container = document.getElementById(`tab-${currentFilter}`);
+            
+            if (!container) {
+                console.error(`Contenedor no encontrado: tab-${currentFilter}`);
+                return;
+            }
+            
+            container.innerHTML = '';
+
+            if (taskList.length === 0) {
+                let message = 'No hay tareas disponibles';
+                if (currentFilter === 'pending') message = 'No hay tareas pendientes';
+                else if (currentFilter === 'in-progress') message = 'No hay tareas en progreso';
+                else if (currentFilter === 'completed') message = 'No hay tareas completadas';
+                
+                container.innerHTML = `<div class="card" style="text-align: center; padding: 2rem; color: var(--gray);">${message}</div>`;
+                return;
+            }
+
+            taskList.forEach(task => {
+                const assignee = users.find(u => u.username === task.assignee);
+
+                // Determinar el color del badge según el estado
+                let statusBadgeClass = 'badge-pending';
+                let statusText = 'Pendiente';
+                
+                if (task.status === 'in-progress') {
+                    statusBadgeClass = 'badge-in-progress';
+                    statusText = 'En Progreso';
+                } else if (task.status === 'completed') {
+                    statusBadgeClass = 'badge-completed';
+                    statusText = 'Terminada';
+                }
+
+                // Mostrar materiales asignados
+                let materialsHtml = '';
+                if (task.materials && task.materials.length > 0) {
+                    materialsHtml = `
+                        <div class="material-assignment">
+                            <strong>Materiales asignados:</strong>
+                            ${task.materials.map(material => {
+                                const mat = inventory.find(m => m.id === material.materialId);
+                                return mat ? `
+                                    <div class="assignment-item">
+                                        <span>${mat.name} - ${material.quantity} ${mat.unit}</span>
+                                        <span class="badge ${material.delivered ? 'badge-success' : 'badge-pending'}">
+                                            ${material.delivered ? 'Entregado' : 'Pendiente'}
+                                        </span>
+                                    </div>
+                                ` : '';
+                            }).join('')}
+                        </div>
+                    `;
+                }
+
+                const card = document.createElement('div');
+                card.className = `task-card ${task.urgency}`;
+                
+                card.innerHTML = `
+                    <div class="task-header">
+                        <div style="flex: 1;">
+                            <div class="task-title">${sanitizeInput(task.name)}</div>
+                            <div class="task-description">${sanitizeInput(task.description)}</div>
+                            
+                            ${task.image ? `
+                            <div style="margin-top: 10px; text-align: center;">
+                                <img src="${task.image}" alt="Imagen de la tarea" 
+                                     style="max-width: 100%; max-height: 150px; border-radius: 8px; border: 2px solid #ddd;">
+                            </div>
+                            ` : ''}
+                            
+                        </div>
+                        <div style="display: flex; flex-direction: column; gap: 5px; align-items: flex-end;">
+                            <span class="badge badge-${task.urgency}">${getUrgencyText(task.urgency)}</span>
+                            <span class="badge ${statusBadgeClass}">${statusText}</span>
+                        </div>
+                    </div>
+                    <div class="task-meta">
+                        <div class="task-meta-item">
+                            <i class="fas fa-user"></i>
+                            <span>${assignee?.name || task.assignee}</span>
+                        </div>
+                        <div class="task-meta-item">
+                            <i class="fas fa-calendar"></i>
+                            <span>${formatDate(task.dueDate)}</span>
+                        </div>
+                        <div class="task-meta-item">
+                            <i class="fas fa-flag"></i>
+                            <span>${getStatusText(task.status)}</span>
+                        </div>
+                    </div>
+                    ${materialsHtml}
+                    <div class="task-actions">
+                        <select class="form-select task-status" data-task-id="${task.id}" style="flex: 1;">
+                            <option value="pending" ${task.status === 'pending' ? 'selected' : ''}>Pendiente</option>
+                            <option value="in-progress" ${task.status === 'in-progress' ? 'selected' : ''}>En Progreso</option>
+                            <option value="completed" ${task.status === 'completed' ? 'selected' : ''}>Terminada</option>
+                        </select>
+                        <button class="btn btn-outline report-problem-btn" data-task-id="${task.id}">
+                            <i class="fas fa-flag"></i> Reportar
+                        </button>
+                    </div>
+                `;
+                container.appendChild(card);
+            });
+
+            // Agregar event listeners
+            container.querySelectorAll('.task-status').forEach(select => {
+                select.addEventListener('change', function() {
+                    const taskId = this.getAttribute('data-task-id');
+                    updateTaskStatus(taskId, this.value);
+                });
+            });
+
+            container.querySelectorAll('.report-problem-btn').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    const taskId = this.getAttribute('data-task-id');
+                    switchPage('reports');
+                    document.getElementById('taskSelect').value = taskId;
+                });
+            });
+        }
+
+        function updateTaskStatus(taskId, newStatus) {
+            const taskIndex = tasks.findIndex(t => t.id == taskId);
+            if (taskIndex !== -1) {
+                tasks[taskIndex].status = newStatus;
+                tasks[taskIndex].updatedAt = new Date().toISOString();
+                
+                saveTasks();
+                showNotification(`Estado actualizado a: ${getStatusText(newStatus)}`, 'success');
+                
+                if (currentPage === 'tasks') {
+                    loadMyTasks();
+                } else if (currentPage === 'manage-tasks') {
+                    loadAllTasks();
+                }
+                updateDashboard();
+            }
+        }
+
+        // ==================== CORRECCIÓN: FUNCIÓN LOAD ALL TASKS MEJORADA ====================
+        function loadAllTasks() {
+            const tbody = document.getElementById('allTasksTable');
+            tbody.innerHTML = '';
+
+            if (tasks.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 2rem; color: var(--gray);">No hay tareas registradas</td></tr>';
+                return;
+            }
+
+            tasks.forEach(task => {
+                const assignee = users.find(u => u.username === task.assignee);
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>
+                        <div><strong>${sanitizeInput(task.name)}</strong></div>
+                        <div style="font-size: 0.9rem; color: var(--gray);">${sanitizeInput(task.description).substring(0, 50)}...</div>
+                    </td>
+                    <td>${assignee?.name || task.assignee}</td>
+                    <td>${formatDate(task.dueDate)}</td>
+                    <td><span class="badge badge-${task.status}">${getStatusText(task.status)}</span></td>
+                    <td><span class="badge badge-${task.urgency}">${getUrgencyText(task.urgency)}</span></td>
+                    <td style="white-space: nowrap;">
+                        <button class="btn btn-outline edit-task-btn" data-task-id="${task.id}" style="margin-bottom: 5px;">
+                            <i class="fas fa-edit"></i> Editar
+                        </button>
+                        ${currentUser.role === 'admin' ? `
+                        <button class="btn btn-outline assign-materials-btn" data-task-id="${task.id}" style="margin-bottom: 5px;">
+                            <i class="fas fa-boxes"></i> Materiales
+                        </button>
+                        <button class="btn btn-danger delete-task-btn" data-task-id="${task.id}">
+                            <i class="fas fa-trash"></i> Eliminar
+                        </button>
+                        ` : ''}
+                    </td>
+                `;
+                tbody.appendChild(row);
+            });
+
+            // CORRECCIÓN: Agregar event listeners inmediatamente después de crear la tabla
+            addTaskTableEventListeners();
+        }
+
+        // CORRECCIÓN: Función separada para agregar event listeners
+        function addTaskTableEventListeners() {
+            // Limpiar event listeners anteriores
+            document.querySelectorAll('.edit-task-btn').forEach(btn => {
+                btn.replaceWith(btn.cloneNode(true));
+            });
+            document.querySelectorAll('.assign-materials-btn').forEach(btn => {
+                btn.replaceWith(btn.cloneNode(true));
+            });
+            document.querySelectorAll('.delete-task-btn').forEach(btn => {
+                btn.replaceWith(btn.cloneNode(true));
+            });
+
+            // Agregar nuevos event listeners
+            document.querySelectorAll('.edit-task-btn').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    const taskId = this.getAttribute('data-task-id');
+                    console.log('Editando tarea:', taskId);
+                    openEditTaskModal(taskId);
+                });
+            });
+
+            document.querySelectorAll('.assign-materials-btn').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    const taskId = this.getAttribute('data-task-id');
+                    console.log('Asignando materiales a tarea:', taskId);
+                    openAssignMaterialsModal(taskId);
+                });
+            });
+
+            if (currentUser.role === 'admin') {
+                document.querySelectorAll('.delete-task-btn').forEach(btn => {
+                    btn.addEventListener('click', function() {
+                        const taskId = this.getAttribute('data-task-id');
+                        console.log('Eliminando tarea:', taskId);
+                        deleteTask(taskId);
+                    });
+                });
+            }
+        }
+
+        // ==================== GESTIÓN DE INVENTARIO ====================
+        function loadInventory() {
+            updateInventoryStats();
+            
+            const container = document.getElementById('inventoryContainer');
+            container.innerHTML = '';
+
+            if (inventory.length === 0) {
+                container.innerHTML = '<div class="card" style="text-align: center; padding: 2rem; color: var(--gray);">No hay materiales en inventario</div>';
+                return;
+            }
+
+            const searchTerm = document.getElementById('searchMaterial').value.toLowerCase();
+            const filteredInventory = inventory.filter(item => 
+                item.name.toLowerCase().includes(searchTerm) ||
+                item.category.toLowerCase().includes(searchTerm) ||
+                item.description.toLowerCase().includes(searchTerm)
+            );
+
+            if (filteredInventory.length === 0) {
+                container.innerHTML = '<div class="card" style="text-align: center; padding: 2rem; color: var(--gray);">No se encontraron materiales</div>';
+                return;
+            }
+
+            filteredInventory.forEach(item => {
+                const stockStatus = item.quantity <= item.minStock ? 'low' : 
+                                  item.quantity <= item.minStock * 2 ? 'medium' : 'good';
+                const stockClass = stockStatus === 'low' ? 'low-stock' : 
+                                 stockStatus === 'medium' ? 'medium-stock' : 'good-stock';
+                
+                const card = document.createElement('div');
+                card.className = 'inventory-card';
+                
+                card.innerHTML = `
+                    <div class="inventory-header">
+                        <div class="inventory-title">${sanitizeInput(item.name)}</div>
+                        <div>
+                            <span class="badge" style="background: #f0f0f0; color: var(--dark);">${item.category}</span>
+                            <span class="badge ${stockClass}">${item.quantity} ${item.unit}</span>
+                        </div>
+                    </div>
+                    <div class="task-description">${sanitizeInput(item.description)}</div>
+                    <div class="task-meta">
+                        <div class="task-meta-item">
+                            <i class="fas fa-warehouse"></i>
+                            <span>${item.location || 'Sin ubicación'}</span>
+                        </div>
+                        <div class="task-meta-item">
+                            <i class="fas fa-truck"></i>
+                            <span>${item.supplier || 'Sin proveedor'}</span>
+                        </div>
+                        <div class="task-meta-item">
+                            <i class="fas fa-dollar-sign"></i>
+                            <span>${item.cost ? `$${item.cost.toFixed(2)}` : 'Sin costo'}</span>
+                        </div>
+                    </div>
+                    <div class="quantity-controls" style="margin-top: 1rem;">
+                        <button class="quantity-btn decrease-btn" data-material-id="${item.id}">
+                            <i class="fas fa-minus"></i>
+                        </button>
+                        <span class="quantity-display">${item.quantity}</span>
+                        <button class="quantity-btn increase-btn" data-material-id="${item.id}">
+                            <i class="fas fa-plus"></i>
+                        </button>
+                        <span style="margin-left: 10px; color: var(--gray);">${item.unit}</span>
+                    </div>
+                    <div class="task-actions">
+                        <button class="btn btn-outline edit-material-btn" data-material-id="${item.id}">
+                            <i class="fas fa-edit"></i> Editar
+                        </button>
+                        <button class="btn btn-danger delete-material-btn" data-material-id="${item.id}">
+                            <i class="fas fa-trash"></i> Eliminar
+                        </button>
+                    </div>
+                `;
+                container.appendChild(card);
+            });
+
+            // Event listeners para botones de cantidad
+            document.querySelectorAll('.decrease-btn').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    const materialId = this.getAttribute('data-material-id');
+                    updateMaterialQuantity(materialId, -1);
+                });
+            });
+
+            document.querySelectorAll('.increase-btn').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    const materialId = this.getAttribute('data-material-id');
+                    updateMaterialQuantity(materialId, 1);
+                });
+            });
+
+            document.querySelectorAll('.edit-material-btn').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    const materialId = this.getAttribute('data-material-id');
+                    openEditMaterialModal(materialId);
+                });
+            });
+
+            document.querySelectorAll('.delete-material-btn').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    const materialId = this.getAttribute('data-material-id');
+                    deleteMaterial(materialId);
+                });
+            });
+        }
+
+        function updateMaterialQuantity(materialId, change) {
+            const materialIndex = inventory.findIndex(m => m.id === materialId);
+            if (materialIndex !== -1) {
+                const newQuantity = inventory[materialIndex].quantity + change;
+                if (newQuantity >= 0) {
+                    inventory[materialIndex].quantity = newQuantity;
+                    saveInventory();
+                    loadInventory();
+                    updateDashboard();
+                    showNotification(`Cantidad actualizada: ${newQuantity}`, 'success');
+                } else {
+                    showNotification('La cantidad no puede ser menor a 0', 'warning');
+                }
+            }
+        }
+
+        function updateInventoryStats() {
+            const totalItems = inventory.length;
+            const goodStock = inventory.filter(item => item.quantity > item.minStock * 2).length;
+            const mediumStock = inventory.filter(item => item.quantity > item.minStock && item.quantity <= item.minStock * 2).length;
+            const lowStock = inventory.filter(item => item.quantity <= item.minStock).length;
+            
+            document.getElementById('totalItems').textContent = totalItems;
+            document.getElementById('goodStock').textContent = goodStock;
+            document.getElementById('mediumStock').textContent = mediumStock;
+            document.getElementById('lowStock').textContent = lowStock;
+        }
+
+        // ==================== FUNCIONES FALTANTES ====================
+        // Función para abrir el modal de edición de tarea
+        function openEditTaskModal(taskId) {
+            const task = tasks.find(t => t.id === taskId);
+            if (!task) {
+                showNotification('Tarea no encontrada', 'danger');
+                return;
+            }
+            
+            console.log('Abriendo modal para editar tarea:', taskId);
+            
+            // Llenar el formulario con los datos de la tarea
+            document.getElementById('taskName').value = task.name;
+            document.getElementById('taskDescription').value = task.description;
+            document.getElementById('taskAssignee').value = task.assignee;
+            document.getElementById('taskStartDate').value = task.startDate;
+            document.getElementById('taskDueDate').value = task.dueDate;
+            document.getElementById('taskUrgency').value = task.urgency;
+            
+            // Llenar el select de trabajadores
+            const taskAssignee = document.getElementById('taskAssignee');
+            taskAssignee.innerHTML = '<option value="">Selecciona un trabajador</option>';
+            users.filter(u => u.role === 'worker').forEach(user => {
+                const option = document.createElement('option');
+                option.value = user.username;
+                option.textContent = user.name;
+                taskAssignee.appendChild(option);
+            });
+            
+            // Llenar el select de materiales
+            const materialSelect = document.getElementById('materialSelect');
+            materialSelect.innerHTML = '<option value="">Seleccionar material</option>';
+            inventory.forEach(material => {
+                const option = document.createElement('option');
+                option.value = material.id;
+                option.textContent = `${material.name} (${material.quantity} ${material.unit} disponible)`;
+                materialSelect.appendChild(option);
+            });
+            
+            // Limpiar y llenar la lista de materiales
+            const materialsList = document.getElementById('taskMaterialsList');
+            materialsList.innerHTML = '';
+            
+            if (task.materials && task.materials.length > 0) {
+                task.materials.forEach(material => {
+                    const mat = inventory.find(m => m.id === material.materialId);
+                    if (mat) {
+                        const item = document.createElement('div');
+                        item.className = 'assignment-item';
+                        item.innerHTML = `
+                            <span>${mat.name} - ${material.quantity} ${mat.unit}</span>
+                            <button class="btn btn-danger btn-sm remove-material-btn" data-material-id="${material.materialId}">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        `;
+                        materialsList.appendChild(item);
+                    }
+                });
+            }
+            
+            // Mostrar el modal
+            document.getElementById('addTaskModal').classList.add('active');
+            
+            // Configurar el botón de guardar para actualizar la tarea
+            document.getElementById('saveTaskBtn').onclick = function() {
+                updateTask(taskId);
+            };
+        }
+
+        // Función para actualizar una tarea
+        function updateTask(taskId) {
+            const taskIndex = tasks.findIndex(t => t.id === taskId);
+            if (taskIndex === -1) return;
+            
+            const taskName = document.getElementById('taskName').value;
+            const taskDescription = document.getElementById('taskDescription').value;
+            const taskAssignee = document.getElementById('taskAssignee').value;
+            const taskStartDate = document.getElementById('taskStartDate').value;
+            const taskDueDate = document.getElementById('taskDueDate').value;
+            const taskUrgency = document.getElementById('taskUrgency').value;
+            
+            if (!taskName || !taskDescription || !taskAssignee || !taskStartDate || !taskDueDate) {
+                showNotification('Completa todos los campos obligatorios', 'warning');
+                return;
+            }
+            
+            // Recopilar materiales
+            const materials = [];
+            const materialsList = document.getElementById('taskMaterialsList');
+            materialsList.querySelectorAll('.assignment-item').forEach(item => {
+                const text = item.textContent.trim();
+                const match = text.match(/(.+) - (\d+) (.+)/);
+                if (match) {
+                    const materialName = match[1];
+                    const quantity = parseInt(match[2]);
+                    const unit = match[3];
+                    
+                    const material = inventory.find(m => m.name === materialName);
+                    if (material) {
+                        materials.push({
+                            materialId: material.id,
+                            quantity: quantity,
+                            delivered: false
+                        });
+                    }
+                }
+            });
+            
+            // Actualizar la tarea
+            tasks[taskIndex] = {
+                ...tasks[taskIndex],
+                name: taskName,
+                description: taskDescription,
+                assignee: taskAssignee,
+                startDate: taskStartDate,
+                dueDate: taskDueDate,
+                urgency: taskUrgency,
+                materials: materials,
+                updatedAt: new Date().toISOString()
+            };
+            
+            saveTasks();
+            showNotification('Tarea actualizada correctamente', 'success');
+            document.getElementById('addTaskModal').classList.remove('active');
+            
+            if (currentPage === 'manage-tasks') {
+                loadAllTasks();
+            }
+            updateDashboard();
+        }
+
+        // Función para eliminar una tarea
+        function deleteTask(taskId) {
+            if (confirm('¿Estás seguro de que quieres eliminar esta tarea?')) {
+                tasks = tasks.filter(t => t.id !== taskId);
+                saveTasks();
+                showNotification('Tarea eliminada correctamente', 'success');
+                
+                if (currentPage === 'manage-tasks') {
+                    loadAllTasks();
+                }
+                updateDashboard();
+            }
+        }
+
+        // Función para abrir el modal de edición de material
+        function openEditMaterialModal(materialId) {
+            const material = inventory.find(m => m.id === materialId);
+            if (!material) return;
+            
+            // Llenar el formulario con los datos del material
+            document.getElementById('materialNameModal').value = material.name;
+            document.getElementById('materialCategory').value = material.category;
+            document.getElementById('materialQuantityModal').value = material.quantity;
+            document.getElementById('materialUnit').value = material.unit;
+            document.getElementById('materialMinStock').value = material.minStock;
+            document.getElementById('materialSupplier').value = material.supplier || '';
+            document.getElementById('materialCost').value = material.cost || '';
+            document.getElementById('materialLocation').value = material.location || '';
+            document.getElementById('materialDescription').value = material.description || '';
+            
+            // Mostrar el modal
+            document.getElementById('addMaterialModal').classList.add('active');
+            
+            // Configurar el botón de guardar para actualizar el material
+            document.getElementById('saveMaterialBtn').onclick = function() {
+                updateMaterial(materialId);
+            };
+        }
+
+        // Función para actualizar un material
+        function updateMaterial(materialId) {
+            const materialIndex = inventory.findIndex(m => m.id === materialId);
+            if (materialIndex === -1) return;
+            
+            const materialName = document.getElementById('materialNameModal').value;
+            const materialCategory = document.getElementById('materialCategory').value;
+            const materialQuantity = parseInt(document.getElementById('materialQuantityModal').value);
+            const materialUnit = document.getElementById('materialUnit').value;
+            const materialMinStock = parseInt(document.getElementById('materialMinStock').value);
+            const materialSupplier = document.getElementById('materialSupplier').value;
+            const materialCost = parseFloat(document.getElementById('materialCost').value) || 0;
+            const materialLocation = document.getElementById('materialLocation').value;
+            const materialDescription = document.getElementById('materialDescription').value;
+            
+            if (!materialName || !materialCategory || isNaN(materialQuantity) || !materialUnit || isNaN(materialMinStock)) {
+                showNotification('Completa todos los campos obligatorios', 'warning');
+                return;
+            }
+            
+            // Actualizar el material
+            inventory[materialIndex] = {
+                ...inventory[materialIndex],
+                name: materialName,
+                category: materialCategory,
+                quantity: materialQuantity,
+                unit: materialUnit,
+                minStock: materialMinStock,
+                supplier: materialSupplier,
+                cost: materialCost,
+                location: materialLocation,
+                description: materialDescription
+            };
+            
+            saveInventory();
+            showNotification('Material actualizado correctamente', 'success');
+            document.getElementById('addMaterialModal').classList.remove('active');
+            loadInventory();
+            updateDashboard();
+        }
+
+        // Función para eliminar un material
+        function deleteMaterial(materialId) {
+            if (confirm('¿Estás seguro de que quieres eliminar este material?')) {
+                // Verificar si el material está siendo usado en alguna tarea
+                const isUsedInTasks = tasks.some(task => 
+                    task.materials && task.materials.some(m => m.materialId === materialId)
+                );
+                
+                if (isUsedInTasks) {
+                    showNotification('No se puede eliminar el material porque está siendo usado en una tarea', 'danger');
+                    return;
+                }
+                
+                inventory = inventory.filter(m => m.id !== materialId);
+                saveInventory();
+                showNotification('Material eliminado correctamente', 'success');
+                loadInventory();
+                updateDashboard();
+            }
+        }
+
+        // ==================== ASIGNACIÓN DE MATERIALES ====================
+        function openAssignMaterialsModal(taskId) {
+            const task = tasks.find(t => t.id === taskId);
+            if (!task) {
+                showNotification('Tarea no encontrada', 'danger');
+                return;
+            }
+            
+            console.log('Abriendo modal para asignar materiales a tarea:', taskId);
+            
+            const content = document.getElementById('assignMaterialsContent');
+            content.innerHTML = `
+                <h3 style="margin-bottom: 1rem;">Asignar materiales a: ${sanitizeInput(task.name)}</h3>
+                <div class="material-assignment">
+                    <div class="assignment-form">
+                        <select class="form-select" id="assignMaterialSelect">
+                            <option value="">Seleccionar material</option>
+                        </select>
+                        <input type="number" class="form-control" id="assignMaterialQuantity" placeholder="Cantidad" min="1">
+                        <button type="button" class="btn btn-outline" id="addAssignMaterialBtn">
+                            <i class="fas fa-plus"></i> Agregar
+                        </button>
+                    </div>
+                    <div id="assignMaterialsList" style="margin-top: 1rem;"></div>
+                </div>
+            `;
+            
+            // Llenar select de materiales
+            const materialSelect = document.getElementById('assignMaterialSelect');
+            materialSelect.innerHTML = '<option value="">Seleccionar material</option>';
+            inventory.forEach(material => {
+                const option = document.createElement('option');
+                option.value = material.id;
+                option.textContent = `${material.name} (${material.quantity} ${material.unit} disponible)`;
+                materialSelect.appendChild(option);
+            });
+            
+            // Mostrar materiales ya asignados
+            const materialsList = document.getElementById('assignMaterialsList');
+            if (task.materials && task.materials.length > 0) {
+                task.materials.forEach(material => {
+                    const mat = inventory.find(m => m.id === material.materialId);
+                    if (mat) {
+                        const item = document.createElement('div');
+                        item.className = 'assignment-item';
+                        item.innerHTML = `
+                            <span>${mat.name} - ${material.quantity} ${mat.unit}</span>
+                            <button class="btn btn-danger btn-sm remove-material-btn" data-material-id="${material.materialId}">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        `;
+                        materialsList.appendChild(item);
+                    }
+                });
+            }
+            
+            // Event listener para agregar material
+            document.getElementById('addAssignMaterialBtn').addEventListener('click', function() {
+                const materialId = materialSelect.value;
+                const quantity = parseInt(document.getElementById('assignMaterialQuantity').value);
+                
+                if (!materialId || !quantity || quantity <= 0) {
+                    showNotification('Selecciona un material y una cantidad válida', 'warning');
+                    return;
+                }
+                
+                const material = inventory.find(m => m.id === materialId);
+                if (quantity > material.quantity) {
+                    showNotification(`No hay suficiente stock. Disponible: ${material.quantity} ${material.unit}`, 'danger');
+                    return;
+                }
+                
+                // Agregar a la lista visual
+                const item = document.createElement('div');
+                item.className = 'assignment-item';
+                item.innerHTML = `
+                    <span>${material.name} - ${quantity} ${material.unit}</span>
+                    <button class="btn btn-danger btn-sm remove-material-btn" data-material-id="${materialId}">
+                        <i class="fas fa-times"></i>
+                    </button>
+                `;
+                materialsList.appendChild(item);
+                
+                // Limpiar formulario
+                materialSelect.value = '';
+                document.getElementById('assignMaterialQuantity').value = '';
+                
+                // Agregar event listener al botón de eliminar
+                item.querySelector('.remove-material-btn').addEventListener('click', function() {
+                    item.remove();
+                });
+            });
+            
+            // Event listeners para botones de eliminar existentes
+            document.querySelectorAll('.remove-material-btn').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    this.closest('.assignment-item').remove();
+                });
+            });
+            
+            // Mostrar modal
+            document.getElementById('assignMaterialsModal').classList.add('active');
+            
+            // Guardar materiales al hacer clic en guardar
+            document.getElementById('saveAssignBtn').onclick = function() {
+                const materials = [];
+                materialsList.querySelectorAll('.assignment-item').forEach(item => {
+                    const text = item.textContent.trim();
+                    const match = text.match(/(.+) - (\d+) (.+)/);
+                    if (match) {
+                        const materialName = match[1];
+                        const quantity = parseInt(match[2]);
+                        const unit = match[3];
+                        
+                        const material = inventory.find(m => m.name === materialName);
+                        if (material) {
+                            materials.push({
+                                materialId: material.id,
+                                quantity: quantity,
+                                delivered: false
+                            });
+                            
+                            // Descontar del inventario
+                            const materialIndex = inventory.findIndex(m => m.id === material.id);
+                            if (materialIndex !== -1) {
+                                inventory[materialIndex].quantity -= quantity;
+                            }
+                        }
+                    }
+                });
+                
+                // Actualizar tarea
+                const taskIndex = tasks.findIndex(t => t.id === taskId);
+                if (taskIndex !== -1) {
+                    tasks[taskIndex].materials = materials;
+                    saveTasks();
+                    saveInventory();
+                    showNotification('Materiales asignados correctamente', 'success');
+                    document.getElementById('assignMaterialsModal').classList.remove('active');
+                    
+                    if (currentPage === 'manage-tasks') {
+                        loadAllTasks();
+                    }
+                    updateDashboard();
+                }
+            };
+        }
+
+        // ==================== FUNCIONES RESTANTES ====================
+        function loadUserData() {
+            loadData();
+            updateDashboard();
+            
+            // Mostrar fecha actual
+            const now = new Date();
+            document.getElementById('currentDate').textContent = now.toLocaleDateString('es-ES', {
+                weekday: 'long',
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric'
+            });
+        }
+
+        function populateTaskSelect() {
+            const taskSelect = document.getElementById('taskSelect');
+            taskSelect.innerHTML = '<option value="">Selecciona una tarea (opcional)</option>';
+            
+            const userTasks = currentUser.role === 'worker'
+                ? tasks.filter(task => task.assignee === currentUser.username)
+                : tasks;
+            
+            userTasks.forEach(task => {
+                const option = document.createElement('option');
+                option.value = task.id;
+                option.textContent = task.name;
+                taskSelect.appendChild(option);
+            });
+        }
+
+        function loadReports() {
+            // Implementar carga de reportes
+            const container = document.getElementById('reportsContainer');
+            container.innerHTML = '<div style="text-align: center; padding: 2rem; color: var(--gray);">Funcionalidad en desarrollo</div>';
+        }
+
+        function updateUsersTable() {
+            // Implementar actualización de tabla de usuarios
+            const tbody = document.getElementById('usersTable');
+            tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; padding: 2rem; color: var(--gray);">Funcionalidad en desarrollo</td></tr>';
+        }
+
+        function loadExportPage() {
+            // Implementar carga de página de exportación
+            document.getElementById('previewSection').style.display = 'none';
+        }
+
+        function loadChangePasswordPage() {
+            // Implementar carga de página de cambio de contraseña
+            document.getElementById('currentUserDisplay').value = currentUser.username;
+        }
+
+        // ==================== INICIALIZACIÓN ====================
+        document.addEventListener('DOMContentLoaded', function() {
+            // Cargar datos
+            loadData();
+            
+            // Intentar cargar sesión
+            if (!loadSession()) {
+                document.getElementById('loginScreen').style.display = 'flex';
+                document.getElementById('app').style.display = 'none';
+            }
+            
+            // Event listeners
+            document.getElementById('loginForm').addEventListener('submit', handleLogin);
+            document.getElementById('logoutBtn').addEventListener('click', handleLogout);
+            document.getElementById('menuToggle').addEventListener('click', function() {
+                document.getElementById('sidebar').classList.toggle('active');
+            });
+            
+            // Navegación
+            document.querySelectorAll('.nav-item').forEach(item => {
+                item.addEventListener('click', function() {
+                    const page = this.getAttribute('data-page');
+                    switchPage(page);
+                    // Cerrar sidebar en móviles
+                    if (window.innerWidth <= 992) {
+                        document.getElementById('sidebar').classList.remove('active');
+                    }
+                });
+            });
+            
+            // Tabs
+            document.querySelectorAll('.tab').forEach(tab => {
+                tab.addEventListener('click', function() {
+                    const tabId = this.getAttribute('data-tab');
+                    
+                    // Actualizar tabs activos
+                    document.querySelectorAll('.tab').forEach(t => {
+                        t.classList.toggle('active', t === this);
+                    });
+                    
+                    // Mostrar contenido correspondiente
+                    document.querySelectorAll('.tab-content').forEach(content => {
+                        content.classList.toggle('active', content.id === `tab-${tabId}`);
+                    });
+                });
+            });
+            
+            // Botón para ver todas las tareas
+            document.getElementById('viewAllTasksBtn').addEventListener('click', function() {
+                switchPage('tasks');
+            });
+            
+            // Botón para agregar tarea
+            document.getElementById('addTaskBtn').addEventListener('click', function() {
+                // Limpiar formulario
+                document.getElementById('taskForm').reset();
+                
+                // Llenar select de trabajadores
+                const taskAssignee = document.getElementById('taskAssignee');
+                taskAssignee.innerHTML = '<option value="">Selecciona un trabajador</option>';
+                users.filter(u => u.role === 'worker').forEach(user => {
+                    const option = document.createElement('option');
+                    option.value = user.username;
+                    option.textContent = user.name;
+                    taskAssignee.appendChild(option);
+                });
+                
+                // Llenar select de materiales
+                const materialSelect = document.getElementById('materialSelect');
+                materialSelect.innerHTML = '<option value="">Seleccionar material</option>';
+                inventory.forEach(material => {
+                    const option = document.createElement('option');
+                    option.value = material.id;
+                    option.textContent = `${material.name} (${material.quantity} ${material.unit} disponible)`;
+                    materialSelect.appendChild(option);
+                });
+                
+                // Limpiar lista de materiales
+                document.getElementById('taskMaterialsList').innerHTML = '';
+                
+                // Mostrar modal
+                document.getElementById('addTaskModal').classList.add('active');
+                
+                // Configurar el botón de guardar para crear nueva tarea
+                document.getElementById('saveTaskBtn').onclick = function() {
+                    createNewTask();
+                };
+            });
+            
+            // Botón para agregar material
+            document.getElementById('addMaterialBtn').addEventListener('click', function() {
+                // Limpiar formulario
+                document.getElementById('materialForm').reset();
+                
+                // Mostrar modal
+                document.getElementById('addMaterialModal').classList.add('active');
+                
+                // Configurar el botón de guardar para crear nuevo material
+                document.getElementById('saveMaterialBtn').onclick = function() {
+                    createNewMaterial();
+                };
+            });
+            
+            // Cerrar modales
+            document.getElementById('closeTaskModal').addEventListener('click', function() {
+                document.getElementById('addTaskModal').classList.remove('active');
+            });
+            
+            document.getElementById('closeMaterialModal').addEventListener('click', function() {
+                document.getElementById('addMaterialModal').classList.remove('active');
+            });
+            
+            document.getElementById('closeAssignModal').addEventListener('click', function() {
+                document.getElementById('assignMaterialsModal').classList.remove('active');
+            });
+            
+            document.getElementById('cancelTaskBtn').addEventListener('click', function() {
+                document.getElementById('addTaskModal').classList.remove('active');
+            });
+            
+            document.getElementById('cancelMaterialBtn').addEventListener('click', function() {
+                document.getElementById('addMaterialModal').classList.remove('active');
+            });
+            
+            document.getElementById('cancelAssignBtn').addEventListener('click', function() {
+                document.getElementById('assignMaterialsModal').classList.remove('active');
+            });
+            
+            // Agregar material a tarea
+            document.getElementById('addMaterialToTask').addEventListener('click', function() {
+                const materialId = document.getElementById('materialSelect').value;
+                const quantity = parseInt(document.getElementById('materialQuantityTask').value);
+                
+                if (!materialId || !quantity || quantity <= 0) {
+                    showNotification('Selecciona un material y una cantidad válida', 'warning');
+                    return;
+                }
+                
+                const material = inventory.find(m => m.id === materialId);
+                if (quantity > material.quantity) {
+                    showNotification(`No hay suficiente stock. Disponible: ${material.quantity} ${material.unit}`, 'danger');
+                    return;
+                }
+                
+                // Agregar a la lista visual
+                const materialsList = document.getElementById('taskMaterialsList');
+                const item = document.createElement('div');
+                item.className = 'assignment-item';
+                item.innerHTML = `
+                    <span>${material.name} - ${quantity} ${material.unit}</span>
+                    <button class="btn btn-danger btn-sm remove-material-btn" data-material-id="${materialId}">
+                        <i class="fas fa-times"></i>
+                    </button>
+                `;
+                materialsList.appendChild(item);
+                
+                // Limpiar formulario
+                document.getElementById('materialSelect').value = '';
+                document.getElementById('materialQuantityTask').value = '';
+                
+                // Agregar event listener al botón de eliminar
+                item.querySelector('.remove-material-btn').addEventListener('click', function() {
+                    item.remove();
+                });
+            });
+            
+            // Búsqueda en inventario
+            document.getElementById('searchMaterial').addEventListener('input', function() {
+                loadInventory();
+            });
+            
+            // Cambio de tipo de exportación
+            document.getElementById('exportType').addEventListener('change', function() {
+                const dateRangeGroup = document.getElementById('dateRangeGroup');
+                if (this.value === 'date-range') {
+                    dateRangeGroup.style.display = 'block';
+                } else {
+                    dateRangeGroup.style.display = 'none';
+                }
+            });
+            
+            // Cambio de tipo de reporte
+            document.getElementById('reportType').addEventListener('change', function() {
+                const materialSection = document.getElementById('materialSection');
+                const equipmentSection = document.getElementById('equipmentSection');
+                
+                if (this.value === 'material') {
+                    materialSection.style.display = 'block';
+                    equipmentSection.style.display = 'none';
+                } else if (this.value === 'equipment') {
+                    materialSection.style.display = 'none';
+                    equipmentSection.style.display = 'block';
+                } else {
+                    materialSection.style.display = 'none';
+                    equipmentSection.style.display = 'none';
+                }
+            });
+        });
+
+        // ==================== FUNCIONES DE CREACIÓN ====================
+        function createNewTask() {
+            const taskName = document.getElementById('taskName').value;
+            const taskDescription = document.getElementById('taskDescription').value;
+            const taskAssignee = document.getElementById('taskAssignee').value;
+            const taskStartDate = document.getElementById('taskStartDate').value;
+            const taskDueDate = document.getElementById('taskDueDate').value;
+            const taskUrgency = document.getElementById('taskUrgency').value;
+            
+            if (!taskName || !taskDescription || !taskAssignee || !taskStartDate || !taskDueDate) {
+                showNotification('Completa todos los campos obligatorios', 'warning');
+                return;
+            }
+            
+            // Recopilar materiales
+            const materials = [];
+            const materialsList = document.getElementById('taskMaterialsList');
+            materialsList.querySelectorAll('.assignment-item').forEach(item => {
+                const text = item.textContent.trim();
+                const match = text.match(/(.+) - (\d+) (.+)/);
+                if (match) {
+                    const materialName = match[1];
+                    const quantity = parseInt(match[2]);
+                    const unit = match[3];
+                    
+                    const material = inventory.find(m => m.name === materialName);
+                    if (material) {
+                        materials.push({
+                            materialId: material.id,
+                            quantity: quantity,
+                            delivered: false
+                        });
+                        
+                        // Descontar del inventario
+                        const materialIndex = inventory.findIndex(m => m.id === material.id);
+                        if (materialIndex !== -1) {
+                            inventory[materialIndex].quantity -= quantity;
+                        }
+                    }
+                }
+            });
+            
+            // Crear nueva tarea
+            const newTask = {
+                id: generateId(),
+                name: taskName,
+                description: taskDescription,
+                assignee: taskAssignee,
+                startDate: taskStartDate,
+                dueDate: taskDueDate,
+                urgency: taskUrgency,
+                status: 'pending',
+                materials: materials,
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString()
+            };
+            
+            tasks.push(newTask);
+            saveTasks();
+            saveInventory();
+            showNotification('Tarea creada correctamente', 'success');
+            document.getElementById('addTaskModal').classList.remove('active');
+            
+            if (currentPage === 'manage-tasks') {
+                loadAllTasks();
+            }
+            updateDashboard();
+        }
+
+        function createNewMaterial() {
+            const materialName = document.getElementById('materialNameModal').value;
+            const materialCategory = document.getElementById('materialCategory').value;
+            const materialQuantity = parseInt(document.getElementById('materialQuantityModal').value);
+            const materialUnit = document.getElementById('materialUnit').value;
+            const materialMinStock = parseInt(document.getElementById('materialMinStock').value);
+            const materialSupplier = document.getElementById('materialSupplier').value;
+            const materialCost = parseFloat(document.getElementById('materialCost').value) || 0;
+            const materialLocation = document.getElementById('materialLocation').value;
+            const materialDescription = document.getElementById('materialDescription').value;
+            
+            if (!materialName || !materialCategory || isNaN(materialQuantity) || !materialUnit || isNaN(materialMinStock)) {
+                showNotification('Completa todos los campos obligatorios', 'warning');
+                return;
+            }
+            
+            // Crear nuevo material
+            const newMaterial = {
+                id: generateId(),
+                name: materialName,
+                category: materialCategory,
+                quantity: materialQuantity,
+                unit: materialUnit,
+                minStock: materialMinStock,
+                supplier: materialSupplier,
+                cost: materialCost,
+                location: materialLocation,
+                description: materialDescription
+            };
+            
+            inventory.push(newMaterial);
+            saveInventory();
+            showNotification('Material creado correctamente', 'success');
+            document.getElementById('addMaterialModal').classList.remove('active');
+            loadInventory();
+            updateDashboard();
+        }
+    </script>
+</body>
+</html>
+
