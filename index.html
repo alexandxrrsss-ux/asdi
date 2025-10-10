@@ -2873,7 +2873,126 @@
             // Agregar event listeners
             addTaskTableEventListeners();
         }
+// ==================== FUNCIÓN PARA ABRIR MODAL DE ASIGNACIÓN DE MATERIALES ====================
+function openAssignMaterialsModal(taskId) {
+    const task = tasks.find(t => t.id === taskId);
+    if (!task) {
+        showNotification('Tarea no encontrada', 'danger');
+        return;
+    }
 
+    const content = document.getElementById('assignMaterialsContent');
+    if (!content) return;
+
+    // Limpiar contenido anterior
+    content.innerHTML = '';
+
+    // Crear formulario para asignar materiales
+    const form = document.createElement('div');
+    form.innerHTML = `
+        <div class="form-group">
+            <label class="form-label">Tarea: <strong>${sanitizeInput(task.name)}</strong></label>
+        </div>
+        <div class="form-group">
+            <label class="form-label">Seleccionar Material</label>
+            <select class="form-select" id="assignMaterialSelect">
+                <option value="">Seleccionar material</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label class="form-label">Cantidad</label>
+            <input type="number" class="form-control" id="assignMaterialQuantity" placeholder="Cantidad" min="1" value="1">
+        </div>
+        <div class="form-group">
+            <button type="button" class="btn btn-outline" id="addAssignMaterialBtn">
+                <i class="fas fa-plus"></i> Agregar Material
+            </button>
+        </div>
+        <div class="material-assignment">
+            <h4>Materiales Asignados</h4>
+            <div id="assignedMaterialsList">
+                ${task.materials && task.materials.length > 0 ? 
+                    task.materials.map(material => {
+                        const mat = inventory.find(m => m.id === material.materialId);
+                        return mat ? `
+                            <div class="assignment-item" data-material-id="${material.materialId}">
+                                <div>
+                                    <strong>${mat.name}</strong>
+                                    <div style="color: var(--gray); font-size: 0.9rem;">
+                                        ${material.quantity} ${mat.unit} 
+                                        ${material.delivered ? '• Entregado' : '• Pendiente'}
+                                    </div>
+                                </div>
+                                <div>
+                                    <button class="btn btn-sm ${material.delivered ? 'btn-warning' : 'btn-success'} toggle-delivery-btn" 
+                                            data-material-id="${material.materialId}">
+                                        <i class="fas ${material.delivered ? 'fa-undo' : 'fa-check'}"></i>
+                                        ${material.delivered ? 'Marcar Pendiente' : 'Marcar Entregado'}
+                                    </button>
+                                    <button class="btn btn-danger btn-sm remove-assigned-material-btn" 
+                                            data-material-id="${material.materialId}">
+                                        <i class="fas fa-times"></i> Eliminar
+                                    </button>
+                                </div>
+                            </div>
+                        ` : '';
+                    }).join('') : 
+                    '<div style="text-align: center; padding: 1rem; color: var(--gray);">No hay materiales asignados</div>'
+                }
+            </div>
+        </div>
+    `;
+
+    content.appendChild(form);
+
+    // Llenar select de materiales
+    const materialSelect = document.getElementById('assignMaterialSelect');
+    if (materialSelect) {
+        materialSelect.innerHTML = '<option value="">Seleccionar material</option>';
+        inventory.forEach(material => {
+            const option = document.createElement('option');
+            option.value = material.id;
+            option.textContent = `${material.name} (${material.quantity} ${material.unit} disponible)`;
+            materialSelect.appendChild(option);
+        });
+    }
+
+    // Mostrar modal
+    const assignModal = document.getElementById('assignMaterialsModal');
+    if (assignModal) assignModal.classList.add('active');
+
+    // Configurar botones
+    const addAssignMaterialBtn = document.getElementById('addAssignMaterialBtn');
+    if (addAssignMaterialBtn) {
+        addAssignMaterialBtn.onclick = function() {
+            addMaterialToTaskAssignment(taskId);
+        };
+    }
+
+    const saveAssignBtn = document.getElementById('saveAssignBtn');
+    if (saveAssignBtn) {
+        saveAssignBtn.onclick = function() {
+            saveMaterialsAssignment(taskId);
+        };
+    }
+
+    // Agregar event listeners para los botones de materiales existentes
+    setTimeout(() => {
+        document.querySelectorAll('.toggle-delivery-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                const materialId = this.getAttribute('data-material-id');
+                toggleMaterialDelivery(taskId, materialId);
+            });
+        });
+
+        document.querySelectorAll('.remove-assigned-material-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                const materialId = this.getAttribute('data-material-id');
+                removeAssignedMaterial(taskId, materialId);
+            });
+        });
+    }, 100);
+}
         function addTaskTableEventListeners() {
             // Limpiar event listeners anteriores
             document.querySelectorAll('.edit-task-btn').forEach(btn => {
@@ -4710,4 +4829,5 @@ async function saveMaterialsAssignment(taskId) {
     </script>
 </body>
 </html>
+
 
