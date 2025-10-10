@@ -2257,7 +2257,12 @@
             ];
             
             for (const user of defaultUsers) {
-                await db.collection('users').doc(user.username).set(user);
+                await db.collection('users').doc(user.username).set({
+                    username: user.username,
+                    name: user.name,
+                    role: user.role,
+                    password: user.password
+                });
             }
             
             // Recargar usuarios
