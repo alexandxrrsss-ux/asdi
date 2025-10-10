@@ -1311,7 +1311,7 @@
             </div>
             <h2 class="login-title">Iniciar Sesión</h2>
             <div id="loginError" class="firebase-error" style="display: none;">
-                Error al conectar con Firebase. Usando modo offline.
+                Error al conectar con Firebase. Verifica tu conexión.
             </div>
             <form id="loginForm">
                 <div class="form-group">
@@ -2130,7 +2130,6 @@
         let inventory = [];
         let notifications = [];
         let currentPage = "dashboard";
-        let firebaseInitialized = false;
 
         // ==================== FUNCIONES DE UTILIDAD ====================
         function generateId() {
@@ -2194,8 +2193,6 @@
                 
                 // Verificar conexión a Firebase
                 await db.collection('test').doc('test').get();
-                firebaseInitialized = true;
-                document.getElementById('loginError').style.display = 'none';
                 
                 // Cargar usuarios desde Firebase
                 const usersSnapshot = await db.collection('users').get();
@@ -2246,11 +2243,8 @@
                 
             } catch (error) {
                 console.error('Error cargando datos de Firebase:', error);
-                firebaseInitialized = false;
                 document.getElementById('loginError').style.display = 'block';
-                
-                // Cargar datos por defecto desde localStorage como respaldo
-                loadDataFromLocalStorage();
+                document.getElementById('loginError').textContent = 'Error de conexión con Firebase. Verifica tu conexión a internet.';
                 hideLoading();
             }
         }
@@ -2323,195 +2317,88 @@
             });
         }
 
-        function loadDataFromLocalStorage() {
-            // Cargar usuarios
-            const savedUsers = localStorage.getItem('taskmaster_users');
-            const defaultUsers = [
-                { id: '1', username: "admin", name: "Administrador", role: "admin", password: "admin123" },
-                { id: '2', username: "juan", name: "Juan Pérez", role: "worker", password: "juan123" },
-                { id: '3', username: "maria", name: "María García", role: "worker", password: "maria123" }
-            ];
-            users = savedUsers ? JSON.parse(savedUsers) : defaultUsers;
-            
-            // Cargar tareas
-            const savedTasks = localStorage.getItem('taskmaster_tasks');
-            tasks = savedTasks ? JSON.parse(savedTasks) : [];
-            
-            // Cargar reportes
-            const savedReports = localStorage.getItem('taskmaster_reports');
-            reports = savedReports ? JSON.parse(savedReports) : [];
-            
-            // Cargar inventario
-            const savedInventory = localStorage.getItem('taskmaster_inventory');
-            const defaultInventory = [
-                {
-                    id: "mat-001",
-                    name: "Cable eléctrico 2.5mm",
-                    category: "Electricidad",
-                    quantity: 150,
-                    unit: "metros",
-                    minStock: 50,
-                    supplier: "Proveedor A",
-                    cost: 2.50,
-                    location: "Almacén A - Estante 3",
-                    description: "Cable eléctrico para instalaciones residenciales"
-                },
-                {
-                    id: "mat-002",
-                    name: "Tubería PVC 1/2\"",
-                    category: "Fontanería", 
-                    quantity: 80,
-                    unit: "metros",
-                    minStock: 30,
-                    supplier: "Proveedor B",
-                    cost: 1.80,
-                    location: "Almacén B - Estante 1",
-                    description: "Tubería para sistemas de agua"
-                },
-                {
-                    id: "mat-003",
-                    name: "Tornillos para madera 2\"",
-                    category: "Construcción",
-                    quantity: 500,
-                    unit: "unidades", 
-                    minStock: 200,
-                    supplier: "Proveedor C",
-                    cost: 0.15,
-                    location: "Almacén C - Estante 2",
-                    description: "Tornillos para trabajos en madera"
-                }
-            ];
-            inventory = savedInventory ? JSON.parse(savedInventory) : defaultInventory;
-            
-            // Cargar notificaciones
-            const savedNotifications = localStorage.getItem('taskmaster_notifications');
-            notifications = savedNotifications ? JSON.parse(savedNotifications) : [];
-            
-            // Guardar datos iniciales si no existían
-            if (!savedUsers) saveUsersToLocalStorage();
-            if (!savedInventory) saveInventoryToLocalStorage();
-            if (!savedNotifications) saveNotificationsToLocalStorage();
-        }
-
         // Funciones para guardar datos
         async function saveUsers() {
-            if (firebaseInitialized) {
-                try {
-                    for (const user of users) {
-                        await db.collection('users').doc(user.id || user.username).set({
-                            username: user.username,
-                            name: user.name,
-                            role: user.role,
-                            password: user.password
-                        });
-                    }
-                } catch (error) {
-                    console.error('Error guardando usuarios en Firebase:', error);
-                    saveUsersToLocalStorage();
+            try {
+                for (const user of users) {
+                    await db.collection('users').doc(user.id || user.username).set({
+                        username: user.username,
+                        name: user.name,
+                        role: user.role,
+                        password: user.password
+                    });
                 }
-            } else {
-                saveUsersToLocalStorage();
+            } catch (error) {
+                console.error('Error guardando usuarios en Firebase:', error);
+                throw error;
             }
         }
 
         async function saveTasks() {
-            if (firebaseInitialized) {
-                try {
-                    for (const task of tasks) {
-                        await db.collection('tasks').doc(task.id).set({
-                            name: task.name,
-                            description: task.description,
-                            assignee: task.assignee,
-                            startDate: task.startDate,
-                            dueDate: task.dueDate,
-                            urgency: task.urgency,
-                            status: task.status,
-                            materials: task.materials || [],
-                            createdAt: task.createdAt,
-                            updatedAt: task.updatedAt
-                        });
-                    }
-                } catch (error) {
-                    console.error('Error guardando tareas en Firebase:', error);
-                    saveTasksToLocalStorage();
+            try {
+                for (const task of tasks) {
+                    await db.collection('tasks').doc(task.id).set({
+                        name: task.name,
+                        description: task.description,
+                        assignee: task.assignee,
+                        startDate: task.startDate,
+                        dueDate: task.dueDate,
+                        urgency: task.urgency,
+                        status: task.status,
+                        materials: task.materials || [],
+                        createdAt: task.createdAt,
+                        updatedAt: task.updatedAt
+                    });
                 }
-            } else {
-                saveTasksToLocalStorage();
+            } catch (error) {
+                console.error('Error guardando tareas en Firebase:', error);
+                throw error;
             }
         }
 
         async function saveReports() {
-            if (firebaseInitialized) {
-                try {
-                    for (const report of reports) {
-                        await db.collection('reports').doc(report.id).set({
-                            type: report.type,
-                            taskId: report.taskId,
-                            title: report.title,
-                            description: report.description,
-                            urgency: report.urgency,
-                            blocksProgress: report.blocksProgress,
-                            requiredDate: report.requiredDate,
-                            additionalInfo: report.additionalInfo || {},
-                            reporter: report.reporter,
-                            status: report.status,
-                            createdAt: report.createdAt,
-                            resolvedAt: report.resolvedAt
-                        });
-                    }
-                } catch (error) {
-                    console.error('Error guardando reportes en Firebase:', error);
-                    saveReportsToLocalStorage();
+            try {
+                for (const report of reports) {
+                    await db.collection('reports').doc(report.id).set({
+                        type: report.type,
+                        taskId: report.taskId,
+                        title: report.title,
+                        description: report.description,
+                        urgency: report.urgency,
+                        blocksProgress: report.blocksProgress,
+                        requiredDate: report.requiredDate,
+                        additionalInfo: report.additionalInfo || {},
+                        reporter: report.reporter,
+                        status: report.status,
+                        createdAt: report.createdAt,
+                        resolvedAt: report.resolvedAt
+                    });
                 }
-            } else {
-                saveReportsToLocalStorage();
+            } catch (error) {
+                console.error('Error guardando reportes en Firebase:', error);
+                throw error;
             }
         }
 
         async function saveInventory() {
-            if (firebaseInitialized) {
-                try {
-                    for (const material of inventory) {
-                        await db.collection('inventory').doc(material.id).set({
-                            name: material.name,
-                            category: material.category,
-                            quantity: material.quantity,
-                            unit: material.unit,
-                            minStock: material.minStock,
-                            supplier: material.supplier,
-                            cost: material.cost,
-                            location: material.location,
-                            description: material.description
-                        });
-                    }
-                } catch (error) {
-                    console.error('Error guardando inventario en Firebase:', error);
-                    saveInventoryToLocalStorage();
+            try {
+                for (const material of inventory) {
+                    await db.collection('inventory').doc(material.id).set({
+                        name: material.name,
+                        category: material.category,
+                        quantity: material.quantity,
+                        unit: material.unit,
+                        minStock: material.minStock,
+                        supplier: material.supplier,
+                        cost: material.cost,
+                        location: material.location,
+                        description: material.description
+                    });
                 }
-            } else {
-                saveInventoryToLocalStorage();
+            } catch (error) {
+                console.error('Error guardando inventario en Firebase:', error);
+                throw error;
             }
-        }
-
-        // Funciones de respaldo para localStorage
-        function saveUsersToLocalStorage() {
-            localStorage.setItem('taskmaster_users', JSON.stringify(users));
-        }
-
-        function saveTasksToLocalStorage() {
-            localStorage.setItem('taskmaster_tasks', JSON.stringify(tasks));
-        }
-
-        function saveReportsToLocalStorage() {
-            localStorage.setItem('taskmaster_reports', JSON.stringify(reports));
-        }
-
-        function saveInventoryToLocalStorage() {
-            localStorage.setItem('taskmaster_inventory', JSON.stringify(inventory));
-        }
-
-        function saveNotificationsToLocalStorage() {
-            localStorage.setItem('taskmaster_notifications', JSON.stringify(notifications));
         }
 
         // ==================== LOGIN ====================
@@ -3594,454 +3481,6 @@
             }
         }
 
-        // ==================== SISTEMA DE EXPORTACIÓN MEJORADO ====================
-        function loadExportPage() {
-            document.getElementById('previewSection').style.display = 'none';
-            
-            // Configurar fechas por defecto
-            const today = new Date();
-            const oneWeekAgo = new Date(today);
-            oneWeekAgo.setDate(today.getDate() - 7);
-            
-            document.getElementById('startDate').value = oneWeekAgo.toISOString().split('T')[0];
-            document.getElementById('endDate').value = today.toISOString().split('T')[0];
-        }
-
-        function exportData() {
-            const exportType = document.getElementById('exportType').value;
-            const exportFormat = document.getElementById('exportFormat').value;
-            const startDate = document.getElementById('startDate').value;
-            const endDate = document.getElementById('endDate').value;
-            
-            let dataToExport = [];
-            
-            // Filtrar datos según el tipo de exportación
-            if (exportType === 'all') {
-                dataToExport = getAllExportData();
-            } else if (exportType === 'tasks') {
-                dataToExport = getTasksExportData();
-            } else if (exportType === 'reports') {
-                dataToExport = getReportsExportData();
-            } else if (exportType === 'inventory') {
-                dataToExport = getInventoryExportData();
-            } else if (exportType === 'completed') {
-                dataToExport = getAllExportData().filter(item => 
-                    item.tipo === 'tarea' ? item.estado === 'Terminada' : true
-                );
-            } else if (exportType === 'pending') {
-                dataToExport = getAllExportData().filter(item => 
-                    item.tipo === 'tarea' ? item.estado !== 'Terminada' : true
-                );
-            } else if (exportType === 'date-range') {
-                if (!startDate || !endDate) {
-                    showNotification('Selecciona un rango de fechas válido', 'warning');
-                    return;
-                }
-                dataToExport = getAllExportData().filter(item => {
-                    const itemDate = new Date(item.fecha);
-                    const start = new Date(startDate);
-                    const end = new Date(endDate);
-                    end.setHours(23, 59, 59, 999);
-                    return itemDate >= start && itemDate <= end;
-                });
-            }
-            
-            if (dataToExport.length === 0) {
-                showNotification('No hay datos para exportar con los filtros seleccionados', 'warning');
-                return;
-            }
-            
-            // Exportar según el formato
-            if (exportFormat === 'excel') {
-                exportToExcel(dataToExport, exportType);
-            } else if (exportFormat === 'csv') {
-                exportToCSV(dataToExport, exportType);
-            } else if (exportFormat === 'pdf') {
-                exportToPDF(dataToExport, exportType);
-            }
-        }
-
-        function getAllExportData() {
-            const exportData = [];
-            
-            // Agregar tareas
-            exportData.push(...getTasksExportData());
-            
-            // Agregar reportes
-            exportData.push(...getReportsExportData());
-            
-            // Agregar materiales del inventario
-            exportData.push(...getInventoryExportData());
-            
-            return exportData;
-        }
-
-        function getTasksExportData() {
-            return tasks.map(task => {
-                const assignee = users.find(u => u.username === task.assignee);
-                const materialsText = task.materials && task.materials.length > 0 
-                    ? task.materials.map(m => {
-                        const material = inventory.find(mat => mat.id === m.materialId);
-                        return material ? `${material.name} (${m.quantity} ${material.unit})` : '';
-                    }).filter(Boolean).join(', ')
-                    : 'Ninguno';
-                
-                return {
-                    tipo: 'tarea',
-                    nombre: task.name,
-                    descripcion: task.description,
-                    responsable: assignee?.name || task.assignee,
-                    fecha_inicio: formatDate(task.startDate),
-                    fecha_limite: formatDate(task.dueDate),
-                    estado: getStatusText(task.status),
-                    urgencia: getUrgencyText(task.urgency),
-                    materiales: materialsText,
-                    fecha: task.createdAt,
-                    fecha_actualizacion: task.updatedAt
-                };
-            });
-        }
-
-        function getReportsExportData() {
-            return reports.map(report => {
-                const reporter = users.find(u => u.username === report.reporter);
-                const relatedTask = report.taskId ? tasks.find(t => t.id === report.taskId) : null;
-                
-                return {
-                    tipo: 'reporte',
-                    titulo: report.title,
-                    descripcion: report.description,
-                    tipo_reporte: report.type,
-                    urgencia: getUrgencyText(report.urgency),
-                    reportado_por: reporter?.name || report.reporter,
-                    tarea_relacionada: relatedTask?.name || 'Ninguna',
-                    bloquea_progreso: report.blocksProgress,
-                    fecha_requerida: formatDate(report.requiredDate),
-                    estado: report.status === 'resolved' ? 'Resuelto' : 'Pendiente',
-                    fecha: report.createdAt
-                };
-            });
-        }
-
-        function getInventoryExportData() {
-            return inventory.map(material => {
-                return {
-                    tipo: 'inventario',
-                    nombre: material.name,
-                    categoria: material.category,
-                    cantidad: material.quantity,
-                    unidad: material.unit,
-                    stock_minimo: material.minStock,
-                    proveedor: material.supplier || 'No especificado',
-                    costo: material.cost ? `$${material.cost.toFixed(2)}` : 'No especificado',
-                    ubicacion: material.location || 'No especificado',
-                    descripcion: material.description || 'No especificado',
-                    fecha: new Date().toISOString()
-                };
-            });
-        }
-
-        function exportToExcel(data, exportType) {
-            try {
-                // Crear libro de trabajo
-                const wb = XLSX.utils.book_new();
-                
-                // Convertir datos a hoja de trabajo
-                const ws = XLSX.utils.json_to_sheet(data);
-                
-                // Agregar hoja de trabajo al libro
-                let sheetName = "Actividades";
-                if (exportType === 'tasks') sheetName = "Tareas";
-                else if (exportType === 'reports') sheetName = "Reportes";
-                else if (exportType === 'inventory') sheetName = "Inventario";
-                
-                XLSX.utils.book_append_sheet(wb, ws, sheetName);
-                
-                // Generar archivo y descargar
-                const fileName = `taskmaster_${exportType}_${new Date().toISOString().split('T')[0]}.xlsx`;
-                XLSX.writeFile(wb, fileName);
-                
-                showNotification('Datos exportados exitosamente a Excel', 'success');
-            } catch (error) {
-                console.error('Error al exportar a Excel:', error);
-                showNotification('Error al exportar a Excel', 'danger');
-            }
-        }
-
-        function exportToCSV(data, exportType) {
-            try {
-                if (data.length === 0) {
-                    showNotification('No hay datos para exportar', 'warning');
-                    return;
-                }
-                
-                // Convertir a CSV
-                const headers = Object.keys(data[0]);
-                const csvContent = [
-                    headers.join(','),
-                    ...data.map(row => 
-                        headers.map(header => {
-                            const value = row[header] || '';
-                            return `"${String(value).replace(/"/g, '""')}"`;
-                        }).join(',')
-                    )
-                ].join('\n');
-                
-                // Crear y descargar archivo
-                const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-                const link = document.createElement('a');
-                const url = URL.createObjectURL(blob);
-                
-                link.setAttribute('href', url);
-                link.setAttribute('download', `taskmaster_${exportType}_${new Date().toISOString().split('T')[0]}.csv`);
-                link.style.visibility = 'hidden';
-                
-                document.body.appendChild(link);
-                link.click();
-                document.body.removeChild(link);
-                
-                showNotification('Datos exportados exitosamente a CSV', 'success');
-            } catch (error) {
-                console.error('Error al exportar a CSV:', error);
-                showNotification('Error al exportar a CSV', 'danger');
-            }
-        }
-
-        function exportToPDF(data, exportType) {
-            try {
-                if (typeof jsPDF === 'undefined') {
-                    showNotification('La funcionalidad PDF no está disponible', 'danger');
-                    return;
-                }
-                
-                const { jsPDF } = window.jspdf;
-                const doc = new jsPDF();
-                
-                // Título
-                doc.setFontSize(16);
-                let title = 'Reporte de Actividades - TaskMaster';
-                if (exportType === 'tasks') title = 'Reporte de Tareas - TaskMaster';
-                else if (exportType === 'reports') title = 'Reporte de Reportes - TaskMaster';
-                else if (exportType === 'inventory') title = 'Reporte de Inventario - TaskMaster';
-                
-                doc.text(title, 20, 20);
-                doc.setFontSize(10);
-                doc.text(`Generado el: ${new Date().toLocaleDateString('es-ES')}`, 20, 30);
-                
-                let yPosition = 50;
-                
-                // Agrupar por tipo si es una exportación general
-                if (exportType === 'all') {
-                    const groupedData = {
-                        tareas: data.filter(item => item.tipo === 'tarea'),
-                        reportes: data.filter(item => item.tipo === 'reporte'),
-                        inventario: data.filter(item => item.tipo === 'inventario')
-                    };
-                    
-                    // Tareas
-                    if (groupedData.tareas.length > 0) {
-                        doc.setFontSize(12);
-                        doc.text('TAREAS', 20, yPosition);
-                        yPosition += 10;
-                        
-                        groupedData.tareas.forEach((task, index) => {
-                            if (yPosition > 270) {
-                                doc.addPage();
-                                yPosition = 20;
-                            }
-                            
-                            doc.setFontSize(8);
-                            doc.text(`${index + 1}. ${task.nombre}`, 25, yPosition);
-                            yPosition += 5;
-                            doc.text(`   Responsable: ${task.responsable} | Estado: ${task.estado}`, 25, yPosition);
-                            yPosition += 5;
-                            doc.text(`   Fecha límite: ${task.fecha_limite} | Materiales: ${task.materiales}`, 25, yPosition);
-                            yPosition += 8;
-                        });
-                        yPosition += 5;
-                    }
-                    
-                    // Reportes
-                    if (groupedData.reportes.length > 0) {
-                        if (yPosition > 250) {
-                            doc.addPage();
-                            yPosition = 20;
-                        }
-                        
-                        doc.setFontSize(12);
-                        doc.text('REPORTES', 20, yPosition);
-                        yPosition += 10;
-                        
-                        groupedData.reportes.forEach((report, index) => {
-                            if (yPosition > 270) {
-                                doc.addPage();
-                                yPosition = 20;
-                            }
-                            
-                            doc.setFontSize(8);
-                            doc.text(`${index + 1}. ${report.titulo}`, 25, yPosition);
-                            yPosition += 5;
-                            doc.text(`   Tipo: ${report.tipo_reporte} | Urgencia: ${report.urgencia}`, 25, yPosition);
-                            yPosition += 5;
-                            doc.text(`   Reportado por: ${report.reportado_por} | Estado: ${report.estado}`, 25, yPosition);
-                            yPosition += 8;
-                        });
-                        yPosition += 5;
-                    }
-                    
-                    // Inventario
-                    if (groupedData.inventario.length > 0) {
-                        if (yPosition > 250) {
-                            doc.addPage();
-                            yPosition = 20;
-                        }
-                        
-                        doc.setFontSize(12);
-                        doc.text('INVENTARIO', 20, yPosition);
-                        yPosition += 10;
-                        
-                        groupedData.inventario.forEach((item, index) => {
-                            if (yPosition > 270) {
-                                doc.addPage();
-                                yPosition = 20;
-                            }
-                            
-                            doc.setFontSize(8);
-                            doc.text(`${index + 1}. ${item.nombre}`, 25, yPosition);
-                            yPosition += 5;
-                            doc.text(`   Cantidad: ${item.cantidad} ${item.unidad} | Stock mínimo: ${item.stock_minimo}`, 25, yPosition);
-                            yPosition += 5;
-                            doc.text(`   Categoría: ${item.categoria} | Ubicación: ${item.ubicacion}`, 25, yPosition);
-                            yPosition += 8;
-                        });
-                    }
-                } else {
-                    // Exportación específica
-                    data.forEach((item, index) => {
-                        if (yPosition > 270) {
-                            doc.addPage();
-                            yPosition = 20;
-                        }
-                        
-                        doc.setFontSize(8);
-                        doc.text(`${index + 1}. ${item.nombre || item.titulo}`, 25, yPosition);
-                        yPosition += 5;
-                        
-                        if (exportType === 'tasks') {
-                            doc.text(`   Responsable: ${item.responsable} | Estado: ${item.estado}`, 25, yPosition);
-                            yPosition += 5;
-                            doc.text(`   Fecha límite: ${item.fecha_limite} | Materiales: ${item.materiales}`, 25, yPosition);
-                        } else if (exportType === 'reports') {
-                            doc.text(`   Tipo: ${item.tipo_reporte} | Urgencia: ${item.urgencia}`, 25, yPosition);
-                            yPosition += 5;
-                            doc.text(`   Reportado por: ${item.reportado_por} | Estado: ${item.estado}`, 25, yPosition);
-                        } else if (exportType === 'inventory') {
-                            doc.text(`   Cantidad: ${item.cantidad} ${item.unidad} | Stock mínimo: ${item.stock_minimo}`, 25, yPosition);
-                            yPosition += 5;
-                            doc.text(`   Categoría: ${item.categoria} | Ubicación: ${item.ubicacion}`, 25, yPosition);
-                        }
-                        
-                        yPosition += 8;
-                    });
-                }
-                
-                // Guardar PDF
-                doc.save(`taskmaster_${exportType}_${new Date().toISOString().split('T')[0]}.pdf`);
-                showNotification('Datos exportados exitosamente a PDF', 'success');
-            } catch (error) {
-                console.error('Error al exportar a PDF:', error);
-                showNotification('Error al exportar a PDF', 'danger');
-            }
-        }
-
-        function previewData() {
-            const exportType = document.getElementById('exportType').value;
-            const startDate = document.getElementById('startDate').value;
-            const endDate = document.getElementById('endDate').value;
-            
-            let dataToShow = [];
-            
-            if (exportType === 'all') {
-                dataToShow = getAllExportData();
-            } else if (exportType === 'tasks') {
-                dataToShow = getTasksExportData();
-            } else if (exportType === 'reports') {
-                dataToShow = getReportsExportData();
-            } else if (exportType === 'inventory') {
-                dataToShow = getInventoryExportData();
-            } else if (exportType === 'completed') {
-                dataToShow = getAllExportData().filter(item => 
-                    item.tipo === 'tarea' ? item.estado === 'Terminada' : true
-                );
-            } else if (exportType === 'pending') {
-                dataToShow = getAllExportData().filter(item => 
-                    item.tipo === 'tarea' ? item.estado !== 'Terminada' : true
-                );
-            } else if (exportType === 'date-range') {
-                if (!startDate || !endDate) {
-                    showNotification('Selecciona un rango de fechas válido', 'warning');
-                    return;
-                }
-                dataToShow = getAllExportData().filter(item => {
-                    const itemDate = new Date(item.fecha);
-                    const start = new Date(startDate);
-                    const end = new Date(endDate);
-                    end.setHours(23, 59, 59, 999);
-                    return itemDate >= start && itemDate <= end;
-                });
-            }
-            
-            const previewContent = document.getElementById('previewContent');
-            const previewSection = document.getElementById('previewSection');
-            
-            if (dataToShow.length === 0) {
-                previewContent.innerHTML = '<div style="text-align: center; padding: 2rem; color: var(--gray);">No hay datos para mostrar con los filtros seleccionados</div>';
-            } else {
-                let html = `
-                    <div style="margin-bottom: 1rem; color: var(--gray);">
-                        Mostrando ${dataToShow.length} registros
-                    </div>
-                    <div style="overflow-x: auto;">
-                        <table class="table">
-                            <thead>
-                                <tr>
-                                    <th>Tipo</th>
-                                    <th>Nombre/Título</th>
-                                    <th>Responsable</th>
-                                    <th>Estado</th>
-                                    <th>Fecha</th>
-                                    <th>Detalles</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                `;
-                
-                dataToShow.slice(0, 50).forEach(item => { // Mostrar máximo 50 registros en vista previa
-                    html += `
-                        <tr>
-                            <td><span class="badge" style="background: #f0f0f0; color: var(--dark);">${item.tipo}</span></td>
-                            <td>${item.nombre || item.titulo}</td>
-                            <td>${item.responsable || item.reportado_por || 'N/A'}</td>
-                            <td>${item.estado || 'N/A'}</td>
-                            <td>${formatDate(item.fecha)}</td>
-                            <td>${item.descripcion ? item.descripcion.substring(0, 50) + '...' : 'N/A'}</td>
-                        </tr>
-                    `;
-                });
-                
-                html += `
-                            </tbody>
-                        </table>
-                    </div>
-                    ${dataToShow.length > 50 ? `<div style="text-align: center; margin-top: 1rem; color: var(--gray);">... y ${dataToShow.length - 50} registros más</div>` : ''}
-                `;
-                
-                previewContent.innerHTML = html;
-            }
-            
-            previewSection.style.display = 'block';
-        }
-
         // ==================== FUNCIONES RESTANTES ====================
         function loadUserData() {
             loadData();
@@ -4196,22 +3635,6 @@
                 exportToExcel(inventoryData, 'inventory');
             });
             
-            // Botón para exportar datos
-            document.getElementById('exportDataBtn').addEventListener('click', exportData);
-            
-            // Botón para vista previa
-            document.getElementById('previewDataBtn').addEventListener('click', previewData);
-            
-            // Cambio de tipo de exportación
-            document.getElementById('exportType').addEventListener('change', function() {
-                const dateRangeGroup = document.getElementById('dateRangeGroup');
-                if (this.value === 'date-range') {
-                    dateRangeGroup.style.display = 'block';
-                } else {
-                    dateRangeGroup.style.display = 'none';
-                }
-            });
-            
             // Formulario de reportes
             document.getElementById('reportForm').addEventListener('submit', submitReport);
             
@@ -4250,10 +3673,6 @@
                 document.getElementById('userConfirmPassword').required = true;
             });
             
-            document.getElementById('closeAssignModal').addEventListener('click', function() {
-                document.getElementById('assignMaterialsModal').classList.remove('active');
-            });
-            
             document.getElementById('cancelTaskBtn').addEventListener('click', function() {
                 document.getElementById('addTaskModal').classList.remove('active');
             });
@@ -4269,10 +3688,6 @@
                 // Restaurar requerimiento de contraseña
                 document.getElementById('userPassword').required = true;
                 document.getElementById('userConfirmPassword').required = true;
-            });
-            
-            document.getElementById('cancelAssignBtn').addEventListener('click', function() {
-                document.getElementById('assignMaterialsModal').classList.remove('active');
             });
             
             // Agregar material a tarea
@@ -4680,157 +4095,6 @@
                 
                 showNotification('Material eliminado correctamente', 'success');
                 loadInventory();
-                updateDashboard();
-            }
-        }
-
-        // ==================== ASIGNACIÓN DE MATERIALES ====================
-        function openAssignMaterialsModal(taskId) {
-            const task = tasks.find(t => t.id === taskId);
-            if (!task) {
-                showNotification('Tarea no encontrada', 'danger');
-                return;
-            }
-            
-            const content = document.getElementById('assignMaterialsContent');
-            content.innerHTML = `
-                <h3 style="margin-bottom: 1rem;">Asignar materiales a: ${sanitizeInput(task.name)}</h3>
-                <div class="material-assignment">
-                    <div class="assignment-form">
-                        <select class="form-select" id="assignMaterialSelect">
-                            <option value="">Seleccionar material</option>
-                        </select>
-                        <input type="number" class="form-control" id="assignMaterialQuantity" placeholder="Cantidad" min="1">
-                        <button type="button" class="btn btn-outline" id="addAssignMaterialBtn">
-                            <i class="fas fa-plus"></i> Agregar
-                        </button>
-                    </div>
-                    <div id="assignMaterialsList" style="margin-top: 1rem;"></div>
-                </div>
-            `;
-            
-            // Llenar select de materiales
-            const materialSelect = document.getElementById('assignMaterialSelect');
-            materialSelect.innerHTML = '<option value="">Seleccionar material</option>';
-            inventory.forEach(material => {
-                const option = document.createElement('option');
-                option.value = material.id;
-                option.textContent = `${material.name} (${material.quantity} ${material.unit} disponible)`;
-                materialSelect.appendChild(option);
-            });
-            
-            // Mostrar materiales ya asignados
-            const materialsList = document.getElementById('assignMaterialsList');
-            if (task.materials && task.materials.length > 0) {
-                task.materials.forEach(material => {
-                    const mat = inventory.find(m => m.id === material.materialId);
-                    if (mat) {
-                        const item = document.createElement('div');
-                        item.className = 'assignment-item';
-                        item.innerHTML = `
-                            <span>${mat.name} - ${material.quantity} ${mat.unit}</span>
-                            <button class="btn btn-danger btn-sm remove-material-btn" data-material-id="${material.materialId}">
-                                <i class="fas fa-times"></i>
-                            </button>
-                        `;
-                        materialsList.appendChild(item);
-                    }
-                });
-            }
-            
-            // Event listener para agregar material
-            document.getElementById('addAssignMaterialBtn').addEventListener('click', function() {
-                const materialId = materialSelect.value;
-                const quantity = parseInt(document.getElementById('assignMaterialQuantity').value);
-                
-                if (!materialId || !quantity || quantity <= 0) {
-                    showNotification('Selecciona un material y una cantidad válida', 'warning');
-                    return;
-                }
-                
-                const material = inventory.find(m => m.id === materialId);
-                if (quantity > material.quantity) {
-                    showNotification(`No hay suficiente stock. Disponible: ${material.quantity} ${material.unit}`, 'danger');
-                    return;
-                }
-                
-                // Agregar a la lista visual
-                const item = document.createElement('div');
-                item.className = 'assignment-item';
-                item.innerHTML = `
-                    <span>${material.name} - ${quantity} ${material.unit}</span>
-                    <button class="btn btn-danger btn-sm remove-material-btn" data-material-id="${materialId}">
-                        <i class="fas fa-times"></i>
-                    </button>
-                `;
-                materialsList.appendChild(item);
-                
-                // Limpiar formulario
-                materialSelect.value = '';
-                document.getElementById('assignMaterialQuantity').value = '';
-                
-                // Agregar event listener al botón de eliminar
-                item.querySelector('.remove-material-btn').addEventListener('click', function() {
-                    item.remove();
-                });
-            });
-            
-            // Event listeners para botones de eliminar existentes
-            document.querySelectorAll('.remove-material-btn').forEach(btn => {
-                btn.addEventListener('click', function() {
-                    this.closest('.assignment-item').remove();
-                });
-            });
-            
-            // Mostrar modal
-            document.getElementById('assignMaterialsModal').classList.add('active');
-            
-            // Guardar materiales al hacer clic en guardar
-            document.getElementById('saveAssignBtn').onclick = function() {
-                saveAssignedMaterials(taskId);
-            };
-        }
-
-        async function saveAssignedMaterials(taskId) {
-            const materialsList = document.getElementById('assignMaterialsList');
-            const materials = [];
-            
-            // Recopilar materiales de la lista
-            materialsList.querySelectorAll('.assignment-item').forEach(item => {
-                const text = item.textContent.trim();
-                const match = text.match(/(.+) - (\d+) (.+)/);
-                if (match) {
-                    const materialName = match[1];
-                    const quantity = parseInt(match[2]);
-                    const unit = match[3];
-                    
-                    const material = inventory.find(m => m.name === materialName);
-                    if (material) {
-                        materials.push({
-                            materialId: material.id,
-                            quantity: quantity,
-                            delivered: false
-                        });
-                        
-                        // Descontar del inventario
-                        updateMaterialQuantity(material.id, -quantity);
-                    }
-                }
-            });
-            
-            // Actualizar tarea
-            const taskIndex = tasks.findIndex(t => t.id === taskId);
-            if (taskIndex !== -1) {
-                tasks[taskIndex].materials = materials;
-                
-                await saveTasks();
-                
-                showNotification('Materiales asignados correctamente', 'success');
-                document.getElementById('assignMaterialsModal').classList.remove('active');
-                
-                if (currentPage === 'manage-tasks') {
-                    loadAllTasks();
-                }
                 updateDashboard();
             }
         }
