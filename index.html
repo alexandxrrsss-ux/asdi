@@ -15,11 +15,2095 @@
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
     
     <style>
-        /* ... (todo el CSS permanece igual) ... */
+        :root {
+            --primary: #4361ee;
+            --secondary: #3a0ca3;
+            --success: #06d6a0;
+            --warning: #f72585;
+            --danger: #e63946;
+            --light: #f8f9fa;
+            --dark: #212529;
+            --gray: #6c757d;
+            --border-radius: 12px;
+            --shadow: 0 6px 15px rgba(0, 0, 0, 0.1);
+            --transition: all 0.3s ease;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            color: var(--dark);
+            line-height: 1.6;
+            min-height: 100vh;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 15px;
+        }
+
+        header {
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            color: white;
+            padding: 1rem 0;
+            box-shadow: var(--shadow);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .header-content {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 1.5rem;
+            font-weight: 700;
+        }
+
+        .logo i {
+            font-size: 1.8rem;
+        }
+
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .user-avatar {
+            width: 45px;
+            height: 45px;
+            border-radius: 50%;
+            background-color: white;
+            color: var(--primary);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 1.2rem;
+            box-shadow: 0 3px 8px rgba(0,0,0,0.2);
+        }
+
+        .main-layout {
+            display: flex;
+            min-height: calc(100vh - 80px);
+        }
+
+        .sidebar {
+            width: 280px;
+            background-color: white;
+            box-shadow: var(--shadow);
+            padding: 1.5rem 0;
+            transition: var(--transition);
+            border-radius: 0 0 var(--border-radius) 0;
+        }
+
+        .nav-item {
+            padding: 1rem 1.5rem;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            cursor: pointer;
+            transition: var(--transition);
+            border-left: 5px solid transparent;
+            margin: 5px 10px;
+            border-radius: 10px;
+        }
+
+        .nav-item:hover, .nav-item.active {
+            background: linear-gradient(135deg, rgba(67, 97, 238, 0.1), rgba(67, 97, 238, 0.05));
+            border-left-color: var(--primary);
+            color: var(--primary);
+            transform: translateX(5px);
+        }
+
+        .nav-item i {
+            width: 25px;
+            text-align: center;
+            font-size: 1.2rem;
+        }
+
+        .content {
+            flex: 1;
+            padding: 2rem;
+            overflow-y: auto;
+        }
+
+        .page {
+            display: none;
+            animation: fadeIn 0.5s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .page.active {
+            display: block;
+        }
+
+        .page-title {
+            margin-bottom: 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+
+        .page-title h1 {
+            font-size: 2rem;
+            color: var(--dark);
+            font-weight: 700;
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .card {
+            background-color: white;
+            border-radius: var(--border-radius);
+            box-shadow: var(--shadow);
+            padding: 1.8rem;
+            margin-bottom: 1.8rem;
+            transition: var(--transition);
+            border: 1px solid rgba(0,0,0,0.05);
+        }
+
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 12px 20px rgba(0,0,0,0.15);
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.2rem;
+            padding-bottom: 1rem;
+            border-bottom: 2px solid #f0f0f0;
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+
+        .card-title {
+            font-size: 1.4rem;
+            font-weight: 600;
+            color: var(--dark);
+        }
+
+        .btn {
+            padding: 0.8rem 1.5rem;
+            border: none;
+            border-radius: 50px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: var(--transition);
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 0.95rem;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            color: white;
+        }
+
+        .btn-primary:hover:not(:disabled) {
+            transform: translateY(-3px);
+            box-shadow: 0 6px 12px rgba(67, 97, 238, 0.3);
+        }
+
+        .btn-success {
+            background: linear-gradient(135deg, var(--success), #04a777);
+            color: white;
+        }
+
+        .btn-warning {
+            background: linear-gradient(135deg, var(--warning), #b5179e);
+            color: white;
+        }
+
+        .btn-danger {
+            background: linear-gradient(135deg, var(--danger), #d00000);
+            color: white;
+        }
+
+        .btn-outline {
+            background-color: transparent;
+            border: 2px solid var(--primary);
+            color: var(--primary);
+        }
+
+        .btn-outline:hover {
+            background-color: rgba(67, 97, 238, 0.1);
+            transform: translateY(-3px);
+        }
+
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+
+        .form-label {
+            display: block;
+            margin-bottom: 0.7rem;
+            font-weight: 600;
+            color: var(--dark);
+        }
+
+        .form-control {
+            width: 100%;
+            padding: 1rem;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            font-size: 1rem;
+            transition: var(--transition);
+        }
+
+        .form-control:focus {
+            border-color: var(--primary);
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(67, 97, 238, 0.2);
+        }
+
+        .form-select {
+            width: 100%;
+            padding: 1rem;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            font-size: 1rem;
+            background-color: white;
+            cursor: pointer;
+            transition: var(--transition);
+        }
+
+        .form-select:focus {
+            border-color: var(--primary);
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(67, 97, 238, 0.2);
+        }
+
+        .table {
+            width: 100%;
+            border-collapse: collapse;
+            box-shadow: 0 0 10px rgba(0,0,0,0.05);
+            border-radius: 10px;
+            overflow: hidden;
+        }
+
+        .table th, .table td {
+            padding: 1.2rem;
+            text-align: left;
+            border-bottom: 1px solid #eee;
+        }
+
+        .table th {
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            color: white;
+            font-weight: 600;
+            font-size: 1rem;
+        }
+
+        .table tr {
+            transition: var(--transition);
+        }
+
+        .table tr:hover {
+            background-color: #f8f9fa;
+        }
+
+        .badge {
+            padding: 0.5rem 1rem;
+            border-radius: 50px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            display: inline-block;
+            box-shadow: 0 3px 6px rgba(0,0,0,0.1);
+        }
+
+        .badge-pending {
+            background: linear-gradient(135deg, #ffd166, #ff9e00);
+            color: #7a5c00;
+        }
+
+        .badge-in-progress {
+            background: linear-gradient(135deg, #4cc9f0, #3a86ff);
+            color: #004085;
+        }
+
+        .badge-completed {
+            background: linear-gradient(135deg, #06d6a0, #04a777);
+            color: #004d26;
+        }
+
+        .badge-urgent {
+            background: linear-gradient(135deg, #f72585, #b5179e);
+            color: white;
+        }
+
+        .badge-high {
+            background: linear-gradient(135deg, #ef476f, #e63946);
+            color: white;
+        }
+
+        .badge-medium {
+            background: linear-gradient(135deg, #ffd166, #ff9e00);
+            color: #7a5c00;
+        }
+
+        .badge-low {
+            background: linear-gradient(135deg, #06d6a0, #04a777);
+            color: #004d26;
+        }
+
+        .stats-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+            gap: 1.8rem;
+            margin-bottom: 2rem;
+        }
+
+        .stat-card {
+            background: linear-gradient(135deg, white, #f8f9fa);
+            border-radius: var(--border-radius);
+            box-shadow: var(--shadow);
+            padding: 1.8rem;
+            text-align: center;
+            transition: var(--transition);
+            border: 1px solid rgba(0,0,0,0.05);
+        }
+
+        .stat-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 12px 20px rgba(0,0,0,0.15);
+        }
+
+        .stat-icon {
+            font-size: 2.5rem;
+            margin-bottom: 1rem;
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .stat-value {
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .stat-label {
+            color: var(--gray);
+            font-size: 1rem;
+            font-weight: 500;
+        }
+
+        .login-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            padding: 1rem;
+        }
+
+        .login-card {
+            background-color: white;
+            border-radius: var(--border-radius);
+            box-shadow: var(--shadow);
+            padding: 2.5rem;
+            width: 100%;
+            max-width: 450px;
+            transition: var(--transition);
+        }
+
+        .login-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 30px rgba(0,0,0,0.2);
+        }
+
+        .login-title {
+            font-size: 1.8rem;
+            font-weight: 700;
+            color: var(--dark);
+            margin-bottom: 2rem;
+            text-align: center;
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .tabs {
+            display: flex;
+            border-bottom: 2px solid #e0e0e0;
+            margin-bottom: 1.8rem;
+            overflow-x: auto;
+        }
+
+        .tab {
+            padding: 1rem 1.5rem;
+            cursor: pointer;
+            border-bottom: 3px solid transparent;
+            transition: var(--transition);
+            font-weight: 500;
+            white-space: nowrap;
+        }
+
+        .tab.active {
+            border-bottom-color: var(--primary);
+            color: var(--primary);
+            font-weight: 600;
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 1.2rem 1.8rem;
+            background-color: white;
+            border-radius: var(--border-radius);
+            box-shadow: var(--shadow);
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            z-index: 1000;
+            transform: translateX(150%);
+            transition: transform 0.4s ease;
+            max-width: 400px;
+        }
+
+        .notification.show {
+            transform: translateX(0);
+        }
+
+        .notification-icon {
+            font-size: 1.5rem;
+        }
+
+        .notification-success .notification-icon {
+            color: var(--success);
+        }
+
+        .notification-warning .notification-icon {
+            color: var(--warning);
+        }
+
+        .notification-danger .notification-icon {
+            color: var(--danger);
+        }
+
+        .notification-content {
+            flex: 1;
+        }
+
+        .notification-title {
+            font-weight: 600;
+            margin-bottom: 0.3rem;
+        }
+
+        .notification-message {
+            color: var(--gray);
+        }
+
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(0, 0, 0, 0.5);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            opacity: 0;
+            visibility: hidden;
+            transition: var(--transition);
+            padding: 1rem;
+        }
+
+        .modal-overlay.active {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .modal {
+            background-color: white;
+            border-radius: var(--border-radius);
+            box-shadow: var(--shadow);
+            width: 90%;
+            max-width: 600px;
+            max-height: 90vh;
+            overflow-y: auto;
+            transform: translateY(-20px);
+            transition: var(--transition);
+        }
+
+        .modal-overlay.active .modal {
+            transform: translateY(0);
+        }
+
+        .modal-header {
+            padding: 1.8rem;
+            border-bottom: 2px solid #f0f0f0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: linear-gradient(135deg, #f8f9fa, white);
+            border-radius: var(--border-radius) var(--border-radius) 0 0;
+        }
+
+        .modal-title {
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: var(--dark);
+        }
+
+        .modal-close {
+            background: none;
+            border: none;
+            font-size: 1.8rem;
+            cursor: pointer;
+            color: var(--gray);
+            transition: var(--transition);
+        }
+
+        .modal-close:hover {
+            color: var(--danger);
+            transform: rotate(90deg);
+        }
+
+        .modal-body {
+            padding: 1.8rem;
+        }
+
+        .modal-footer {
+            padding: 1.5rem 1.8rem;
+            border-top: 2px solid #f0f0f0;
+            display: flex;
+            justify-content: flex-end;
+            gap: 15px;
+            background: linear-gradient(135deg, white, #f8f9fa);
+            border-radius: 0 0 var(--border-radius) var(--border-radius);
+            flex-wrap: wrap;
+        }
+
+        .task-card {
+            background: white;
+            border-radius: var(--border-radius);
+            box-shadow: var(--shadow);
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+            transition: var(--transition);
+            border-left: 5px solid var(--primary);
+        }
+
+        .task-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 20px rgba(0,0,0,0.15);
+        }
+
+        .task-card.urgent {
+            border-left-color: var(--danger);
+        }
+
+        .task-card.high {
+            border-left-color: var(--warning);
+        }
+
+        .task-card.medium {
+            border-left-color: #ff9e00;
+        }
+
+        .task-card.low {
+            border-left-color: var(--success);
+        }
+
+        .task-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 1rem;
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+
+        .task-title {
+            font-size: 1.3rem;
+            font-weight: 600;
+            color: var(--dark);
+            margin-bottom: 0.5rem;
+        }
+
+        .task-description {
+            color: var(--gray);
+            margin-bottom: 1rem;
+        }
+
+        .task-meta {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .task-meta-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: var(--gray);
+            font-size: 0.9rem;
+        }
+
+        .task-actions {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .date-display {
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            color: white;
+            padding: 0.7rem 1.2rem;
+            border-radius: 50px;
+            font-weight: 600;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        .menu-toggle {
+            display: none;
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            color: white;
+            cursor: pointer;
+        }
+
+        .material-details {
+            background: #f8f9fa;
+            padding: 1rem;
+            border-radius: 8px;
+            margin-top: 1rem;
+            border-left: 3px solid var(--success);
+        }
+
+        .export-options {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-bottom: 1.5rem;
+        }
+
+        .export-btn {
+            background: linear-gradient(135deg, #06d6a0, #04a777);
+            color: white;
+        }
+
+        .export-btn:hover:not(:disabled) {
+            transform: translateY(-3px);
+            box-shadow: 0 6px 12px rgba(6, 214, 160, 0.3);
+        }
+
+        .overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.5);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 2000;
+        }
+
+        .overlay.active {
+            display: flex;
+        }
+
+        .loading-spinner {
+            background: white;
+            padding: 2rem;
+            border-radius: var(--border-radius);
+            text-align: center;
+        }
+
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid var(--primary);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 1rem;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .report-card {
+            background: white;
+            border-radius: var(--border-radius);
+            box-shadow: var(--shadow);
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+            border-left: 5px solid var(--warning);
+            transition: var(--transition);
+        }
+
+        .report-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 15px rgba(0,0,0,0.15);
+        }
+
+        .report-card.resolved {
+            border-left-color: var(--success);
+            opacity: 0.8;
+        }
+
+        .report-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 1rem;
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+
+        .report-title {
+            font-size: 1.2rem;
+            font-weight: 600;
+            color: var(--dark);
+        }
+
+        .report-meta {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 1rem;
+            flex-wrap: wrap;
+        }
+
+        .report-meta-item {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            color: var(--gray);
+            font-size: 0.9rem;
+        }
+
+        .report-description {
+            background: #f8f9fa;
+            padding: 1rem;
+            border-radius: 8px;
+            margin-bottom: 1rem;
+            border-left: 3px solid var(--primary);
+        }
+
+        .report-actions {
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+            flex-wrap: wrap;
+        }
+
+        .badge-new {
+            background: linear-gradient(135deg, #f72585, #b5179e);
+            color: white;
+        }
+
+        .badge-resolved {
+            background: linear-gradient(135deg, #06d6a0, #04a777);
+            color: white;
+        }
+
+        .error-message {
+            background: #fee;
+            border-left: 4px solid var(--danger);
+            padding: 1rem;
+            margin-bottom: 1rem;
+            border-radius: 8px;
+            color: var(--danger);
+        }
+
+        .success-message {
+            background: #efe;
+            border-left: 4px solid var(--success);
+            padding: 1rem;
+            margin-bottom: 1rem;
+            border-radius: 8px;
+            color: #04a777;
+        }
+
+        /* Nuevos estilos para inventario */
+        .inventory-card {
+            background: white;
+            border-radius: var(--border-radius);
+            box-shadow: var(--shadow);
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+            border-left: 5px solid var(--success);
+            transition: var(--transition);
+        }
+
+        .inventory-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 15px rgba(0,0,0,0.15);
+        }
+
+        .inventory-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 1rem;
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+
+        .inventory-title {
+            font-size: 1.2rem;
+            font-weight: 600;
+            color: var(--dark);
+        }
+
+        .stock-info {
+            display: flex;
+            gap: 1rem;
+            margin-top: 1rem;
+            flex-wrap: wrap;
+        }
+
+        .stock-item {
+            background: #f8f9fa;
+            padding: 0.8rem;
+            border-radius: 8px;
+            flex: 1;
+            min-width: 150px;
+        }
+
+        .stock-value {
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin-bottom: 0.3rem;
+        }
+
+        .stock-label {
+            color: var(--gray);
+            font-size: 0.9rem;
+        }
+
+        .low-stock {
+            color: var(--danger);
+            font-weight: 600;
+        }
+
+        .medium-stock {
+            color: var(--warning);
+        }
+
+        .good-stock {
+            color: var(--success);
+        }
+
+        /* Estilos para asignación de materiales */
+        .material-assignment {
+            background: #f8f9fa;
+            padding: 1rem;
+            border-radius: 8px;
+            margin-top: 1rem;
+            border-left: 3px solid var(--primary);
+        }
+
+        .assignment-form {
+            display: grid;
+            grid-template-columns: 2fr 1fr 1fr auto;
+            gap: 10px;
+            align-items: end;
+        }
+
+        .assignment-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.8rem;
+            background: white;
+            border-radius: 8px;
+            margin-bottom: 0.5rem;
+            border-left: 3px solid var(--success);
+        }
+
+        .quantity-controls {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .quantity-btn {
+            width: 35px;
+            height: 35px;
+            border: none;
+            border-radius: 50%;
+            background: var(--primary);
+            color: white;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            transition: var(--transition);
+        }
+
+        .quantity-btn:hover {
+            transform: scale(1.1);
+        }
+
+        .quantity-display {
+            min-width: 50px;
+            text-align: center;
+            font-weight: 600;
+            font-size: 1.1rem;
+        }
+
+        /* Nuevos estilos para notificaciones de reportes */
+        .notification-badge {
+            background: var(--danger);
+            color: white;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.7rem;
+            position: absolute;
+            top: -5px;
+            right: -5px;
+        }
+
+        .notification-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px;
+            border-bottom: 1px solid #eee;
+            cursor: pointer;
+        }
+
+        .notification-item:hover {
+            background: #f8f9fa;
+        }
+
+        .notification-item.unread {
+            background: #f0f7ff;
+        }
+
+        .notification-list {
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .notification-dropdown {
+            position: absolute;
+            top: 100%;
+            right: 0;
+            width: 350px;
+            background: white;
+            border-radius: var(--border-radius);
+            box-shadow: var(--shadow);
+            z-index: 1000;
+            display: none;
+        }
+
+        .notification-dropdown.active {
+            display: block;
+        }
+
+        .notification-header {
+            padding: 1rem;
+            border-bottom: 1px solid #eee;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .notification-container {
+            position: relative;
+        }
+
+        @media (max-width: 992px) {
+            .main-layout {
+                flex-direction: column;
+            }
+
+            .sidebar {
+                width: 100%;
+                padding: 1rem 0;
+                border-radius: 0;
+                position: fixed;
+                top: 80px;
+                left: 0;
+                height: calc(100vh - 80px);
+                z-index: 99;
+                transform: translateX(-100%);
+                transition: transform 0.3s ease;
+            }
+
+            .sidebar.active {
+                transform: translateX(0);
+            }
+
+            .nav-items {
+                display: flex;
+                flex-direction: column;
+                overflow-y: auto;
+                padding: 0 1rem;
+                height: 100%;
+            }
+
+            .nav-item {
+                flex-shrink: 0;
+                border-left: none;
+                border-bottom: 4px solid transparent;
+                margin: 5px 0;
+                padding: 1.2rem 1rem;
+            }
+
+            .nav-item:hover, .nav-item.active {
+                border-left: none;
+                border-bottom-color: var(--primary);
+                transform: translateY(-3px);
+            }
+
+            .content {
+                padding: 1.5rem;
+                margin-top: 0;
+            }
+
+            .stats-container {
+                grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+                gap: 1rem;
+            }
+
+            .page-title {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 15px;
+            }
+
+            .page-title h1 {
+                font-size: 1.5rem;
+            }
+
+            .card-header {
+                flex-direction: column;
+                gap: 15px;
+                align-items: flex-start;
+            }
+
+            .btn {
+                padding: 0.7rem 1.2rem;
+                font-size: 0.9rem;
+            }
+
+            .menu-toggle {
+                display: block;
+            }
+
+            .assignment-form {
+                grid-template-columns: 1fr;
+                gap: 15px;
+            }
+
+            .stock-info {
+                flex-direction: column;
+            }
+
+            .stock-item {
+                min-width: 100%;
+            }
+
+            .task-actions, .report-actions {
+                flex-direction: column;
+            }
+
+            .task-actions .btn, .report-actions .btn {
+                width: 100%;
+                justify-content: center;
+            }
+
+            .notification-dropdown {
+                width: 300px;
+                right: -50px;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .header-content {
+                gap: 10px;
+            }
+
+            .user-info {
+                flex-wrap: wrap;
+            }
+
+            .stats-container {
+                grid-template-columns: 1fr 1fr;
+            }
+
+            .table {
+                display: block;
+                overflow-x: auto;
+                white-space: nowrap;
+            }
+
+            .table th, .table td {
+                padding: 0.8rem;
+                font-size: 0.9rem;
+            }
+
+            .card {
+                padding: 1.2rem;
+                margin-bottom: 1.2rem;
+            }
+
+            .modal {
+                width: 95%;
+                margin: 1rem;
+            }
+
+            .task-actions, .report-actions {
+                flex-direction: column;
+                gap: 8px;
+            }
+
+            .task-actions .btn, .report-actions .btn {
+                width: 100%;
+                justify-content: center;
+            }
+
+            .modal-footer {
+                flex-direction: column;
+            }
+
+            .modal-footer .btn {
+                width: 100%;
+            }
+
+            .notification-dropdown {
+                width: 280px;
+                right: -80px;
+            }
+        }
+
+        @media (max-width: 576px) {
+            .content {
+                padding: 1rem;
+            }
+
+            .stats-container {
+                grid-template-columns: 1fr;
+            }
+
+            .stat-card {
+                padding: 1.2rem;
+            }
+
+            .stat-value {
+                font-size: 2rem;
+            }
+
+            .user-info span:not(.user-avatar) {
+                font-size: 0.9rem;
+            }
+
+            .logo span {
+                font-size: 1.2rem;
+            }
+
+            .login-card {
+                padding: 1.5rem;
+            }
+
+            .login-title {
+                font-size: 1.5rem;
+            }
+
+            .form-control, .form-select {
+                padding: 0.8rem;
+            }
+
+            .btn {
+                padding: 0.8rem 1rem;
+                font-size: 0.85rem;
+            }
+
+            .card {
+                padding: 1rem;
+            }
+
+            .notification-dropdown {
+                width: 250px;
+                right: -100px;
+            }
+        }
+
+        .firebase-error {
+            background: #fee;
+            border-left: 4px solid var(--danger);
+            padding: 1rem;
+            margin: 1rem 0;
+            border-radius: 8px;
+            color: var(--danger);
+        }
+        
+        .firebase-success {
+            background: #efe;
+            border-left: 4px solid var(--success);
+            padding: 1rem;
+            margin: 1rem 0;
+            border-radius: 8px;
+            color: #04a777;
+        }
     </style>
 </head>
 <body>
-    <!-- ... (todo el HTML permanece igual) ... -->
+    <!-- Login Screen -->
+    <div id="loginScreen" class="login-container">
+        <div class="login-card">
+            <div style="text-align: center;">
+                <i class="fas fa-tasks" style="font-size: 4rem; background: linear-gradient(135deg, var(--primary), var(--secondary)); -webkit-background-clip: text; -webkit-text-fill-color: transparent;"></i>
+                <h1 style="margin-top: 15px; font-size: 2.2rem;">TaskMaster PRO Plus</h1>
+                <p style="color: var(--gray); margin-top: 5px;">Sistema Completo de Gestión</p>
+            </div>
+            <h2 class="login-title">Iniciar Sesión</h2>
+            <div id="loginError" class="firebase-error" style="display: none;">
+                Error al conectar con Firebase. Verifica tu conexión.
+            </div>
+            <form id="loginForm">
+                <div class="form-group">
+                    <label class="form-label">Usuario</label>
+                    <input type="text" class="form-control" id="username" placeholder="Ingresa tu usuario" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Contraseña</label>
+                    <input type="password" class="form-control" id="password" placeholder="Ingresa tu contraseña" required>
+                </div>
+                <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 1.5rem; padding: 1rem;">
+                    <i class="fas fa-sign-in-alt"></i> Ingresar al Sistema
+                </button>
+            </form>
+            <div style="margin-top: 2rem; text-align: center; color: var(--gray); padding: 1rem; background: #f8f9fa; border-radius: 10px;">
+                <p style="font-weight: 600; margin-bottom: 0.5rem;">Credenciales de prueba:</p>
+                <p>Administrador: <strong>admin</strong> / <strong>admin123</strong></p>
+                <p>Trabajador: <strong>juan</strong> / <strong>juan123</strong></p>
+                <p>Trabajador: <strong>maria</strong> / <strong>maria123</strong></p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Application -->
+    <div id="app" style="display: none;">
+        <!-- Header -->
+        <header>
+            <div class="container">
+                <div class="header-content">
+                    <div style="display: flex; align-items: center; gap: 15px;">
+                        <button class="menu-toggle" id="menuToggle">
+                            <i class="fas fa-bars"></i>
+                        </button>
+                        <div class="logo">
+                            <i class="fas fa-tasks"></i>
+                            <span>TaskMaster PRO Plus</span>
+                        </div>
+                    </div>
+                    <div class="user-info">
+                        <div class="notification-container">
+                            <button class="btn btn-outline" id="notificationBtn" style="box-shadow: none; position: relative;">
+                                <i class="fas fa-bell"></i>
+                                <span id="notificationCount" class="notification-badge" style="display: none;">0</span>
+                            </button>
+                            <div class="notification-dropdown" id="notificationDropdown">
+                                <div class="notification-header">
+                                    <h4>Notificaciones</h4>
+                                    <button class="btn btn-outline btn-sm" id="markAllReadBtn">
+                                        <i class="fas fa-check-double"></i> Marcar todas como leídas
+                                    </button>
+                                </div>
+                                <div class="notification-list" id="notificationList">
+                                    <div style="text-align: center; padding: 2rem; color: var(--gray);">No hay notificaciones</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="user-avatar" id="userInitials">A</div>
+                        <span id="userName">Administrador</span>
+                        <span id="userRole" style="background: rgba(255,255,255,0.2); padding: 0.3rem 0.8rem; border-radius: 20px; font-size: 0.8rem;"></span>
+                        <button class="btn btn-outline" id="logoutBtn" style="box-shadow: none;">
+                            <i class="fas fa-sign-out-alt"></i> <span class="logout-text">Salir</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Layout -->
+        <div class="main-layout">
+            <!-- Sidebar -->
+            <div class="sidebar" id="sidebar">
+                <div class="nav-items">
+                    <div class="nav-item active" data-page="dashboard">
+                        <i class="fas fa-chart-pie"></i>
+                        <span>Dashboard</span>
+                    </div>
+                    <div class="nav-item" data-page="tasks">
+                        <i class="fas fa-tasks"></i>
+                        <span>Mis Tareas</span>
+                    </div>
+                    <div class="nav-item admin-only" data-page="manage-tasks">
+                        <i class="fas fa-cog"></i>
+                        <span>Gestión de Tareas</span>
+                    </div>
+                    <div class="nav-item admin-only" data-page="inventory">
+                        <i class="fas fa-boxes"></i>
+                        <span>Gestión de Inventario</span>
+                    </div>
+                    <div class="nav-item admin-only" data-page="reports-admin">
+                        <i class="fas fa-flag"></i>
+                        <span>Reportes Recibidos</span>
+                        <span class="badge badge-new" id="reportsBadge" style="margin-left: auto; display: none;">0</span>
+                    </div>
+                    <div class="nav-item" data-page="reports">
+                        <i class="fas fa-exclamation-circle"></i>
+                        <span>Reportar Problema</span>
+                    </div>
+                    <div class="nav-item admin-only" data-page="users">
+                        <i class="fas fa-users"></i>
+                        <span>Gestión de Usuarios</span>
+                    </div>
+                    <div class="nav-item admin-only" data-page="export">
+                        <i class="fas fa-file-export"></i>
+                        <span>Exportar Actividades</span>
+                    </div>
+                    <div class="nav-item" data-page="change-password">
+                        <i class="fas fa-key"></i>
+                        <span>Cambiar Contraseña</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Content Area -->
+            <div class="content">
+                <!-- Dashboard Page -->
+                <div id="dashboard" class="page active">
+                    <div class="page-title">
+                        <h1>Dashboard de Gestión</h1>
+                        <div class="date-display" id="currentDate"></div>
+                    </div>
+
+                    <!-- Stats -->
+                    <div class="stats-container">
+                        <div class="stat-card">
+                            <div class="stat-icon">
+                                <i class="fas fa-tasks"></i>
+                            </div>
+                            <div class="stat-value" id="totalTasks">0</div>
+                            <div class="stat-label">Total de Tareas</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon">
+                                <i class="fas fa-clock"></i>
+                            </div>
+                            <div class="stat-value" id="pendingTasks">0</div>
+                            <div class="stat-label">Pendientes</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon">
+                                <i class="fas fa-spinner"></i>
+                            </div>
+                            <div class="stat-value" id="inProgressTasks">0</div>
+                            <div class="stat-label">En Progreso</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon">
+                                <i class="fas fa-check-circle"></i>
+                            </div>
+                            <div class="stat-value" id="completedTasks">0</div>
+                            <div class="stat-label">Completadas</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon">
+                                <i class="fas fa-flag"></i>
+                            </div>
+                            <div class="stat-value" id="totalReports">0</div>
+                            <div class="stat-label">Reportes Activos</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon">
+                                <i class="fas fa-boxes"></i>
+                            </div>
+                            <div class="stat-value" id="totalMaterials">0</div>
+                            <div class="stat-label">Materiales</div>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-title">Tareas Recientes</div>
+                            <button class="btn btn-primary" id="viewAllTasksBtn">
+                                <i class="fas fa-list"></i> Ver Todas
+                            </button>
+                        </div>
+                        <div style="overflow-x: auto;">
+                            <table class="table">
+                                <thead>
+                                    <tr>
+                                        <th>Tarea</th>
+                                        <th>Asignada a</th>
+                                        <th>Fecha Límite</th>
+                                        <th>Estado</th>
+                                        <th>Urgencia</th>
+                                        <th>Material Solicitado</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="recentTasksTable">
+                                    <tr><td colspan="6" style="text-align: center; padding: 2rem; color: var(--gray);">Cargando...</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Materiales con stock bajo -->
+                    <div class="card" id="lowStockAlert" style="display: none;">
+                        <div class="card-header">
+                            <div class="card-title" style="color: var(--danger);">
+                                <i class="fas fa-exclamation-triangle"></i> Materiales con Stock Bajo
+                            </div>
+                        </div>
+                        <div id="lowStockItems"></div>
+                    </div>
+                </div>
+
+                <!-- Tasks Page -->
+                <div id="tasks" class="page">
+                    <div class="page-title">
+                        <h1>Mis Tareas</h1>
+                    </div>
+                    <div class="tabs">
+                        <div class="tab active" data-tab="all">Todas</div>
+                        <div class="tab" data-tab="pending">Pendientes</div>
+                        <div class="tab" data-tab="in-progress">En Progreso</div>
+                        <div class="tab" data-tab="completed">Completadas</div>
+                    </div>
+                    <div class="tab-content active" id="tab-all">
+                        <!-- Las tareas de TODAS se cargarán aquí -->
+                    </div>
+                    <div class="tab-content" id="tab-pending">
+                        <!-- Las tareas PENDIENTES se cargarán aquí -->
+                    </div>
+                    <div class="tab-content" id="tab-in-progress">
+                        <!-- Las tareas EN PROGRESO se cargarán aquí -->
+                    </div>
+                    <div class="tab-content" id="tab-completed">
+                        <!-- Las tareas COMPLETADAS se cargarán aquí -->
+                    </div>
+                </div>
+
+                <!-- Manage Tasks Page (Admin Only) -->
+                <div id="manage-tasks" class="page">
+                    <div class="page-title">
+                        <h1>Gestión de Tareas</h1>
+                        <button class="btn btn-primary" id="addTaskBtn">
+                            <i class="fas fa-plus"></i> Nueva Tarea
+                        </button>
+                    </div>
+
+                    <div class="card">
+                        <div style="overflow-x: auto;">
+                            <table class="table">
+                                <thead>
+                                    <tr>
+                                        <th>Tarea</th>
+                                        <th>Asignada a</th>
+                                        <th>Fecha Límite</th>
+                                        <th>Estado</th>
+                                        <th>Urgencia</th>
+                                        <th>Material Solicitado</th>
+                                        <th>Acciones</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="allTasksTable">
+                                    <tr><td colspan="7" style="text-align: center; padding: 2rem; color: var(--gray);">Cargando...</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Inventory Page -->
+                <div id="inventory" class="page">
+                    <div class="page-title">
+                        <h1>Gestión de Inventario</h1>
+                        <div>
+                            <button class="btn btn-primary" id="addMaterialBtn">
+                                <i class="fas fa-plus"></i> Nuevo Material
+                            </button>
+                            <button class="btn btn-success" id="exportInventoryBtn">
+                                <i class="fas fa-file-excel"></i> Exportar Excel
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-title">Resumen de Inventario</div>
+                        </div>
+                        <div class="stock-info">
+                            <div class="stock-item">
+                                <div class="stock-value" id="totalItems">0</div>
+                                <div class="stock-label">Total de Items</div>
+                            </div>
+                            <div class="stock-item">
+                                <div class="stock-value good-stock" id="goodStock">0</div>
+                                <div class="stock-label">Stock Bueno</div>
+                            </div>
+                            <div class="stock-item">
+                                <div class="stock-value medium-stock" id="mediumStock">0</div>
+                                <div class="stock-label">Stock Medio</div>
+                            </div>
+                            <div class="stock-item">
+                                <div class="stock-value low-stock" id="lowStock">0</div>
+                                <div class="stock-label">Stock Bajo</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-title">Todos los Materiales</div>
+                            <div class="form-group" style="margin: 0; min-width: 200px;">
+                                <input type="text" class="form-control" id="searchMaterial" placeholder="Buscar material...">
+                            </div>
+                        </div>
+                        <div id="inventoryContainer">
+                            <div style="text-align: center; padding: 2rem; color: var(--gray);">Cargando inventario...</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Reports Admin Page -->
+                <div id="reports-admin" class="page">
+                    <div class="page-title">
+                        <h1>Reportes Recibidos</h1>
+                    </div>
+                    <div class="tabs">
+                        <div class="tab active" data-tab="reports-all">Todos</div>
+                        <div class="tab" data-tab="reports-pending">Pendientes</div>
+                        <div class="tab" data-tab="reports-resolved">Resueltos</div>
+                    </div>
+
+                    <div class="tab-content active" id="tab-reports-all">
+                        <div id="reportsContainer">
+                            <div style="text-align: center; padding: 2rem; color: var(--gray);">Cargando reportes...</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Reports Page -->
+                <div id="reports" class="page">
+                    <div class="page-title">
+                        <h1>Reportar Problema o Solicitar Material</h1>
+                    </div>
+
+                    <div class="card">
+                        <form id="reportForm">
+                            <div class="form-group">
+                                <label class="form-label">Tipo de reporte</label>
+                                <select class="form-select" id="reportType" required>
+                                    <option value="problem">Problema en tarea</option>
+                                    <option value="material">Solicitud de material</option>
+                                    <option value="equipment">Solicitud de equipo</option>
+                                    <option value="assistance">Solicitud de asistencia</option>
+                                    <option value="other">Otro tipo de reporte</option>
+                                </select>
+                            </div>
+
+                            <div class="form-group">
+                                <label class="form-label">Tarea relacionada</label>
+                                <select class="form-select" id="taskSelect">
+                                    <option value="">Selecciona una tarea (opcional)</option>
+                                </select>
+                            </div>
+
+                            <div class="form-group">
+                                <label class="form-label">Título del reporte</label>
+                                <input type="text" class="form-control" id="reportTitle" placeholder="Ej: Falta material para completar la tarea" required maxlength="200">
+                            </div>
+
+                            <div class="form-group">
+                                <label class="form-label">Descripción detallada</label>
+                                <textarea class="form-control" id="problemDescription" rows="5" placeholder="Describe el problema, los materiales que necesitas o la asistencia requerida..." required maxlength="1000"></textarea>
+                            </div>
+
+                            <div id="materialSection" style="display: none;">
+                                <div class="material-details">
+                                    <h4 style="margin-bottom: 1rem; color: var(--dark);">Detalles del Material Solicitado</h4>
+                                    <div class="form-group">
+                                        <label class="form-label">Material necesario</label>
+                                        <input type="text" class="form-control" id="materialNameInput" placeholder="Ej: Tornillos de 2 pulgadas" maxlength="150">
+                                    </div>
+                                    <div class="form-group">
+                                        <label class="form-label">Cantidad requerida</label>
+                                        <input type="text" class="form-control" id="materialQuantityInput" placeholder="Ej: 50 unidades" maxlength="100">
+                                    </div>
+                                    <div class="form-group">
+                                        <label class="form-label">Especificaciones técnicas</label>
+                                        <textarea class="form-control" id="materialSpecs" rows="2" placeholder="Especificaciones, medidas, tipo, modelo, etc." maxlength="500"></textarea>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div id="equipmentSection" style="display: none;">
+                                <div class="material-details">
+                                    <h4 style="margin-bottom: 1rem; color: var(--dark);">Detalles del Equipo Solicitado</h4>
+                                    <div class="form-group">
+                                        <label class="form-label">Tipo de equipo</label>
+                                        <input type="text" class="form-control" id="equipmentType" placeholder="Ej: Taladro, andamio" maxlength="150">
+                                    </div>
+                                    <div class="form-group">
+                                        <label class="form-label">Tiempo de uso estimado</label>
+                                        <input type="text" class="form-control" id="equipmentTime" placeholder="Ej: 3 días, 1 semana" maxlength="100">
+                                    </div>
+                                    <div class="form-group">
+                                        <label class="form-label">Especificaciones del equipo</label>
+                                        <textarea class="form-control" id="equipmentSpecs" rows="2" placeholder="Características, capacidad, voltaje, etc." maxlength="500"></textarea>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="form-group">
+                                <label class="form-label">Imagen del problema (opcional)</label>
+                                <input type="file" class="form-control" id="reportImage" accept="image/*">
+                                <small style="color: var(--gray); margin-top: 5px; display: block;">
+                                    Puedes subir una foto del problema o material necesario
+                                </small>
+                            </div>
+
+                            <div class="form-group">
+                                <label class="form-label">Nivel de urgencia</label>
+                                <select class="form-select" id="reportUrgency" required>
+                                    <option value="low">Baja (Puede esperar varios días)</option>
+                                    <option value="medium">Media (Necesario en 1-2 días)</option>
+                                    <option value="high">Alta (Necesario hoy)</option>
+                                    <option value="urgent">Urgente (Inmediato - Detiene el trabajo)</option>
+                                </select>
+                            </div>
+
+                            <div class="form-group">
+                                <label class="form-label">¿Este reporte detiene el avance de la tarea?</label>
+                                <select class="form-select" id="blocksProgress" required>
+                                    <option value="no">No, puedo continuar con otras actividades</option>
+                                    <option value="partial">Parcialmente, reduce la productividad</option>
+                                    <option value="complete">Sí, detiene completamente el trabajo</option>
+                                </select>
+                            </div>
+
+                            <div class="form-group">
+                                <label class="form-label">Fecha límite requerida</label>
+                                <input type="date" class="form-control" id="requiredDate">
+                                <small style="color: var(--gray); margin-top: 5px; display: block;">
+                                    ¿Para cuándo necesitas resolver este reporte?
+                                </small>
+                            </div>
+
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-paper-plane"></i> Enviar Reporte
+                            </button>
+                        </form>
+                    </div>
+                </div>
+
+                <!-- Users Page -->
+                <div id="users" class="page">
+                    <div class="page-title">
+                        <h1>Gestión de Usuarios</h1>
+                        <button class="btn btn-primary" id="addUserBtn">
+                            <i class="fas fa-user-plus"></i> Nuevo Usuario
+                        </button>
+                    </div>
+
+                    <div class="card">
+                        <div style="overflow-x: auto;">
+                            <table class="table">
+                                <thead>
+                                    <tr>
+                                        <th>Usuario</th>
+                                        <th>Nombre</th>
+                                        <th>Rol</th>
+                                        <th>Tareas Activas</th>
+                                        <th>Acciones</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="usersTable">
+                                    <tr><td colspan="5" style="text-align: center; padding: 2rem; color: var(--gray);">Cargando...</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Export Page -->
+                <div id="export" class="page">
+                    <div class="page-title">
+                        <h1>Exportar Actividades</h1>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-title">Exportar Datos del Sistema</div>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label class="form-label">Tipo de Exportación</label>
+                            <select class="form-select" id="exportType">
+                                <option value="all">Todas las actividades</option>
+                                <option value="tasks">Solo tareas</option>
+                                <option value="reports">Solo reportes</option>
+                                <option value="inventory">Solo inventario</option>
+                                <option value="completed">Solo actividades completadas</option>
+                                <option value="pending">Solo actividades pendientes</option>
+                                <option value="date-range">Por rango de fechas</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group" id="dateRangeGroup" style="display: none;">
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                                <div>
+                                    <label class="form-label">Fecha inicial</label>
+                                    <input type="date" class="form-control" id="startDate">
+                                </div>
+                                <div>
+                                    <label class="form-label">Fecha final</label>
+                                    <input type="date" class="form-control" id="endDate">
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label">Formato de exportación</label>
+                            <select class="form-select" id="exportFormat">
+                                <option value="excel">Excel (.xlsx)</option>
+                                <option value="csv">CSV (.csv)</option>
+                                <option value="pdf">PDF (.pdf)</option>
+                            </select>
+                        </div>
+
+                        <div class="export-options">
+                            <button class="btn export-btn" id="exportDataBtn">
+                                <i class="fas fa-download"></i> Exportar Datos
+                            </button>
+                            <button class="btn btn-primary" id="previewDataBtn">
+                                <i class="fas fa-eye"></i> Vista Previa
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="card" id="previewSection" style="display: none;">
+                        <div class="card-header">
+                            <div class="card-title">Vista Previa de Datos</div>
+                        </div>
+                        <div id="previewContent"></div>
+                    </div>
+                </div>
+
+                <!-- Change Password Page -->
+                <div id="change-password" class="page">
+                    <div class="page-title">
+                        <h1>Cambiar Contraseña</h1>
+                    </div>
+
+                    <div class="card">
+                        <form id="changePasswordForm">
+                            <div class="form-group">
+                                <label class="form-label">Usuario Actual</label>
+                                <input type="text" class="form-control" id="currentUserDisplay" readonly style="background-color: #f8f9fa;">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Contraseña Actual</label>
+                                <input type="password" class="form-control" id="currentPassword" placeholder="Ingresa tu contraseña actual" required>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Nueva Contraseña</label>
+                                <input type="password" class="form-control" id="newPassword" placeholder="Ingresa nueva contraseña" required minlength="6">
+                                <small style="color: var(--gray); margin-top: 5px; display: block;">
+                                    La contraseña debe tener al menos 6 caracteres
+                                </small>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Confirmar Nueva Contraseña</label>
+                                <input type="password" class="form-control" id="confirmPassword" placeholder="Confirma la nueva contraseña" required minlength="6">
+                            </div>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save"></i> Actualizar Contraseña
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Notification -->
+    <div class="notification" id="notification">
+        <i class="fas fa-bell notification-icon"></i>
+        <div class="notification-content">
+            <div class="notification-title">Notificación</div>
+            <div class="notification-message" id="notificationMessage">Mensaje</div>
+        </div>
+    </div>
+
+    <!-- Loading Overlay -->
+    <div class="overlay" id="loadingOverlay">
+        <div class="loading-spinner">
+            <div class="spinner"></div>
+            <p>Procesando...</p>
+        </div>
+    </div>
+
+    <!-- Add Task Modal -->
+    <div class="modal-overlay" id="addTaskModal">
+        <div class="modal">
+            <div class="modal-header">
+                <div class="modal-title">Crear Nueva Tarea</div>
+                <button class="modal-close" id="closeTaskModal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="taskForm">
+                    <div class="form-group">
+                        <label class="form-label">Nombre de la actividad</label>
+                        <input type="text" class="form-control" id="taskName" placeholder="Ej: Revisar informe mensual" required maxlength="200">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Descripción</label>
+                        <textarea class="form-control" id="taskDescription" rows="3" placeholder="Describe la tarea en detalle..." required maxlength="1000"></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Responsable</label>
+                        <select class="form-select" id="taskAssignee" required>
+                            <option value="">Selecciona un trabajador</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Fecha de inicio</label>
+                        <input type="date" class="form-control" id="taskStartDate" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Fecha límite</label>
+                        <input type="date" class="form-control" id="taskDueDate" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Nivel de urgencia</label>
+                        <select class="form-select" id="taskUrgency" required>
+                            <option value="low">Baja</option>
+                            <option value="medium">Media</option>
+                            <option value="high">Alta</option>
+                            <option value="urgent">Urgente</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Materiales necesarios (opcional)</label>
+                        <div id="taskMaterialsContainer">
+                            <div class="assignment-form">
+                                <select class="form-select" id="materialSelect">
+                                    <option value="">Seleccionar material</option>
+                                </select>
+                                <input type="number" class="form-control" id="materialQuantityTask" placeholder="Cantidad" min="1">
+                                <button type="button" class="btn btn-outline" id="addMaterialToTask">
+                                    <i class="fas fa-plus"></i> Agregar
+                                </button>
+                            </div>
+                            <div id="taskMaterialsList" style="margin-top: 1rem;"></div>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Imagen de la tarea (opcional)</label>
+                        <input type="file" class="form-control" id="taskImage" accept="image/*">
+                        <small style="color: var(--gray);">Puedes subir una foto relacionada con la tarea</small>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-outline" id="cancelTaskBtn">Cancelar</button>
+                <button class="btn btn-primary" id="saveTaskBtn">Guardar Tarea</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Material Modal -->
+    <div class="modal-overlay" id="addMaterialModal">
+        <div class="modal">
+            <div class="modal-header">
+                <div class="modal-title">Agregar Nuevo Material</div>
+                <button class="modal-close" id="closeMaterialModal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="materialForm">
+                    <div class="form-group">
+                        <label class="form-label">Nombre del Material</label>
+                        <input type="text" class="form-control" id="materialNameModal" placeholder="Ej: Cable eléctrico 2.5mm" required maxlength="100">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Categoría</label>
+                        <select class="form-select" id="materialCategory" required>
+                            <option value="">Selecciona una categoría</option>
+                            <option value="Electricidad">Electricidad</option>
+                            <option value="Fontanería">Fontanería</option>
+                            <option value="Construcción">Construcción</option>
+                            <option value="Herramientas">Herramientas</option>
+                            <option value="Seguridad">Seguridad</option>
+                            <option value="Otros">Otros</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Cantidad en Stock</label>
+                        <input type="number" class="form-control" id="materialQuantityModal" placeholder="0" min="0" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Unidad de Medida</label>
+                        <input type="text" class="form-control" id="materialUnit" placeholder="Ej: metros, unidades, kg" required maxlength="20">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Stock Mínimo</label>
+                        <input type="number" class="form-control" id="materialMinStock" placeholder="Stock mínimo alerta" min="0" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Proveedor</label>
+                        <input type="text" class="form-control" id="materialSupplier" placeholder="Nombre del proveedor" maxlength="100">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Costo Unitario</label>
+                        <input type="number" class="form-control" id="materialCost" placeholder="0.00" min="0" step="0.01">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Ubicación en Almacén</label>
+                        <input type="text" class="form-control" id="materialLocation" placeholder="Ej: Almacén A - Estante 3" maxlength="100">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Descripción</label>
+                        <textarea class="form-control" id="materialDescription" rows="3" placeholder="Descripción detallada del material..." maxlength="500"></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-outline" id="cancelMaterialBtn">Cancelar</button>
+                <button class="btn btn-primary" id="saveMaterialBtn">Guardar Material</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add User Modal -->
+    <div class="modal-overlay" id="addUserModal">
+        <div class="modal">
+            <div class="modal-header">
+                <div class="modal-title">Agregar Nuevo Usuario</div>
+                <button class="modal-close" id="closeUserModal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <!-- MENSAJE DE ERROR MEJORADO -->
+                <div id="userFormError" class="error-message" style="display: none;"></div>
+                <div id="userFormSuccess" class="success-message" style="display: none;"></div>
+                
+                <form id="userForm">
+                    <div class="form-group">
+                        <label class="form-label">Nombre de Usuario *</label>
+                        <input type="text" class="form-control" id="userUsername" placeholder="Ej: juanperez" required maxlength="50">
+                        <small class="field-error" id="usernameError" style="color: var(--danger); display: none;"></small>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Nombre Completo *</label>
+                        <input type="text" class="form-control" id="userName" placeholder="Ej: Juan Pérez" required maxlength="100">
+                        <small class="field-error" id="nameError" style="color: var(--danger); display: none;"></small>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Contraseña *</label>
+                        <input type="password" class="form-control" id="userPassword" placeholder="Ingresa una contraseña" required minlength="6">
+                        <small class="field-error" id="passwordError" style="color: var(--danger); display: none;"></small>
+                        <small style="color: var(--gray); margin-top: 5px; display: block;">
+                            La contraseña debe tener al menos 6 caracteres
+                        </small>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Confirmar Contraseña *</label>
+                        <input type="password" class="form-control" id="userConfirmPassword" placeholder="Confirma la contraseña" required minlength="6">
+                        <small class="field-error" id="confirmPasswordError" style="color: var(--danger); display: none;"></small>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Rol *</label>
+                        <select class="form-select" id="userRole" required>
+                            <option value="worker">Trabajador</option>
+                            <option value="admin">Administrador</option>
+                        </select>
+                        <small class="field-error" id="roleError" style="color: var(--danger); display: none;"></small>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-outline" id="cancelUserBtn">Cancelar</button>
+                <button class="btn btn-primary" id="saveUserBtn">Guardar Usuario</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Assign Materials Modal -->
+    <div class="modal-overlay" id="assignMaterialsModal">
+        <div class="modal">
+            <div class="modal-header">
+                <div class="modal-title">Asignar Materiales a Tarea</div>
+                <button class="modal-close" id="closeAssignModal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div id="assignMaterialsContent">
+                    <!-- Contenido dinámico para asignar materiales -->
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-outline" id="cancelAssignBtn">Cancelar</button>
+                <button class="btn btn-primary" id="saveAssignBtn">Asignar Materiales</button>
+            </div>
+        </div>
+    </div>
 
     <script>
         // ==================== CONFIGURACIÓN FIREBASE ====================
@@ -64,7 +2148,10 @@
 
         function showNotification(message, type = 'success') {
             const notification = document.getElementById('notification');
+            if (!notification) return;
+            
             const messageEl = document.getElementById('notificationMessage');
+            if (!messageEl) return;
             
             messageEl.textContent = sanitizeInput(message);
             notification.className = `notification notification-${type}`;
@@ -95,11 +2182,17 @@
         }
 
         function showLoading() {
-            document.getElementById('loadingOverlay').classList.add('active');
+            const loadingOverlay = document.getElementById('loadingOverlay');
+            if (loadingOverlay) {
+                loadingOverlay.classList.add('active');
+            }
         }
 
         function hideLoading() {
-            document.getElementById('loadingOverlay').classList.remove('active');
+            const loadingOverlay = document.getElementById('loadingOverlay');
+            if (loadingOverlay) {
+                loadingOverlay.classList.remove('active');
+            }
         }
 
         // ==================== GESTIÓN DE DATOS CON FIREBASE ====================
@@ -159,8 +2252,11 @@
                 
             } catch (error) {
                 console.error('Error cargando datos de Firebase:', error);
-                document.getElementById('loginError').style.display = 'block';
-                document.getElementById('loginError').textContent = 'Error de conexión con Firebase. Verifica tu conexión a internet.';
+                const loginError = document.getElementById('loginError');
+                if (loginError) {
+                    loginError.style.display = 'block';
+                    loginError.textContent = 'Error de conexión con Firebase. Verifica tu conexión a internet.';
+                }
                 hideLoading();
             }
         }
@@ -326,8 +2422,13 @@
         function handleLogin(e) {
             e.preventDefault();
             
-            const username = sanitizeInput(document.getElementById('username').value);
-            const password = document.getElementById('password').value;
+            const usernameInput = document.getElementById('username');
+            const passwordInput = document.getElementById('password');
+            
+            if (!usernameInput || !passwordInput) return;
+            
+            const username = sanitizeInput(usernameInput.value);
+            const password = passwordInput.value;
 
             if (!username || !password) {
                 showNotification('Completa todos los campos', 'warning');
@@ -341,12 +2442,20 @@
                 currentUser = user;
                 saveSession();
                 
-                document.getElementById('loginScreen').style.display = 'none';
-                document.getElementById('app').style.display = 'block';
+                const loginScreen = document.getElementById('loginScreen');
+                const app = document.getElementById('app');
+                if (loginScreen && app) {
+                    loginScreen.style.display = 'none';
+                    app.style.display = 'block';
+                }
                 
-                document.getElementById('userInitials').textContent = user.name.charAt(0).toUpperCase();
-                document.getElementById('userName').textContent = user.name;
-                document.getElementById('userRole').textContent = user.role === 'admin' ? 'Administrador' : 'Trabajador';
+                const userInitials = document.getElementById('userInitials');
+                const userName = document.getElementById('userName');
+                const userRole = document.getElementById('userRole');
+                
+                if (userInitials) userInitials.textContent = user.name.charAt(0).toUpperCase();
+                if (userName) userName.textContent = user.name;
+                if (userRole) userRole.textContent = user.role === 'admin' ? 'Administrador' : 'Trabajador';
                 
                 // Ocultar elementos de admin si el usuario no es admin
                 document.querySelectorAll('.admin-only').forEach(el => {
@@ -368,9 +2477,17 @@
         function handleLogout() {
             currentUser = null;
             localStorage.removeItem('taskmaster_session');
-            document.getElementById('loginScreen').style.display = 'flex';
-            document.getElementById('app').style.display = 'none';
-            document.getElementById('loginForm').reset();
+            
+            const loginScreen = document.getElementById('loginScreen');
+            const app = document.getElementById('app');
+            if (loginScreen && app) {
+                loginScreen.style.display = 'flex';
+                app.style.display = 'none';
+            }
+            
+            const loginForm = document.getElementById('loginForm');
+            if (loginForm) loginForm.reset();
+            
             showNotification('Sesión cerrada correctamente', 'success');
         }
 
@@ -393,12 +2510,21 @@
                 const now = new Date().getTime();
                 if (now - sessionData.timestamp < 24 * 60 * 60 * 1000) {
                     currentUser = sessionData.user;
-                    document.getElementById('loginScreen').style.display = 'none';
-                    document.getElementById('app').style.display = 'block';
                     
-                    document.getElementById('userInitials').textContent = currentUser.name.charAt(0).toUpperCase();
-                    document.getElementById('userName').textContent = currentUser.name;
-                    document.getElementById('userRole').textContent = currentUser.role === 'admin' ? 'Administrador' : 'Trabajador';
+                    const loginScreen = document.getElementById('loginScreen');
+                    const app = document.getElementById('app');
+                    if (loginScreen && app) {
+                        loginScreen.style.display = 'none';
+                        app.style.display = 'block';
+                    }
+                    
+                    const userInitials = document.getElementById('userInitials');
+                    const userName = document.getElementById('userName');
+                    const userRole = document.getElementById('userRole');
+                    
+                    if (userInitials) userInitials.textContent = currentUser.name.charAt(0).toUpperCase();
+                    if (userName) userName.textContent = currentUser.name;
+                    if (userRole) userRole.textContent = currentUser.role === 'admin' ? 'Administrador' : 'Trabajador';
                     
                     // Ocultar elementos de admin si el usuario no es admin
                     document.querySelectorAll('.admin-only').forEach(el => {
@@ -462,18 +2588,27 @@
                 ? tasks.filter(task => task.assignee === currentUser.username)
                 : tasks;
 
-            document.getElementById('totalTasks').textContent = userTasks.length;
-            document.getElementById('pendingTasks').textContent = userTasks.filter(t => t.status === 'pending').length;
-            document.getElementById('inProgressTasks').textContent = userTasks.filter(t => t.status === 'in-progress').length;
-            document.getElementById('completedTasks').textContent = userTasks.filter(t => t.status === 'completed').length;
-            document.getElementById('totalReports').textContent = reports.filter(r => r.status === 'pending').length;
-            document.getElementById('totalMaterials').textContent = inventory.length;
+            const totalTasksEl = document.getElementById('totalTasks');
+            const pendingTasksEl = document.getElementById('pendingTasks');
+            const inProgressTasksEl = document.getElementById('inProgressTasks');
+            const completedTasksEl = document.getElementById('completedTasks');
+            const totalReportsEl = document.getElementById('totalReports');
+            const totalMaterialsEl = document.getElementById('totalMaterials');
+
+            if (totalTasksEl) totalTasksEl.textContent = userTasks.length;
+            if (pendingTasksEl) pendingTasksEl.textContent = userTasks.filter(t => t.status === 'pending').length;
+            if (inProgressTasksEl) inProgressTasksEl.textContent = userTasks.filter(t => t.status === 'in-progress').length;
+            if (completedTasksEl) completedTasksEl.textContent = userTasks.filter(t => t.status === 'completed').length;
+            if (totalReportsEl) totalReportsEl.textContent = reports.filter(r => r.status === 'pending').length;
+            if (totalMaterialsEl) totalMaterialsEl.textContent = inventory.length;
 
             // Actualizar alertas de stock bajo
             updateLowStockAlerts();
 
             const recentTasks = userTasks.slice(-5).reverse();
             const tbody = document.getElementById('recentTasksTable');
+            if (!tbody) return;
+            
             tbody.innerHTML = '';
             
             if (recentTasks.length === 0) {
@@ -507,6 +2642,8 @@
             const lowStockItems = inventory.filter(item => item.quantity <= item.minStock);
             const alertContainer = document.getElementById('lowStockAlert');
             const itemsContainer = document.getElementById('lowStockItems');
+            
+            if (!alertContainer || !itemsContainer) return;
             
             if (lowStockItems.length === 0) {
                 alertContainer.style.display = 'none';
@@ -655,7 +2792,8 @@
                 btn.addEventListener('click', function() {
                     const taskId = this.getAttribute('data-task-id');
                     switchPage('reports');
-                    document.getElementById('taskSelect').value = taskId;
+                    const taskSelect = document.getElementById('taskSelect');
+                    if (taskSelect) taskSelect.value = taskId;
                 });
             });
         }
@@ -684,6 +2822,8 @@
         // ==================== GESTIÓN COMPLETA DE TAREAS ====================
         function loadAllTasks() {
             const tbody = document.getElementById('allTasksTable');
+            if (!tbody) return;
+            
             tbody.innerHTML = '';
 
             if (tasks.length === 0) {
@@ -765,6 +2905,8 @@
             updateInventoryStats();
             
             const container = document.getElementById('inventoryContainer');
+            if (!container) return;
+            
             container.innerHTML = '';
 
             if (inventory.length === 0) {
@@ -772,7 +2914,9 @@
                 return;
             }
 
-            const searchTerm = document.getElementById('searchMaterial').value.toLowerCase();
+            const searchInput = document.getElementById('searchMaterial');
+            const searchTerm = searchInput ? searchInput.value.toLowerCase() : '';
+            
             const filteredInventory = inventory.filter(item => 
                 item.name.toLowerCase().includes(searchTerm) ||
                 item.category.toLowerCase().includes(searchTerm) ||
@@ -891,10 +3035,15 @@
             const mediumStock = inventory.filter(item => item.quantity > item.minStock && item.quantity <= item.minStock * 2).length;
             const lowStock = inventory.filter(item => item.quantity <= item.minStock).length;
             
-            document.getElementById('totalItems').textContent = totalItems;
-            document.getElementById('goodStock').textContent = goodStock;
-            document.getElementById('mediumStock').textContent = mediumStock;
-            document.getElementById('lowStock').textContent = lowStock;
+            const totalItemsEl = document.getElementById('totalItems');
+            const goodStockEl = document.getElementById('goodStock');
+            const mediumStockEl = document.getElementById('mediumStock');
+            const lowStockEl = document.getElementById('lowStock');
+            
+            if (totalItemsEl) totalItemsEl.textContent = totalItems;
+            if (goodStockEl) goodStockEl.textContent = goodStock;
+            if (mediumStockEl) mediumStockEl.textContent = mediumStock;
+            if (lowStockEl) lowStockEl.textContent = lowStock;
         }
 
         // ==================== SISTEMA DE REPORTES ====================
@@ -950,7 +3099,8 @@
             await saveReports();
             
             showNotification('Reporte enviado correctamente', 'success');
-            document.getElementById('reportForm').reset();
+            const reportForm = document.getElementById('reportForm');
+            if (reportForm) reportForm.reset();
             
             // Si el usuario es admin, actualizar la página de reportes
             if (currentUser.role === 'admin') {
@@ -960,6 +3110,8 @@
 
         function loadReports() {
             const container = document.getElementById('reportsContainer');
+            if (!container) return;
+            
             container.innerHTML = '';
 
             if (reports.length === 0) {
@@ -1097,6 +3249,8 @@
         // ==================== GESTIÓN DE USUARIOS - FUNCIONES CORREGIDAS ====================
         function updateUsersTable() {
             const tbody = document.getElementById('usersTable');
+            if (!tbody) return;
+            
             tbody.innerHTML = '';
 
             if (users.length === 0) {
@@ -1146,18 +3300,27 @@
 
         function openAddUserModal() {
             // Limpiar formulario y mensajes de error
-            document.getElementById('userForm').reset();
+            const userForm = document.getElementById('userForm');
+            if (userForm) userForm.reset();
+            
             hideAllUserFormErrors();
-            document.getElementById('userFormError').style.display = 'none';
-            document.getElementById('userFormSuccess').style.display = 'none';
+            
+            const userFormError = document.getElementById('userFormError');
+            const userFormSuccess = document.getElementById('userFormSuccess');
+            if (userFormError) userFormError.style.display = 'none';
+            if (userFormSuccess) userFormSuccess.style.display = 'none';
             
             // Mostrar modal
-            document.getElementById('addUserModal').classList.add('active');
+            const addUserModal = document.getElementById('addUserModal');
+            if (addUserModal) addUserModal.classList.add('active');
             
             // Configurar el botón de guardar para crear nuevo usuario
-            document.getElementById('saveUserBtn').onclick = function() {
-                createNewUser();
-            };
+            const saveUserBtn = document.getElementById('saveUserBtn');
+            if (saveUserBtn) {
+                saveUserBtn.onclick = function() {
+                    createNewUser();
+                };
+            }
         }
 
         function openEditUserModal(userId) {
@@ -1169,28 +3332,42 @@
 
             // Limpiar mensajes de error
             hideAllUserFormErrors();
-            document.getElementById('userFormError').style.display = 'none';
-            document.getElementById('userFormSuccess').style.display = 'none';
+            
+            const userFormError = document.getElementById('userFormError');
+            const userFormSuccess = document.getElementById('userFormSuccess');
+            if (userFormError) userFormError.style.display = 'none';
+            if (userFormSuccess) userFormSuccess.style.display = 'none';
 
             // Llenar formulario con datos del usuario
-            document.getElementById('userUsername').value = user.username;
-            document.getElementById('userName').value = user.name;
-            document.getElementById('userRole').value = user.role;
+            const userUsername = document.getElementById('userUsername');
+            const userName = document.getElementById('userName');
+            const userRole = document.getElementById('userRole');
+            
+            if (userUsername) userUsername.value = user.username;
+            if (userName) userName.value = user.name;
+            if (userRole) userRole.value = user.role;
             
             // Para edición, no requerimos contraseña
-            document.getElementById('userPassword').required = false;
-            document.getElementById('userConfirmPassword').required = false;
+            const userPassword = document.getElementById('userPassword');
+            const userConfirmPassword = document.getElementById('userConfirmPassword');
+            if (userPassword) userPassword.required = false;
+            if (userConfirmPassword) userConfirmPassword.required = false;
 
             // Mostrar modal
-            document.getElementById('addUserModal').classList.add('active');
+            const addUserModal = document.getElementById('addUserModal');
+            if (addUserModal) addUserModal.classList.add('active');
             
             // Cambiar título del modal
-            document.querySelector('#addUserModal .modal-title').textContent = 'Editar Usuario';
+            const modalTitle = document.querySelector('#addUserModal .modal-title');
+            if (modalTitle) modalTitle.textContent = 'Editar Usuario';
             
             // Configurar el botón de guardar para actualizar usuario
-            document.getElementById('saveUserBtn').onclick = function() {
-                updateUser(userId);
-            };
+            const saveUserBtn = document.getElementById('saveUserBtn');
+            if (saveUserBtn) {
+                saveUserBtn.onclick = function() {
+                    updateUser(userId);
+                };
+            }
         }
 
         function hideAllUserFormErrors() {
@@ -1305,8 +3482,11 @@
         async function createNewUser() {
             // Validar formulario
             if (!validateUserForm(false)) {
-                document.getElementById('userFormError').textContent = 'Por favor, corrige los errores en el formulario';
-                document.getElementById('userFormError').style.display = 'block';
+                const userFormError = document.getElementById('userFormError');
+                if (userFormError) {
+                    userFormError.textContent = 'Por favor, corrige los errores en el formulario';
+                    userFormError.style.display = 'block';
+                }
                 return;
             }
 
@@ -1319,8 +3499,11 @@
             const existingUser = users.find(u => u.username === username);
             if (existingUser) {
                 showUserFormError('userUsername', 'El nombre de usuario ya existe');
-                document.getElementById('userFormError').textContent = 'El nombre de usuario ya está en uso';
-                document.getElementById('userFormError').style.display = 'block';
+                const userFormError = document.getElementById('userFormError');
+                if (userFormError) {
+                    userFormError.textContent = 'El nombre de usuario ya está en uso';
+                    userFormError.style.display = 'block';
+                }
                 return;
             }
             
@@ -1337,15 +3520,19 @@
             await saveUsers();
             
             showNotification('Usuario creado correctamente', 'success');
-            document.getElementById('addUserModal').classList.remove('active');
+            const addUserModal = document.getElementById('addUserModal');
+            if (addUserModal) addUserModal.classList.remove('active');
             updateUsersTable();
         }
 
         async function updateUser(userId) {
             // Validar formulario (para edición)
             if (!validateUserForm(true)) {
-                document.getElementById('userFormError').textContent = 'Por favor, corrige los errores en el formulario';
-                document.getElementById('userFormError').style.display = 'block';
+                const userFormError = document.getElementById('userFormError');
+                if (userFormError) {
+                    userFormError.textContent = 'Por favor, corrige los errores en el formulario';
+                    userFormError.style.display = 'block';
+                }
                 return;
             }
 
@@ -1358,8 +3545,11 @@
             const existingUser = users.find(u => u.username === username && u.id !== userId);
             if (existingUser) {
                 showUserFormError('userUsername', 'El nombre de usuario ya existe');
-                document.getElementById('userFormError').textContent = 'El nombre de usuario ya está en uso';
-                document.getElementById('userFormError').style.display = 'block';
+                const userFormError = document.getElementById('userFormError');
+                if (userFormError) {
+                    userFormError.textContent = 'El nombre de usuario ya está en uso';
+                    userFormError.style.display = 'block';
+                }
                 return;
             }
             
@@ -1386,7 +3576,8 @@
             await saveUsers();
             
             showNotification('Usuario actualizado correctamente', 'success');
-            document.getElementById('addUserModal').classList.remove('active');
+            const addUserModal = document.getElementById('addUserModal');
+            if (addUserModal) addUserModal.classList.remove('active');
             updateUsersTable();
         }
 
@@ -1423,16 +3614,21 @@
             
             // Mostrar fecha actual
             const now = new Date();
-            document.getElementById('currentDate').textContent = now.toLocaleDateString('es-ES', {
-                weekday: 'long',
-                year: 'numeric',
-                month: 'long',
-                day: 'numeric'
-            });
+            const currentDateEl = document.getElementById('currentDate');
+            if (currentDateEl) {
+                currentDateEl.textContent = now.toLocaleDateString('es-ES', {
+                    weekday: 'long',
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric'
+                });
+            }
         }
 
         function populateTaskSelect() {
             const taskSelect = document.getElementById('taskSelect');
+            if (!taskSelect) return;
+            
             taskSelect.innerHTML = '<option value="">Selecciona una tarea (opcional)</option>';
             
             const userTasks = currentUser.role === 'worker'
@@ -1448,7 +3644,10 @@
         }
 
         function loadChangePasswordPage() {
-            document.getElementById('currentUserDisplay').value = currentUser.username;
+            const currentUserDisplay = document.getElementById('currentUserDisplay');
+            if (currentUserDisplay) {
+                currentUserDisplay.value = currentUser.username;
+            }
         }
 
         // ==================== INICIALIZACIÓN ====================
@@ -1458,16 +3657,28 @@
             
             // Intentar cargar sesión
             if (!loadSession()) {
-                document.getElementById('loginScreen').style.display = 'flex';
-                document.getElementById('app').style.display = 'none';
+                const loginScreen = document.getElementById('loginScreen');
+                const app = document.getElementById('app');
+                if (loginScreen && app) {
+                    loginScreen.style.display = 'flex';
+                    app.style.display = 'none';
+                }
             }
             
             // Event listeners
-            document.getElementById('loginForm').addEventListener('submit', handleLogin);
-            document.getElementById('logoutBtn').addEventListener('click', handleLogout);
-            document.getElementById('menuToggle').addEventListener('click', function() {
-                document.getElementById('sidebar').classList.toggle('active');
-            });
+            const loginForm = document.getElementById('loginForm');
+            if (loginForm) loginForm.addEventListener('submit', handleLogin);
+            
+            const logoutBtn = document.getElementById('logoutBtn');
+            if (logoutBtn) logoutBtn.addEventListener('click', handleLogout);
+            
+            const menuToggle = document.getElementById('menuToggle');
+            if (menuToggle) {
+                menuToggle.addEventListener('click', function() {
+                    const sidebar = document.getElementById('sidebar');
+                    if (sidebar) sidebar.classList.toggle('active');
+                });
+            }
             
             // Navegación
             document.querySelectorAll('.nav-item').forEach(item => {
@@ -1476,7 +3687,8 @@
                     switchPage(page);
                     // Cerrar sidebar en móviles
                     if (window.innerWidth <= 992) {
-                        document.getElementById('sidebar').classList.remove('active');
+                        const sidebar = document.getElementById('sidebar');
+                        if (sidebar) sidebar.classList.remove('active');
                     }
                 });
             });
@@ -1504,195 +3716,292 @@
             });
             
             // Botón para ver todas las tareas
-            document.getElementById('viewAllTasksBtn').addEventListener('click', function() {
-                switchPage('tasks');
-            });
+            const viewAllTasksBtn = document.getElementById('viewAllTasksBtn');
+            if (viewAllTasksBtn) {
+                viewAllTasksBtn.addEventListener('click', function() {
+                    switchPage('tasks');
+                });
+            }
             
             // Botón para agregar tarea
-            document.getElementById('addTaskBtn').addEventListener('click', function() {
-                // Limpiar formulario
-                document.getElementById('taskForm').reset();
-                
-                // Llenar select de trabajadores
-                const taskAssignee = document.getElementById('taskAssignee');
-                taskAssignee.innerHTML = '<option value="">Selecciona un trabajador</option>';
-                users.filter(u => u.role === 'worker').forEach(user => {
-                    const option = document.createElement('option');
-                    option.value = user.username;
-                    option.textContent = user.name;
-                    taskAssignee.appendChild(option);
+            const addTaskBtn = document.getElementById('addTaskBtn');
+            if (addTaskBtn) {
+                addTaskBtn.addEventListener('click', function() {
+                    // Limpiar formulario
+                    const taskForm = document.getElementById('taskForm');
+                    if (taskForm) taskForm.reset();
+                    
+                    // Llenar select de trabajadores
+                    const taskAssignee = document.getElementById('taskAssignee');
+                    if (taskAssignee) {
+                        taskAssignee.innerHTML = '<option value="">Selecciona un trabajador</option>';
+                        users.filter(u => u.role === 'worker').forEach(user => {
+                            const option = document.createElement('option');
+                            option.value = user.username;
+                            option.textContent = user.name;
+                            taskAssignee.appendChild(option);
+                        });
+                    }
+                    
+                    // Llenar select de materiales
+                    const materialSelect = document.getElementById('materialSelect');
+                    if (materialSelect) {
+                        materialSelect.innerHTML = '<option value="">Seleccionar material</option>';
+                        inventory.forEach(material => {
+                            const option = document.createElement('option');
+                            option.value = material.id;
+                            option.textContent = `${material.name} (${material.quantity} ${material.unit} disponible)`;
+                            materialSelect.appendChild(option);
+                        });
+                    }
+                    
+                    // Limpiar lista de materiales
+                    const taskMaterialsList = document.getElementById('taskMaterialsList');
+                    if (taskMaterialsList) taskMaterialsList.innerHTML = '';
+                    
+                    // Mostrar modal
+                    const addTaskModal = document.getElementById('addTaskModal');
+                    if (addTaskModal) addTaskModal.classList.add('active');
+                    
+                    // Configurar el botón de guardar para crear nueva tarea
+                    const saveTaskBtn = document.getElementById('saveTaskBtn');
+                    if (saveTaskBtn) {
+                        saveTaskBtn.onclick = function() {
+                            createNewTask();
+                        };
+                    }
                 });
-                
-                // Llenar select de materiales
-                const materialSelect = document.getElementById('materialSelect');
-                materialSelect.innerHTML = '<option value="">Seleccionar material</option>';
-                inventory.forEach(material => {
-                    const option = document.createElement('option');
-                    option.value = material.id;
-                    option.textContent = `${material.name} (${material.quantity} ${material.unit} disponible)`;
-                    materialSelect.appendChild(option);
-                });
-                
-                // Limpiar lista de materiales
-                document.getElementById('taskMaterialsList').innerHTML = '';
-                
-                // Mostrar modal
-                document.getElementById('addTaskModal').classList.add('active');
-                
-                // Configurar el botón de guardar para crear nueva tarea
-                document.getElementById('saveTaskBtn').onclick = function() {
-                    createNewTask();
-                };
-            });
+            }
             
             // Botón para agregar material
-            document.getElementById('addMaterialBtn').addEventListener('click', function() {
-                // Limpiar formulario
-                document.getElementById('materialForm').reset();
-                
-                // Mostrar modal
-                document.getElementById('addMaterialModal').classList.add('active');
-                
-                // Configurar el botón de guardar para crear nuevo material
-                document.getElementById('saveMaterialBtn').onclick = function() {
-                    createNewMaterial();
-                };
-            });
+            const addMaterialBtn = document.getElementById('addMaterialBtn');
+            if (addMaterialBtn) {
+                addMaterialBtn.addEventListener('click', function() {
+                    // Limpiar formulario
+                    const materialForm = document.getElementById('materialForm');
+                    if (materialForm) materialForm.reset();
+                    
+                    // Mostrar modal
+                    const addMaterialModal = document.getElementById('addMaterialModal');
+                    if (addMaterialModal) addMaterialModal.classList.add('active');
+                    
+                    // Configurar el botón de guardar para crear nuevo material
+                    const saveMaterialBtn = document.getElementById('saveMaterialBtn');
+                    if (saveMaterialBtn) {
+                        saveMaterialBtn.onclick = function() {
+                            createNewMaterial();
+                        };
+                    }
+                });
+            }
             
             // Botón para agregar usuario
-            document.getElementById('addUserBtn').addEventListener('click', function() {
-                openAddUserModal();
-            });
+            const addUserBtn = document.getElementById('addUserBtn');
+            if (addUserBtn) {
+                addUserBtn.addEventListener('click', function() {
+                    openAddUserModal();
+                });
+            }
             
             // Botón para exportar inventario
-            document.getElementById('exportInventoryBtn').addEventListener('click', function() {
-                const inventoryData = getInventoryExportData();
-                exportToExcel(inventoryData, 'inventory');
-            });
+            const exportInventoryBtn = document.getElementById('exportInventoryBtn');
+            if (exportInventoryBtn) {
+                exportInventoryBtn.addEventListener('click', function() {
+                    const inventoryData = getInventoryExportData();
+                    exportToExcel(inventoryData, 'inventory');
+                });
+            }
             
             // Formulario de reportes
-            document.getElementById('reportForm').addEventListener('submit', submitReport);
+            const reportForm = document.getElementById('reportForm');
+            if (reportForm) reportForm.addEventListener('submit', submitReport);
             
             // Cambio de tipo de reporte
-            document.getElementById('reportType').addEventListener('change', function() {
-                const materialSection = document.getElementById('materialSection');
-                const equipmentSection = document.getElementById('equipmentSection');
-                
-                if (this.value === 'material') {
-                    materialSection.style.display = 'block';
-                    equipmentSection.style.display = 'none';
-                } else if (this.value === 'equipment') {
-                    materialSection.style.display = 'none';
-                    equipmentSection.style.display = 'block';
-                } else {
-                    materialSection.style.display = 'none';
-                    equipmentSection.style.display = 'none';
-                }
-            });
+            const reportType = document.getElementById('reportType');
+            if (reportType) {
+                reportType.addEventListener('change', function() {
+                    const materialSection = document.getElementById('materialSection');
+                    const equipmentSection = document.getElementById('equipmentSection');
+                    
+                    if (this.value === 'material') {
+                        if (materialSection) materialSection.style.display = 'block';
+                        if (equipmentSection) equipmentSection.style.display = 'none';
+                    } else if (this.value === 'equipment') {
+                        if (materialSection) materialSection.style.display = 'none';
+                        if (equipmentSection) equipmentSection.style.display = 'block';
+                    } else {
+                        if (materialSection) materialSection.style.display = 'none';
+                        if (equipmentSection) equipmentSection.style.display = 'none';
+                    }
+                });
+            }
             
             // Cerrar modales
-            document.getElementById('closeTaskModal').addEventListener('click', function() {
-                document.getElementById('addTaskModal').classList.remove('active');
-            });
+            const closeTaskModal = document.getElementById('closeTaskModal');
+            if (closeTaskModal) {
+                closeTaskModal.addEventListener('click', function() {
+                    const addTaskModal = document.getElementById('addTaskModal');
+                    if (addTaskModal) addTaskModal.classList.remove('active');
+                });
+            }
             
-            document.getElementById('closeMaterialModal').addEventListener('click', function() {
-                document.getElementById('addMaterialModal').classList.remove('active');
-            });
+            const closeMaterialModal = document.getElementById('closeMaterialModal');
+            if (closeMaterialModal) {
+                closeMaterialModal.addEventListener('click', function() {
+                    const addMaterialModal = document.getElementById('addMaterialModal');
+                    if (addMaterialModal) addMaterialModal.classList.remove('active');
+                });
+            }
             
-            document.getElementById('closeUserModal').addEventListener('click', function() {
-                document.getElementById('addUserModal').classList.remove('active');
-                // Restaurar título original
-                document.querySelector('#addUserModal .modal-title').textContent = 'Agregar Nuevo Usuario';
-                // Restaurar requerimiento de contraseña
-                document.getElementById('userPassword').required = true;
-                document.getElementById('userConfirmPassword').required = true;
-            });
+            const closeUserModal = document.getElementById('closeUserModal');
+            if (closeUserModal) {
+                closeUserModal.addEventListener('click', function() {
+                    const addUserModal = document.getElementById('addUserModal');
+                    if (addUserModal) addUserModal.classList.remove('active');
+                    // Restaurar título original
+                    const modalTitle = document.querySelector('#addUserModal .modal-title');
+                    if (modalTitle) modalTitle.textContent = 'Agregar Nuevo Usuario';
+                    // Restaurar requerimiento de contraseña
+                    const userPassword = document.getElementById('userPassword');
+                    const userConfirmPassword = document.getElementById('userConfirmPassword');
+                    if (userPassword) userPassword.required = true;
+                    if (userConfirmPassword) userConfirmPassword.required = true;
+                });
+            }
             
-            document.getElementById('cancelTaskBtn').addEventListener('click', function() {
-                document.getElementById('addTaskModal').classList.remove('active');
-            });
+            const cancelTaskBtn = document.getElementById('cancelTaskBtn');
+            if (cancelTaskBtn) {
+                cancelTaskBtn.addEventListener('click', function() {
+                    const addTaskModal = document.getElementById('addTaskModal');
+                    if (addTaskModal) addTaskModal.classList.remove('active');
+                });
+            }
             
-            document.getElementById('cancelMaterialBtn').addEventListener('click', function() {
-                document.getElementById('addMaterialModal').classList.remove('active');
-            });
+            const cancelMaterialBtn = document.getElementById('cancelMaterialBtn');
+            if (cancelMaterialBtn) {
+                cancelMaterialBtn.addEventListener('click', function() {
+                    const addMaterialModal = document.getElementById('addMaterialModal');
+                    if (addMaterialModal) addMaterialModal.classList.remove('active');
+                });
+            }
             
-            document.getElementById('cancelUserBtn').addEventListener('click', function() {
-                document.getElementById('addUserModal').classList.remove('active');
-                // Restaurar título original
-                document.querySelector('#addUserModal .modal-title').textContent = 'Agregar Nuevo Usuario';
-                // Restaurar requerimiento de contraseña
-                document.getElementById('userPassword').required = true;
-                document.getElementById('userConfirmPassword').required = true;
-            });
+            const cancelUserBtn = document.getElementById('cancelUserBtn');
+            if (cancelUserBtn) {
+                cancelUserBtn.addEventListener('click', function() {
+                    const addUserModal = document.getElementById('addUserModal');
+                    if (addUserModal) addUserModal.classList.remove('active');
+                    // Restaurar título original
+                    const modalTitle = document.querySelector('#addUserModal .modal-title');
+                    if (modalTitle) modalTitle.textContent = 'Agregar Nuevo Usuario';
+                    // Restaurar requerimiento de contraseña
+                    const userPassword = document.getElementById('userPassword');
+                    const userConfirmPassword = document.getElementById('userConfirmPassword');
+                    if (userPassword) userPassword.required = true;
+                    if (userConfirmPassword) userConfirmPassword.required = true;
+                });
+            }
             
             // Agregar material a tarea
-            document.getElementById('addMaterialToTask').addEventListener('click', function() {
-                const materialId = document.getElementById('materialSelect').value;
-                const quantity = parseInt(document.getElementById('materialQuantityTask').value);
-                
-                if (!materialId || !quantity || quantity <= 0) {
-                    showNotification('Selecciona un material y una cantidad válida', 'warning');
-                    return;
-                }
-                
-                const material = inventory.find(m => m.id === materialId);
-                if (quantity > material.quantity) {
-                    showNotification(`No hay suficiente stock. Disponible: ${material.quantity} ${material.unit}`, 'danger');
-                    return;
-                }
-                
-                // Agregar a la lista visual
-                const materialsList = document.getElementById('taskMaterialsList');
-                const item = document.createElement('div');
-                item.className = 'assignment-item';
-                item.innerHTML = `
-                    <span>${material.name} - ${quantity} ${material.unit}</span>
-                    <button class="btn btn-danger btn-sm remove-material-btn" data-material-id="${materialId}">
-                        <i class="fas fa-times"></i>
-                    </button>
-                `;
-                materialsList.appendChild(item);
-                
-                // Limpiar formulario
-                document.getElementById('materialSelect').value = '';
-                document.getElementById('materialQuantityTask').value = '';
-                
-                // Agregar event listener al botón de eliminar
-                item.querySelector('.remove-material-btn').addEventListener('click', function() {
-                    item.remove();
+            const addMaterialToTask = document.getElementById('addMaterialToTask');
+            if (addMaterialToTask) {
+                addMaterialToTask.addEventListener('click', function() {
+                    const materialId = document.getElementById('materialSelect').value;
+                    const quantity = parseInt(document.getElementById('materialQuantityTask').value);
+                    
+                    if (!materialId || !quantity || quantity <= 0) {
+                        showNotification('Selecciona un material y una cantidad válida', 'warning');
+                        return;
+                    }
+                    
+                    const material = inventory.find(m => m.id === materialId);
+                    if (quantity > material.quantity) {
+                        showNotification(`No hay suficiente stock. Disponible: ${material.quantity} ${material.unit}`, 'danger');
+                        return;
+                    }
+                    
+                    // Agregar a la lista visual
+                    const materialsList = document.getElementById('taskMaterialsList');
+                    if (materialsList) {
+                        const item = document.createElement('div');
+                        item.className = 'assignment-item';
+                        item.innerHTML = `
+                            <span>${material.name} - ${quantity} ${material.unit}</span>
+                            <button class="btn btn-danger btn-sm remove-material-btn" data-material-id="${materialId}">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        `;
+                        materialsList.appendChild(item);
+                        
+                        // Limpiar formulario
+                        const materialSelect = document.getElementById('materialSelect');
+                        const materialQuantityTask = document.getElementById('materialQuantityTask');
+                        if (materialSelect) materialSelect.value = '';
+                        if (materialQuantityTask) materialQuantityTask.value = '';
+                        
+                        // Agregar event listener al botón de eliminar
+                        const removeBtn = item.querySelector('.remove-material-btn');
+                        if (removeBtn) {
+                            removeBtn.addEventListener('click', function() {
+                                item.remove();
+                            });
+                        }
+                    }
                 });
-            });
+            }
             
             // Búsqueda en inventario
-            document.getElementById('searchMaterial').addEventListener('input', function() {
-                loadInventory();
-            });
+            const searchMaterial = document.getElementById('searchMaterial');
+            if (searchMaterial) {
+                searchMaterial.addEventListener('input', function() {
+                    loadInventory();
+                });
+            }
 
             // Event listeners para limpiar errores en tiempo real en el formulario de usuarios
-            document.getElementById('userUsername').addEventListener('input', function() {
-                clearUserFormError('userUsername');
-                document.getElementById('userFormError').style.display = 'none';
-            });
+            const userUsername = document.getElementById('userUsername');
+            if (userUsername) {
+                userUsername.addEventListener('input', function() {
+                    clearUserFormError('userUsername');
+                    const userFormError = document.getElementById('userFormError');
+                    if (userFormError) userFormError.style.display = 'none';
+                });
+            }
 
-            document.getElementById('userName').addEventListener('input', function() {
-                clearUserFormError('userName');
-                document.getElementById('userFormError').style.display = 'none';
-            });
+            const userName = document.getElementById('userName');
+            if (userName) {
+                userName.addEventListener('input', function() {
+                    clearUserFormError('userName');
+                    const userFormError = document.getElementById('userFormError');
+                    if (userFormError) userFormError.style.display = 'none';
+                });
+            }
 
-            document.getElementById('userPassword').addEventListener('input', function() {
-                clearUserFormError('userPassword');
-                document.getElementById('userFormError').style.display = 'none';
-            });
+            const userPassword = document.getElementById('userPassword');
+            if (userPassword) {
+                userPassword.addEventListener('input', function() {
+                    clearUserFormError('userPassword');
+                    const userFormError = document.getElementById('userFormError');
+                    if (userFormError) userFormError.style.display = 'none';
+                });
+            }
 
-            document.getElementById('userConfirmPassword').addEventListener('input', function() {
-                clearUserFormError('userConfirmPassword');
-                document.getElementById('userFormError').style.display = 'none';
-            });
+            const userConfirmPassword = document.getElementById('userConfirmPassword');
+            if (userConfirmPassword) {
+                userConfirmPassword.addEventListener('input', function() {
+                    clearUserFormError('userConfirmPassword');
+                    const userFormError = document.getElementById('userFormError');
+                    if (userFormError) userFormError.style.display = 'none';
+                });
+            }
 
-            document.getElementById('userRole').addEventListener('change', function() {
-                clearUserFormError('userRole');
-                document.getElementById('userFormError').style.display = 'none';
-            });
+            const userRole = document.getElementById('userRole');
+            if (userRole) {
+                userRole.addEventListener('change', function() {
+                    clearUserFormError('userRole');
+                    const userFormError = document.getElementById('userFormError');
+                    if (userFormError) userFormError.style.display = 'none';
+                });
+            }
         });
 
         // ==================== FUNCIONES DE CREACIÓN ====================
@@ -1712,27 +4021,29 @@
             // Recopilar materiales
             const materials = [];
             const materialsList = document.getElementById('taskMaterialsList');
-            materialsList.querySelectorAll('.assignment-item').forEach(item => {
-                const text = item.textContent.trim();
-                const match = text.match(/(.+) - (\d+) (.+)/);
-                if (match) {
-                    const materialName = match[1];
-                    const quantity = parseInt(match[2]);
-                    const unit = match[3];
-                    
-                    const material = inventory.find(m => m.name === materialName);
-                    if (material) {
-                        materials.push({
-                            materialId: material.id,
-                            quantity: quantity,
-                            delivered: false
-                        });
+            if (materialsList) {
+                materialsList.querySelectorAll('.assignment-item').forEach(item => {
+                    const text = item.textContent.trim();
+                    const match = text.match(/(.+) - (\d+) (.+)/);
+                    if (match) {
+                        const materialName = match[1];
+                        const quantity = parseInt(match[2]);
+                        const unit = match[3];
                         
-                        // Descontar del inventario
-                        updateMaterialQuantity(material.id, -quantity);
+                        const material = inventory.find(m => m.name === materialName);
+                        if (material) {
+                            materials.push({
+                                materialId: material.id,
+                                quantity: quantity,
+                                delivered: false
+                            });
+                            
+                            // Descontar del inventario
+                            updateMaterialQuantity(material.id, -quantity);
+                        }
                     }
-                }
-            });
+                });
+            }
             
             // Crear nueva tarea
             const newTask = {
@@ -1753,7 +4064,8 @@
             await saveTasks();
             
             showNotification('Tarea creada correctamente', 'success');
-            document.getElementById('addTaskModal').classList.remove('active');
+            const addTaskModal = document.getElementById('addTaskModal');
+            if (addTaskModal) addTaskModal.classList.remove('active');
             
             if (currentPage === 'manage-tasks') {
                 loadAllTasks();
@@ -1795,7 +4107,8 @@
             await saveInventory();
             
             showNotification('Material creado correctamente', 'success');
-            document.getElementById('addMaterialModal').classList.remove('active');
+            const addMaterialModal = document.getElementById('addMaterialModal');
+            if (addMaterialModal) addMaterialModal.classList.remove('active');
             loadInventory();
             updateDashboard();
         }
@@ -1818,53 +4131,63 @@
             
             // Llenar el select de trabajadores
             const taskAssignee = document.getElementById('taskAssignee');
-            taskAssignee.innerHTML = '<option value="">Selecciona un trabajador</option>';
-            users.filter(u => u.role === 'worker').forEach(user => {
-                const option = document.createElement('option');
-                option.value = user.username;
-                option.textContent = user.name;
-                option.selected = user.username === task.assignee;
-                taskAssignee.appendChild(option);
-            });
-            
-            // Llenar el select de materiales
-            const materialSelect = document.getElementById('materialSelect');
-            materialSelect.innerHTML = '<option value="">Seleccionar material</option>';
-            inventory.forEach(material => {
-                const option = document.createElement('option');
-                option.value = material.id;
-                option.textContent = `${material.name} (${material.quantity} ${material.unit} disponible)`;
-                materialSelect.appendChild(option);
-            });
-            
-            // Limpiar y llenar la lista de materiales
-            const materialsList = document.getElementById('taskMaterialsList');
-            materialsList.innerHTML = '';
-            
-            if (task.materials && task.materials.length > 0) {
-                task.materials.forEach(material => {
-                    const mat = inventory.find(m => m.id === material.materialId);
-                    if (mat) {
-                        const item = document.createElement('div');
-                        item.className = 'assignment-item';
-                        item.innerHTML = `
-                            <span>${mat.name} - ${material.quantity} ${mat.unit}</span>
-                            <button class="btn btn-danger btn-sm remove-material-btn" data-material-id="${material.materialId}">
-                                <i class="fas fa-times"></i>
-                            </button>
-                        `;
-                        materialsList.appendChild(item);
-                    }
+            if (taskAssignee) {
+                taskAssignee.innerHTML = '<option value="">Selecciona un trabajador</option>';
+                users.filter(u => u.role === 'worker').forEach(user => {
+                    const option = document.createElement('option');
+                    option.value = user.username;
+                    option.textContent = user.name;
+                    option.selected = user.username === task.assignee;
+                    taskAssignee.appendChild(option);
                 });
             }
             
+            // Llenar el select de materiales
+            const materialSelect = document.getElementById('materialSelect');
+            if (materialSelect) {
+                materialSelect.innerHTML = '<option value="">Seleccionar material</option>';
+                inventory.forEach(material => {
+                    const option = document.createElement('option');
+                    option.value = material.id;
+                    option.textContent = `${material.name} (${material.quantity} ${material.unit} disponible)`;
+                    materialSelect.appendChild(option);
+                });
+            }
+            
+            // Limpiar y llenar la lista de materiales
+            const materialsList = document.getElementById('taskMaterialsList');
+            if (materialsList) {
+                materialsList.innerHTML = '';
+                
+                if (task.materials && task.materials.length > 0) {
+                    task.materials.forEach(material => {
+                        const mat = inventory.find(m => m.id === material.materialId);
+                        if (mat) {
+                            const item = document.createElement('div');
+                            item.className = 'assignment-item';
+                            item.innerHTML = `
+                                <span>${mat.name} - ${material.quantity} ${mat.unit}</span>
+                                <button class="btn btn-danger btn-sm remove-material-btn" data-material-id="${material.materialId}">
+                                    <i class="fas fa-times"></i>
+                                </button>
+                            `;
+                            materialsList.appendChild(item);
+                        }
+                    });
+                }
+            }
+            
             // Mostrar el modal
-            document.getElementById('addTaskModal').classList.add('active');
+            const addTaskModal = document.getElementById('addTaskModal');
+            if (addTaskModal) addTaskModal.classList.add('active');
             
             // Configurar el botón de guardar para actualizar la tarea
-            document.getElementById('saveTaskBtn').onclick = function() {
-                updateTask(taskId);
-            };
+            const saveTaskBtn = document.getElementById('saveTaskBtn');
+            if (saveTaskBtn) {
+                saveTaskBtn.onclick = function() {
+                    updateTask(taskId);
+                };
+            }
         }
 
         async function updateTask(taskId) {
@@ -1889,24 +4212,26 @@
             // Recopilar materiales
             const materials = [];
             const materialsList = document.getElementById('taskMaterialsList');
-            materialsList.querySelectorAll('.assignment-item').forEach(item => {
-                const text = item.textContent.trim();
-                const match = text.match(/(.+) - (\d+) (.+)/);
-                if (match) {
-                    const materialName = match[1];
-                    const quantity = parseInt(match[2]);
-                    const unit = match[3];
-                    
-                    const material = inventory.find(m => m.name === materialName);
-                    if (material) {
-                        materials.push({
-                            materialId: material.id,
-                            quantity: quantity,
-                            delivered: false
-                        });
+            if (materialsList) {
+                materialsList.querySelectorAll('.assignment-item').forEach(item => {
+                    const text = item.textContent.trim();
+                    const match = text.match(/(.+) - (\d+) (.+)/);
+                    if (match) {
+                        const materialName = match[1];
+                        const quantity = parseInt(match[2]);
+                        const unit = match[3];
+                        
+                        const material = inventory.find(m => m.name === materialName);
+                        if (material) {
+                            materials.push({
+                                materialId: material.id,
+                                quantity: quantity,
+                                delivered: false
+                            });
+                        }
                     }
-                }
-            });
+                });
+            }
             
             // Actualizar la tarea
             tasks[taskIndex] = {
@@ -1924,7 +4249,8 @@
             await saveTasks();
             
             showNotification('Tarea actualizada correctamente', 'success');
-            document.getElementById('addTaskModal').classList.remove('active');
+            const addTaskModal = document.getElementById('addTaskModal');
+            if (addTaskModal) addTaskModal.classList.remove('active');
             
             if (currentPage === 'manage-tasks') {
                 loadAllTasks();
@@ -1963,12 +4289,16 @@
             document.getElementById('materialDescription').value = material.description || '';
             
             // Mostrar el modal
-            document.getElementById('addMaterialModal').classList.add('active');
+            const addMaterialModal = document.getElementById('addMaterialModal');
+            if (addMaterialModal) addMaterialModal.classList.add('active');
             
             // Configurar el botón de guardar para actualizar el material
-            document.getElementById('saveMaterialBtn').onclick = function() {
-                updateMaterial(materialId);
-            };
+            const saveMaterialBtn = document.getElementById('saveMaterialBtn');
+            if (saveMaterialBtn) {
+                saveMaterialBtn.onclick = function() {
+                    updateMaterial(materialId);
+                };
+            }
         }
 
         async function updateMaterial(materialId) {
@@ -2007,7 +4337,8 @@
             await saveInventory();
             
             showNotification('Material actualizado correctamente', 'success');
-            document.getElementById('addMaterialModal').classList.remove('active');
+            const addMaterialModal = document.getElementById('addMaterialModal');
+            if (addMaterialModal) addMaterialModal.classList.remove('active');
             loadInventory();
             updateDashboard();
         }
