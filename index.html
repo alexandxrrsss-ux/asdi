@@ -4989,28 +4989,37 @@ if (task.imageUrl && task.imageUrl !== 'null' && task.imageUrl !== '' && task.im
             updateDashboard();
         }
 
-        async function deleteMaterial(materialId) {
-            if (confirm('¿Estás seguro de que quieres eliminar este material?')) {
-                // Verificar si el material está siendo usado en alguna tarea
-                const isUsedInTasks = tasks.some(task => 
-                    task.materials && task.materials.some(m => m.materialId === materialId)
-                );
-                
-                if (isUsedInTasks) {
-                    showNotification('No se puede eliminar el material porque está siendo usado en una tarea', 'danger');
-                    return;
-                }
-                
-                inventory = inventory.filter(m => m.id !== materialId);
-                
-                await saveInventory();
-                
-                showNotification('Material eliminado correctamente', 'success');
-                loadInventory();
-                updateDashboard();
+async function deleteMaterial(materialId) {
+    if (confirm('¿Estás seguro de que quieres eliminar este material?')) {
+        try {
+            // Verificar si el material está siendo usado en alguna tarea
+            const isUsedInTasks = tasks.some(task => 
+                task.materials && task.materials.some(m => m.materialId === materialId)
+            );
+            
+            if (isUsedInTasks) {
+                showNotification('No se puede eliminar el material porque está siendo usado en una tarea', 'danger');
+                return;
             }
+            
+            // ✅ 1. ELIMINAR DE FIREBASE
+            await db.collection('inventory').doc(materialId).delete();
+            
+            // ✅ 2. ELIMINAR DE LOS DATOS LOCALES
+            inventory = inventory.filter(m => m.id !== materialId);
+            
+            showNotification('Material eliminado correctamente', 'success');
+            
+            // ✅ 3. RECARGAR LA VISTA
+            loadInventory();
+            updateDashboard();
+            
+        } catch (error) {
+            console.error('Error eliminando material:', error);
+            showNotification('Error al eliminar el material: ' + error.message, 'danger');
         }
-
+    }
+}
         // ==================== FUNCIONES DE EXPORTACIÓN ====================
         function getTasksExportData(filteredTasks = tasks) {
             return filteredTasks.map(task => {
