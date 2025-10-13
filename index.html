@@ -2463,13 +2463,26 @@
         }
 
         // ==================== FUNCIONES DE SUBIDA DE IMÁGENES ====================
-        async function uploadImage(file, folder) {
-            return new Promise((resolve, reject) => {
-                if (!file) {
-                    resolve(null);
-                    return;
-                }
-                
+       async function uploadImage(file, folder) {
+    return new Promise((resolve, reject) => {
+        if (!file) {
+            resolve(null);
+            return;
+        }
+        
+        // SOLUCIÓN TEMPORAL: Usar base64
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            console.log('✅ Imagen convertida a base64');
+            resolve(e.target.result); // Devuelve base64
+        };
+        reader.onerror = function(error) {
+            console.error('❌ Error leyendo imagen:', error);
+            reject(error);
+        };
+        reader.readAsDataURL(file);
+    });
+}                
                 const storageRef = storage.ref();
                 const imageRef = storageRef.child(`${folder}/${Date.now()}_${file.name}`);
                 
