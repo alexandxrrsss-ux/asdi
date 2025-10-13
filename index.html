@@ -2802,16 +2802,20 @@
                     `;
                 }
 
-                // Mostrar imagen si existe
-                let imageHtml = '';
-                if (task.imageUrl) {
-                    imageHtml = `
-                        <div class="image-container">
-                            <img src="${task.imageUrl}" alt="Imagen de la tarea" class="image-preview active">
-                        </div>
-                    `;
-                }
-
+                
+// Mostrar imagen si existe
+let imageHtml = '';
+if (task.imageUrl && task.imageUrl !== 'null' && task.imageUrl !== '' && task.imageUrl.startsWith('http')) {
+    imageHtml = `
+        <div class="image-container" style="margin: 1rem 0; text-align: center;">
+            <p style="font-weight: 600; margin-bottom: 0.5rem; color: var(--primary);">
+                <i class="fas fa-image"></i> Imagen de la tarea:
+            </p>
+            <img src="${task.imageUrl}" alt="Imagen de la tarea" 
+                 style="max-width: 100%; max-height: 200px; border-radius: 8px; border: 2px solid #eee; box-shadow: 0 3px 10px rgba(0,0,0,0.1);">
+        </div>
+    `;
+}
                 const card = document.createElement('div');
                 card.className = `task-card ${task.urgency}`;
                 
@@ -4149,6 +4153,22 @@
                 previewDataBtn.onclick = showPreviewData;
             }
         }
+        // ==================== DEBUG DE IMÁGENES ====================
+function debugImages() {
+    console.log('=== DEBUG IMÁGENES ===');
+    console.log('Total tareas:', tasks.length);
+    
+    tasks.forEach((task, index) => {
+        console.log(`Tarea ${index + 1}:`, {
+            nombre: task.name,
+            tieneImagen: !!task.imageUrl,
+            imageUrl: task.imageUrl,
+            imagenValida: task.imageUrl && task.imageUrl.startsWith('http')
+        });
+    });
+}
+
+// Para probar, puedes llamar: debugImages();
 
         // ==================== INICIALIZACIÓN ====================
         document.addEventListener('DOMContentLoaded', function() {
@@ -4593,19 +4613,21 @@
             
             showLoading();
             
-            // Subir imagen si existe
-            let imageUrl = null;
-            if (taskImage) {
-                try {
-                    imageUrl = await uploadImage(taskImage, 'tasks');
-                } catch (error) {
-                    console.error('Error subiendo imagen:', error);
-                    showNotification('Error al subir la imagen', 'danger');
-                    hideLoading();
-                    return;
-                }
-            }
-            
+// Subir imagen si existe
+let imageUrl = null;
+if (taskImage && taskImage.size > 0) {
+    try {
+        console.log('Subiendo imagen...', taskImage.name);
+        imageUrl = await uploadImage(taskImage, 'tasks');
+        console.log('✅ Imagen subida correctamente:', imageUrl);
+    } catch (error) {
+        console.error('❌ Error subiendo imagen:', error);
+        showNotification('Error al subir la imagen, pero la tarea se creará sin imagen', 'warning');
+        // NO retornes aquí, deja que continúe sin imagen
+    }
+} else {
+    console.log('No hay imagen para subir o imagen vacía');
+}            
             // Recopilar materiales
             const materials = [];
             const materialsList = document.getElementById('taskMaterialsList');
@@ -4767,27 +4789,26 @@
                 }
             }
             
-            // Mostrar imagen si existe
-            const taskImagePreview = document.getElementById('taskImagePreview');
-            const taskImagePlaceholder = document.getElementById('taskImagePlaceholder');
-            if (task.imageUrl) {
-                if (taskImagePreview) {
-                    taskImagePreview.src = task.imageUrl;
-                    taskImagePreview.classList.add('active');
-                }
-                if (taskImagePlaceholder) {
-                    taskImagePlaceholder.style.display = 'none';
-                }
-            } else {
-                if (taskImagePreview) {
-                    taskImagePreview.src = '';
-                    taskImagePreview.classList.remove('active');
-                }
-                if (taskImagePlaceholder) {
-                    taskImagePlaceholder.style.display = 'flex';
-                }
-            }
-            
+// Mostrar imagen si existe
+const taskImagePreview = document.getElementById('taskImagePreview');
+const taskImagePlaceholder = document.getElementById('taskImagePlaceholder');
+if (task.imageUrl && task.imageUrl !== 'null' && task.imageUrl !== '' && task.imageUrl.startsWith('http')) {
+    if (taskImagePreview) {
+        taskImagePreview.src = task.imageUrl;
+        taskImagePreview.classList.add('active');
+    }
+    if (taskImagePlaceholder) {
+        taskImagePlaceholder.style.display = 'none';
+    }
+} else {
+    if (taskImagePreview) {
+        taskImagePreview.src = '';
+        taskImagePreview.classList.remove('active');
+    }
+    if (taskImagePlaceholder) {
+        taskImagePlaceholder.style.display = 'flex';
+    }
+}            
             // Mostrar el modal
             const addTaskModal = document.getElementById('addTaskModal');
             if (addTaskModal) addTaskModal.classList.add('active');
