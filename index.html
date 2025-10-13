@@ -13,6 +13,7 @@
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-storage-compat.js"></script>
     
     <style>
         :root {
@@ -1064,6 +1065,37 @@
             position: relative;
         }
 
+        /* Estilos para imágenes */
+        .image-preview {
+            max-width: 100%;
+            max-height: 200px;
+            border-radius: 8px;
+            margin-top: 10px;
+            box-shadow: 0 3px 10px rgba(0,0,0,0.1);
+            display: none;
+        }
+
+        .image-preview.active {
+            display: block;
+        }
+
+        .image-container {
+            margin-top: 1rem;
+            text-align: center;
+        }
+
+        .image-placeholder {
+            width: 100%;
+            height: 150px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--gray);
+            border: 2px dashed #ddd;
+        }
+
         @media (max-width: 992px) {
             .main-layout {
                 flex-direction: column;
@@ -1716,6 +1748,12 @@
                             <div class="form-group">
                                 <label class="form-label">Imagen del problema (opcional)</label>
                                 <input type="file" class="form-control" id="reportImage" accept="image/*">
+                                <div class="image-container">
+                                    <div class="image-placeholder" id="reportImagePlaceholder">
+                                        <i class="fas fa-image"></i> Vista previa de imagen
+                                    </div>
+                                    <img id="reportImagePreview" class="image-preview" src="" alt="Vista previa">
+                                </div>
                                 <small style="color: var(--gray); margin-top: 5px; display: block;">
                                     Puedes subir una foto del problema o material necesario
                                 </small>
@@ -1960,6 +1998,12 @@
                     <div class="form-group">
                         <label class="form-label">Imagen de la tarea (opcional)</label>
                         <input type="file" class="form-control" id="taskImage" accept="image/*">
+                        <div class="image-container">
+                            <div class="image-placeholder" id="taskImagePlaceholder">
+                                <i class="fas fa-image"></i> Vista previa de imagen
+                            </div>
+                            <img id="taskImagePreview" class="image-preview" src="" alt="Vista previa">
+                        </div>
                         <small style="color: var(--gray);">Puedes subir una foto relacionada con la tarea</small>
                     </div>
                 </form>
@@ -2127,6 +2171,7 @@
 
         const db = firebase.firestore();
         const auth = firebase.auth();
+        const storage = firebase.storage();
 
         // ==================== VARIABLES GLOBALES ====================
         let currentUser = null;
@@ -2348,6 +2393,7 @@
                         urgency: task.urgency,
                         status: task.status,
                         materials: task.materials || [],
+                        imageUrl: task.imageUrl || null,
                         createdAt: task.createdAt,
                         updatedAt: task.updatedAt
                     });
@@ -2373,6 +2419,7 @@
                         additionalInfo: report.additionalInfo || {},
                         reporter: report.reporter,
                         status: report.status,
+                        imageUrl: report.imageUrl || null,
                         createdAt: report.createdAt
                     };
                     
@@ -2407,6 +2454,210 @@
             } catch (error) {
                 console.error('Error guardando inventario en Firebase:', error);
                 throw error;
+            }
+        }
+
+        // ==================== FUNCIONES DE SUBIDA DE IMÁGENES ====================
+        async function uploadImage(file, folder) {
+            return new Promise((resolve, reject) => {
+                if (!file) {
+                    resolve(null);
+                    return;
+                }
+                
+                const storageRef = storage.ref();
+                const imageRef = storageRef.child(`${folder}/${Date.now()}_${file.name}`);
+                
+                const uploadTask = imageRef.put(file);
+                
+                uploadTask.on('state_changed',
+                    (snapshot) => {
+                        // Progreso de subida
+                        const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+                        console.log('Progreso de subida: ' + progress + '%');
+                    },
+                    (error) => {
+                        // Error en la subida
+                        console.error('Error subiendo imagen:', error);
+                        reject(error);
+                    },
+                    () => {
+                        // Subida completada
+                        uploadTask.snapshot.ref.getDownloadURL().then((downloadURL) => {
+                            resolve(downloadURL);
+                        });
+                    }
+                );
+            });
+        }
+
+        // ==================== FUNCIONES DE EXPORTACIÓN ====================
+        function getTasksExportData() {
+            return tasks.map(task => {
+                const assignee = users.find(u => u.username === task.assignee);
+                const materialsText = task.materials && task.materials.length > 0 
+                    ? task.materials.map(m => {
+                        const material = inventory.find(mat => mat.id === m.materialId);
+                        return material ? `${material.name} (${m.quantity} ${material.unit})` : '';
+                    }).filter(Boolean).join(', ')
+                    : 'Ninguno';
+                
+                return {
+                    'ID': task.id,
+                    'Nombre': task.name,
+                    'Descripción': task.description,
+                    'Asignado a': assignee?.name || task.assignee,
+                    'Fecha de inicio': formatDate(task.startDate),
+                    'Fecha límite': formatDate(task.dueDate),
+                    'Estado': getStatusText(task.status),
+                    'Urgencia': getUrgencyText(task.urgency),
+                    'Materiales': materialsText,
+                    'Fecha de creación': formatDate(task.createdAt),
+                    'Última actualización': formatDate(task.updatedAt)
+                };
+            });
+        }
+
+        function getReportsExportData() {
+            return reports.map(report => {
+                const reporter = users.find(u => u.username === report.reporter);
+                const relatedTask = report.taskId ? tasks.find(t => t.id === report.taskId) : null;
+                
+                let additionalInfo = '';
+                if (report.type === 'material' && report.additionalInfo) {
+                    additionalInfo = `Material: ${report.additionalInfo.materialName || 'No especificado'}, Cantidad: ${report.additionalInfo.materialQuantity || 'No especificado'}`;
+                } else if (report.type === 'equipment' && report.additionalInfo) {
+                    additionalInfo = `Equipo: ${report.additionalInfo.equipmentType || 'No especificado'}, Tiempo: ${report.additionalInfo.equipmentTime || 'No especificado'}`;
+                }
+                
+                return {
+                    'ID': report.id,
+                    'Tipo': report.type,
+                    'Título': report.title,
+                    'Descripción': report.description,
+                    'Reportado por': reporter?.name || report.reporter,
+                    'Tarea relacionada': relatedTask ? relatedTask.name : 'No relacionada',
+                    'Urgencia': getUrgencyText(report.urgency),
+                    'Bloquea progreso': report.blocksProgress,
+                    'Fecha requerida': report.requiredDate ? formatDate(report.requiredDate) : 'No especificada',
+                    'Información adicional': additionalInfo,
+                    'Estado': report.status === 'pending' ? 'Pendiente' : 'Resuelto',
+                    'Fecha de creación': formatDate(report.createdAt),
+                    'Fecha de resolución': report.resolvedAt ? formatDate(report.resolvedAt) : 'No resuelto'
+                };
+            });
+        }
+
+        function getInventoryExportData() {
+            return inventory.map(item => ({
+                'ID': item.id,
+                'Nombre': item.name,
+                'Categoría': item.category,
+                'Cantidad': item.quantity,
+                'Unidad': item.unit,
+                'Stock Mínimo': item.minStock,
+                'Proveedor': item.supplier || 'No especificado',
+                'Costo': item.cost ? `$${item.cost.toFixed(2)}` : 'No especificado',
+                'Ubicación': item.location || 'No especificada',
+                'Descripción': item.description || 'No especificada'
+            }));
+        }
+
+        function getAllExportData() {
+            return {
+                'Tareas': getTasksExportData(),
+                'Reportes': getReportsExportData(),
+                'Inventario': getInventoryExportData()
+            };
+        }
+
+        function exportToExcel(data, filename) {
+            try {
+                const wb = XLSX.utils.book_new();
+                
+                if (Array.isArray(data)) {
+                    // Si es un solo conjunto de datos
+                    const ws = XLSX.utils.json_to_sheet(data);
+                    XLSX.utils.book_append_sheet(wb, ws, "Datos");
+                } else {
+                    // Si son múltiples hojas (para exportación completa)
+                    Object.keys(data).forEach(sheetName => {
+                        const ws = XLSX.utils.json_to_sheet(data[sheetName]);
+                        XLSX.utils.book_append_sheet(wb, ws, sheetName);
+                    });
+                }
+                
+                XLSX.writeFile(wb, `${filename}.xlsx`);
+                showNotification('Archivo exportado correctamente', 'success');
+            } catch (error) {
+                console.error('Error al exportar:', error);
+                showNotification('Error al exportar el archivo', 'danger');
+            }
+        }
+
+        function exportToCSV(data, filename) {
+            try {
+                let csvContent = "";
+                
+                if (Array.isArray(data) && data.length > 0) {
+                    // Encabezados
+                    const headers = Object.keys(data[0]);
+                    csvContent += headers.join(",") + "\n";
+                    
+                    // Datos
+                    data.forEach(row => {
+                        const values = headers.map(header => {
+                            let value = row[header] || "";
+                            // Escapar comas y comillas
+                            if (typeof value === 'string' && (value.includes(',') || value.includes('"'))) {
+                                value = '"' + value.replace(/"/g, '""') + '"';
+                            }
+                            return value;
+                        });
+                        csvContent += values.join(",") + "\n";
+                    });
+                }
+                
+                const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+                const link = document.createElement("a");
+                const url = URL.createObjectURL(blob);
+                link.setAttribute("href", url);
+                link.setAttribute("download", `${filename}.csv`);
+                link.style.visibility = 'hidden';
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                
+                showNotification('Archivo CSV exportado correctamente', 'success');
+            } catch (error) {
+                console.error('Error al exportar CSV:', error);
+                showNotification('Error al exportar el archivo CSV', 'danger');
+            }
+        }
+
+        function exportToPDF(data, filename) {
+            try {
+                const { jsPDF } = window.jspdf;
+                const doc = new jsPDF();
+                
+                if (Array.isArray(data) && data.length > 0) {
+                    const headers = [Object.keys(data[0])];
+                    const rows = data.map(row => Object.values(row));
+                    
+                    doc.autoTable({
+                        head: headers,
+                        body: rows,
+                        theme: 'grid',
+                        styles: { fontSize: 8 },
+                        headStyles: { fillColor: [67, 97, 238] }
+                    });
+                }
+                
+                doc.save(`${filename}.pdf`);
+                showNotification('Archivo PDF exportado correctamente', 'success');
+            } catch (error) {
+                console.error('Error al exportar PDF:', error);
+                showNotification('Error al exportar el archivo PDF', 'danger');
             }
         }
 
@@ -2556,6 +2807,7 @@
             else if (page === 'reports-admin') loadReports();
             else if (page === 'users') updateUsersTable();
             else if (page === 'change-password') loadChangePasswordPage();
+            else if (page === 'export') initExportPage();
         }
 
         // ==================== DASHBOARD ====================
@@ -2715,6 +2967,16 @@
                     `;
                 }
 
+                // Mostrar imagen si existe
+                let imageHtml = '';
+                if (task.imageUrl) {
+                    imageHtml = `
+                        <div class="image-container">
+                            <img src="${task.imageUrl}" alt="Imagen de la tarea" class="image-preview active">
+                        </div>
+                    `;
+                }
+
                 const card = document.createElement('div');
                 card.className = `task-card ${task.urgency}`;
                 
@@ -2743,6 +3005,7 @@
                             <span>${getStatusText(task.status)}</span>
                         </div>
                     </div>
+                    ${imageHtml}
                     ${materialsHtml}
                     <div class="task-actions">
                         <select class="form-select task-status" data-task-id="${task.id}" style="flex: 1;">
@@ -3335,10 +3598,26 @@
             const reportUrgency = document.getElementById('reportUrgency').value;
             const blocksProgress = document.getElementById('blocksProgress').value;
             const requiredDate = document.getElementById('requiredDate').value;
+            const reportImage = document.getElementById('reportImage').files[0];
             
             if (!reportTitle || !problemDescription) {
                 showNotification('Completa todos los campos obligatorios', 'warning');
                 return;
+            }
+            
+            showLoading();
+            
+            // Subir imagen si existe
+            let imageUrl = null;
+            if (reportImage) {
+                try {
+                    imageUrl = await uploadImage(reportImage, 'reports');
+                } catch (error) {
+                    console.error('Error subiendo imagen:', error);
+                    showNotification('Error al subir la imagen', 'danger');
+                    hideLoading();
+                    return;
+                }
             }
             
             // Recopilar información adicional según el tipo de reporte
@@ -3369,6 +3648,7 @@
                 requiredDate: requiredDate || null,
                 additionalInfo: additionalInfo,
                 reporter: currentUser.username,
+                imageUrl: imageUrl,
                 status: 'pending',
                 createdAt: new Date().toISOString()
             };
@@ -3376,9 +3656,21 @@
             reports.push(newReport);
             await saveReports();
             
+            hideLoading();
             showNotification('Reporte enviado correctamente', 'success');
             const reportForm = document.getElementById('reportForm');
             if (reportForm) reportForm.reset();
+            
+            // Limpiar vista previa de imagen
+            const reportImagePreview = document.getElementById('reportImagePreview');
+            const reportImagePlaceholder = document.getElementById('reportImagePlaceholder');
+            if (reportImagePreview) {
+                reportImagePreview.src = '';
+                reportImagePreview.classList.remove('active');
+            }
+            if (reportImagePlaceholder) {
+                reportImagePlaceholder.style.display = 'flex';
+            }
             
             // Si el usuario es admin, actualizar la página de reportes
             if (currentUser.role === 'admin') {
@@ -3437,6 +3729,16 @@
                     `;
                 }
 
+                // Mostrar imagen si existe
+                let imageHtml = '';
+                if (report.imageUrl) {
+                    imageHtml = `
+                        <div class="image-container">
+                            <img src="${report.imageUrl}" alt="Imagen del reporte" class="image-preview active">
+                        </div>
+                    `;
+                }
+
                 const card = document.createElement('div');
                 card.className = `report-card ${report.status === 'resolved' ? 'resolved' : ''}`;
                 
@@ -3467,6 +3769,7 @@
                     <div class="report-description">
                         ${sanitizeInput(report.description)}
                     </div>
+                    ${imageHtml}
                     ${additionalInfoHtml}
                     <div class="report-actions">
                         ${report.status === 'pending' ? `
@@ -3987,6 +4290,238 @@
             }
         }
 
+        // ==================== PÁGINA DE EXPORTACIÓN ====================
+        function initExportPage() {
+            // Configurar el cambio de tipo de exportación
+            const exportType = document.getElementById('exportType');
+            const dateRangeGroup = document.getElementById('dateRangeGroup');
+            
+            if (exportType && dateRangeGroup) {
+                exportType.addEventListener('change', function() {
+                    dateRangeGroup.style.display = this.value === 'date-range' ? 'block' : 'none';
+                });
+            }
+            
+            // Configurar botón de exportación
+            const exportDataBtn = document.getElementById('exportDataBtn');
+            if (exportDataBtn) {
+                exportDataBtn.onclick = handleExportData;
+            }
+            
+            // Configurar botón de vista previa
+            const previewDataBtn = document.getElementById('previewDataBtn');
+            if (previewDataBtn) {
+                previewDataBtn.onclick = showPreviewData;
+            }
+        }
+
+        function handleExportData() {
+            const exportType = document.getElementById('exportType').value;
+            const exportFormat = document.getElementById('exportFormat').value;
+            const startDate = document.getElementById('startDate').value;
+            const endDate = document.getElementById('endDate').value;
+            
+            let dataToExport;
+            let filename;
+            
+            // Filtrar datos por fecha si es necesario
+            let filteredTasks = tasks;
+            let filteredReports = reports;
+            
+            if (exportType === 'date-range' && startDate && endDate) {
+                filteredTasks = tasks.filter(task => {
+                    const taskDate = new Date(task.createdAt);
+                    return taskDate >= new Date(startDate) && taskDate <= new Date(endDate);
+                });
+                
+                filteredReports = reports.filter(report => {
+                    const reportDate = new Date(report.createdAt);
+                    return reportDate >= new Date(startDate) && reportDate <= new Date(endDate);
+                });
+                
+                filename = `datos_${startDate}_a_${endDate}`;
+            } else {
+                filename = `datos_${exportType}`;
+            }
+            
+            // Obtener datos según el tipo de exportación
+            switch (exportType) {
+                case 'tasks':
+                    dataToExport = getTasksExportData(filteredTasks);
+                    break;
+                case 'reports':
+                    dataToExport = getReportsExportData(filteredReports);
+                    break;
+                case 'inventory':
+                    dataToExport = getInventoryExportData();
+                    break;
+                case 'completed':
+                    dataToExport = getTasksExportData(filteredTasks.filter(t => t.status === 'completed'));
+                    break;
+                case 'pending':
+                    dataToExport = getTasksExportData(filteredTasks.filter(t => t.status !== 'completed'));
+                    break;
+                case 'all':
+                default:
+                    dataToExport = {
+                        'Tareas': getTasksExportData(filteredTasks),
+                        'Reportes': getReportsExportData(filteredReports),
+                        'Inventario': getInventoryExportData()
+                    };
+                    break;
+            }
+            
+            // Exportar según el formato
+            switch (exportFormat) {
+                case 'excel':
+                    exportToExcel(dataToExport, filename);
+                    break;
+                case 'csv':
+                    if (Array.isArray(dataToExport)) {
+                        exportToCSV(dataToExport, filename);
+                    } else {
+                        // Para datos múltiples, exportar cada hoja como CSV separado
+                        Object.keys(dataToExport).forEach(sheetName => {
+                            exportToCSV(dataToExport[sheetName], `${filename}_${sheetName}`);
+                        });
+                    }
+                    break;
+                case 'pdf':
+                    if (Array.isArray(dataToExport)) {
+                        exportToPDF(dataToExport, filename);
+                    } else {
+                        // Para datos múltiples, exportar cada hoja como PDF separado
+                        Object.keys(dataToExport).forEach(sheetName => {
+                            exportToPDF(dataToExport[sheetName], `${filename}_${sheetName}`);
+                        });
+                    }
+                    break;
+            }
+        }
+
+        function showPreviewData() {
+            const exportType = document.getElementById('exportType').value;
+            const previewSection = document.getElementById('previewSection');
+            const previewContent = document.getElementById('previewContent');
+            
+            if (!previewSection || !previewContent) return;
+            
+            let dataToPreview;
+            
+            // Obtener datos según el tipo de exportación
+            switch (exportType) {
+                case 'tasks':
+                    dataToPreview = getTasksExportData();
+                    break;
+                case 'reports':
+                    dataToPreview = getReportsExportData();
+                    break;
+                case 'inventory':
+                    dataToPreview = getInventoryExportData();
+                    break;
+                case 'completed':
+                    dataToPreview = getTasksExportData(tasks.filter(t => t.status === 'completed'));
+                    break;
+                case 'pending':
+                    dataToPreview = getTasksExportData(tasks.filter(t => t.status !== 'completed'));
+                    break;
+                case 'all':
+                default:
+                    dataToPreview = getAllExportData();
+                    break;
+            }
+            
+            // Mostrar vista previa
+            previewContent.innerHTML = '';
+            
+            if (Array.isArray(dataToPreview)) {
+                if (dataToPreview.length === 0) {
+                    previewContent.innerHTML = '<div style="text-align: center; padding: 2rem; color: var(--gray);">No hay datos para mostrar</div>';
+                } else {
+                    const table = document.createElement('table');
+                    table.className = 'table';
+                    
+                    // Encabezados
+                    const thead = document.createElement('thead');
+                    const headerRow = document.createElement('tr');
+                    Object.keys(dataToPreview[0]).forEach(key => {
+                        const th = document.createElement('th');
+                        th.textContent = key;
+                        headerRow.appendChild(th);
+                    });
+                    thead.appendChild(headerRow);
+                    table.appendChild(thead);
+                    
+                    // Datos
+                    const tbody = document.createElement('tbody');
+                    dataToPreview.forEach(row => {
+                        const tr = document.createElement('tr');
+                        Object.values(row).forEach(value => {
+                            const td = document.createElement('td');
+                            td.textContent = value;
+                            tr.appendChild(td);
+                        });
+                        tbody.appendChild(tr);
+                    });
+                    table.appendChild(tbody);
+                    
+                    previewContent.appendChild(table);
+                }
+            } else {
+                // Para datos múltiples (varias hojas)
+                Object.keys(dataToPreview).forEach(sheetName => {
+                    const sheetData = dataToPreview[sheetName];
+                    if (sheetData.length === 0) continue;
+                    
+                    const sheetTitle = document.createElement('h3');
+                    sheetTitle.textContent = sheetName;
+                    sheetTitle.style.marginTop = '2rem';
+                    sheetTitle.style.marginBottom = '1rem';
+                    previewContent.appendChild(sheetTitle);
+                    
+                    const table = document.createElement('table');
+                    table.className = 'table';
+                    
+                    // Encabezados
+                    const thead = document.createElement('thead');
+                    const headerRow = document.createElement('tr');
+                    Object.keys(sheetData[0]).forEach(key => {
+                        const th = document.createElement('th');
+                        th.textContent = key;
+                        headerRow.appendChild(th);
+                    });
+                    thead.appendChild(headerRow);
+                    table.appendChild(thead);
+                    
+                    // Datos (solo primeros 10 registros para vista previa)
+                    const tbody = document.createElement('tbody');
+                    sheetData.slice(0, 10).forEach(row => {
+                        const tr = document.createElement('tr');
+                        Object.values(row).forEach(value => {
+                            const td = document.createElement('td');
+                            td.textContent = value;
+                            tr.appendChild(td);
+                        });
+                        tbody.appendChild(tr);
+                    });
+                    table.appendChild(tbody);
+                    
+                    previewContent.appendChild(table);
+                    
+                    if (sheetData.length > 10) {
+                        const moreText = document.createElement('p');
+                        moreText.textContent = `... y ${sheetData.length - 10} registros más`;
+                        moreText.style.textAlign = 'center';
+                        moreText.style.color = 'var(--gray)';
+                        moreText.style.marginTop = '1rem';
+                        previewContent.appendChild(moreText);
+                    }
+                });
+            }
+            
+            previewSection.style.display = 'block';
+        }
+
         // ==================== INICIALIZACIÓN ====================
         document.addEventListener('DOMContentLoaded', function() {
             // Cargar datos
@@ -4096,6 +4631,17 @@
                     const taskMaterialsList = document.getElementById('taskMaterialsList');
                     if (taskMaterialsList) taskMaterialsList.innerHTML = '';
                     
+                    // Limpiar vista previa de imagen
+                    const taskImagePreview = document.getElementById('taskImagePreview');
+                    const taskImagePlaceholder = document.getElementById('taskImagePlaceholder');
+                    if (taskImagePreview) {
+                        taskImagePreview.src = '';
+                        taskImagePreview.classList.remove('active');
+                    }
+                    if (taskImagePlaceholder) {
+                        taskImagePlaceholder.style.display = 'flex';
+                    }
+                    
                     // Mostrar modal
                     const addTaskModal = document.getElementById('addTaskModal');
                     if (addTaskModal) addTaskModal.classList.add('active');
@@ -4132,6 +4678,15 @@
                 });
             }
             
+            // Botón para exportar inventario
+            const exportInventoryBtn = document.getElementById('exportInventoryBtn');
+            if (exportInventoryBtn) {
+                exportInventoryBtn.addEventListener('click', function() {
+                    const inventoryData = getInventoryExportData();
+                    exportToExcel(inventoryData, 'inventario');
+                });
+            }
+            
             // Botón para agregar usuario
             const addUserBtn = document.getElementById('addUserBtn');
             if (addUserBtn) {
@@ -4160,6 +4715,51 @@
                     } else {
                         if (materialSection) materialSection.style.display = 'none';
                         if (equipmentSection) equipmentSection.style.display = 'none';
+                    }
+                });
+            }
+            
+            // Vista previa de imágenes
+            const taskImageInput = document.getElementById('taskImage');
+            if (taskImageInput) {
+                taskImageInput.addEventListener('change', function() {
+                    const file = this.files[0];
+                    if (file) {
+                        const reader = new FileReader();
+                        reader.onload = function(e) {
+                            const preview = document.getElementById('taskImagePreview');
+                            const placeholder = document.getElementById('taskImagePlaceholder');
+                            if (preview) {
+                                preview.src = e.target.result;
+                                preview.classList.add('active');
+                            }
+                            if (placeholder) {
+                                placeholder.style.display = 'none';
+                            }
+                        };
+                        reader.readAsDataURL(file);
+                    }
+                });
+            }
+            
+            const reportImageInput = document.getElementById('reportImage');
+            if (reportImageInput) {
+                reportImageInput.addEventListener('change', function() {
+                    const file = this.files[0];
+                    if (file) {
+                        const reader = new FileReader();
+                        reader.onload = function(e) {
+                            const preview = document.getElementById('reportImagePreview');
+                            const placeholder = document.getElementById('reportImagePlaceholder');
+                            if (preview) {
+                                preview.src = e.target.result;
+                                preview.classList.add('active');
+                            }
+                            if (placeholder) {
+                                placeholder.style.display = 'none';
+                            }
+                        };
+                        reader.readAsDataURL(file);
                     }
                 });
             }
@@ -4356,10 +4956,26 @@
             const taskStartDate = document.getElementById('taskStartDate').value;
             const taskDueDate = document.getElementById('taskDueDate').value;
             const taskUrgency = document.getElementById('taskUrgency').value;
+            const taskImage = document.getElementById('taskImage').files[0];
             
             if (!taskName || !taskDescription || !taskAssignee || !taskStartDate || !taskDueDate) {
                 showNotification('Completa todos los campos obligatorios', 'warning');
                 return;
+            }
+            
+            showLoading();
+            
+            // Subir imagen si existe
+            let imageUrl = null;
+            if (taskImage) {
+                try {
+                    imageUrl = await uploadImage(taskImage, 'tasks');
+                } catch (error) {
+                    console.error('Error subiendo imagen:', error);
+                    showNotification('Error al subir la imagen', 'danger');
+                    hideLoading();
+                    return;
+                }
             }
             
             // Recopilar materiales
@@ -4400,6 +5016,7 @@
                 urgency: taskUrgency,
                 status: 'pending',
                 materials: materials,
+                imageUrl: imageUrl,
                 createdAt: new Date().toISOString(),
                 updatedAt: new Date().toISOString()
             };
@@ -4407,6 +5024,7 @@
             tasks.push(newTask);
             await saveTasks();
             
+            hideLoading();
             showNotification('Tarea creada correctamente', 'success');
             const addTaskModal = document.getElementById('addTaskModal');
             if (addTaskModal) addTaskModal.classList.remove('active');
@@ -4521,6 +5139,27 @@
                 }
             }
             
+            // Mostrar imagen si existe
+            const taskImagePreview = document.getElementById('taskImagePreview');
+            const taskImagePlaceholder = document.getElementById('taskImagePlaceholder');
+            if (task.imageUrl) {
+                if (taskImagePreview) {
+                    taskImagePreview.src = task.imageUrl;
+                    taskImagePreview.classList.add('active');
+                }
+                if (taskImagePlaceholder) {
+                    taskImagePlaceholder.style.display = 'none';
+                }
+            } else {
+                if (taskImagePreview) {
+                    taskImagePreview.src = '';
+                    taskImagePreview.classList.remove('active');
+                }
+                if (taskImagePlaceholder) {
+                    taskImagePlaceholder.style.display = 'flex';
+                }
+            }
+            
             // Mostrar el modal
             const addTaskModal = document.getElementById('addTaskModal');
             if (addTaskModal) addTaskModal.classList.add('active');
@@ -4547,10 +5186,26 @@
             const taskStartDate = document.getElementById('taskStartDate').value;
             const taskDueDate = document.getElementById('taskDueDate').value;
             const taskUrgency = document.getElementById('taskUrgency').value;
+            const taskImage = document.getElementById('taskImage').files[0];
             
             if (!taskName || !taskDescription || !taskAssignee || !taskStartDate || !taskDueDate) {
                 showNotification('Completa todos los campos obligatorios', 'warning');
                 return;
+            }
+            
+            showLoading();
+            
+            // Subir nueva imagen si se seleccionó
+            let imageUrl = tasks[taskIndex].imageUrl;
+            if (taskImage) {
+                try {
+                    imageUrl = await uploadImage(taskImage, 'tasks');
+                } catch (error) {
+                    console.error('Error subiendo imagen:', error);
+                    showNotification('Error al subir la imagen', 'danger');
+                    hideLoading();
+                    return;
+                }
             }
             
             // Recopilar materiales
@@ -4587,11 +5242,13 @@
                 dueDate: taskDueDate,
                 urgency: taskUrgency,
                 materials: materials,
+                imageUrl: imageUrl,
                 updatedAt: new Date().toISOString()
             };
             
             await saveTasks();
             
+            hideLoading();
             showNotification('Tarea actualizada correctamente', 'success');
             const addTaskModal = document.getElementById('addTaskModal');
             if (addTaskModal) addTaskModal.classList.remove('active');
@@ -4706,34 +5363,6 @@
                 showNotification('Material eliminado correctamente', 'success');
                 loadInventory();
                 updateDashboard();
-            }
-        }
-
-        // ==================== FUNCIONES DE EXPORTACIÓN ====================
-        function getInventoryExportData() {
-            return inventory.map(item => ({
-                'Nombre': item.name,
-                'Categoría': item.category,
-                'Cantidad': item.quantity,
-                'Unidad': item.unit,
-                'Stock Mínimo': item.minStock,
-                'Proveedor': item.supplier || '',
-                'Costo': item.cost || 0,
-                'Ubicación': item.location || '',
-                'Descripción': item.description || ''
-            }));
-        }
-
-        function exportToExcel(data, filename) {
-            try {
-                const ws = XLSX.utils.json_to_sheet(data);
-                const wb = XLSX.utils.book_new();
-                XLSX.utils.book_append_sheet(wb, ws, "Datos");
-                XLSX.writeFile(wb, `${filename}.xlsx`);
-                showNotification('Archivo exportado correctamente', 'success');
-             } catch (error) {
-                console.error('Error al exportar:', error);
-                showNotification('Error al exportar el archivo', 'danger');
             }
         }
     </script>
