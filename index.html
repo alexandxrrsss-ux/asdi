@@ -3161,80 +3161,79 @@ if (task.imageUrl && task.imageUrl !== 'null' && task.imageUrl !== '' && (task.i
             }, 100);
         }
 
-        async function addMaterialToTaskAssignment(taskId) {
-            const materialId = document.getElementById('assignMaterialSelect').value;
-            const quantity = parseInt(document.getElementById('assignMaterialQuantity').value);
+     async function addMaterialToTaskAssignment(taskId) {
+    const materialId = document.getElementById('assignMaterialSelect').value;
+    const quantity = parseInt(document.getElementById('assignMaterialQuantity').value);
 
-            if (!materialId || !quantity || quantity <= 0) {
-                showNotification('Selecciona un material y una cantidad válida', 'warning');
-                return;
-            }
+    if (!materialId || !quantity || quantity <= 0) {
+        showNotification('Selecciona un material y una cantidad válida', 'warning');
+        return;
+    }
 
-            const material = inventory.find(m => m.id === materialId);
-            if (!material) {
-                showNotification('Material no encontrado', 'danger');
-                return;
-            }
+    const material = inventory.find(m => m.id === materialId);
+    if (!material) {
+        showNotification('Material no encontrado', 'danger');
+        return;
+    }
 
-            // Verificar si ya está asignado
-            const task = tasks.find(t => t.id === taskId);
-            if (task.materials && task.materials.some(m => m.materialId === materialId)) {
-                showNotification('Este material ya está asignado a la tarea', 'warning');
-                return;
-            }
+    // Verificar si ya está asignado en la lista visual
+    const assignedList = document.getElementById('assignedMaterialsList');
+    const existingItem = assignedList.querySelector(`[data-material-id="${materialId}"]`);
+    if (existingItem) {
+        showNotification('Este material ya está en la lista', 'warning');
+        return;
+    }
 
-            // Verificar stock disponible
-            if (quantity > material.quantity) {
-                showNotification(`No hay suficiente stock. Disponible: ${material.quantity} ${material.unit}`, 'danger');
-                return;
-            }
+    // Verificar stock disponible
+    if (quantity > material.quantity) {
+        showNotification(`No hay suficiente stock. Disponible: ${material.quantity} ${material.unit}`, 'danger');
+        return;
+    }
 
-            // Agregar a la lista visual
-            const assignedList = document.getElementById('assignedMaterialsList');
-            if (assignedList) {
-                const item = document.createElement('div');
-                item.className = 'assignment-item';
-                item.setAttribute('data-material-id', materialId);
-                item.innerHTML = `
-                    <div>
-                        <strong>${material.name}</strong>
-                        <div style="color: var(--gray); font-size: 0.9rem;">
-                            ${quantity} ${material.unit} • Pendiente
-                        </div>
-                    </div>
-                    <div>
-                        <button class="btn btn-success btn-sm toggle-delivery-btn" data-material-id="${materialId}">
-                            <i class="fas fa-check"></i> Marcar Entregado
-                        </button>
-                        <button class="btn btn-danger btn-sm remove-assigned-material-btn" data-material-id="${materialId}">
-                            <i class="fas fa-times"></i> Eliminar
-                        </button>
-                    </div>
-                `;
-                assignedList.appendChild(item);
+    // Agregar a la lista visual
+    if (assignedList) {
+        const item = document.createElement('div');
+        item.className = 'assignment-item';
+        item.setAttribute('data-material-id', materialId);
+        item.innerHTML = `
+            <div>
+                <strong>${material.name}</strong>
+                <div style="color: var(--gray); font-size: 0.9rem;">
+                    ${quantity} ${material.unit} • Pendiente
+                </div>
+            </div>
+            <div>
+                <button class="btn btn-success btn-sm toggle-delivery-btn" data-material-id="${materialId}">
+                    <i class="fas fa-check"></i> Marcar Entregado
+                </button>
+                <button class="btn btn-danger btn-sm remove-assigned-material-btn" data-material-id="${materialId}">
+                    <i class="fas fa-times"></i> Eliminar
+                </button>
+            </div>
+        `;
+        assignedList.appendChild(item);
 
-                // Agregar event listeners
-                const toggleBtn = item.querySelector('.toggle-delivery-btn');
-                const removeBtn = item.querySelector('.remove-assigned-material-btn');
-                
-                if (toggleBtn) {
-                    toggleBtn.addEventListener('click', function() {
-                        toggleMaterialDelivery(taskId, materialId);
-                    });
-                }
-                
-                if (removeBtn) {
-                    removeBtn.addEventListener('click', function() {
-                        item.remove();
-                    });
-                }
-
-                // Limpiar formulario
-                document.getElementById('assignMaterialSelect').value = '';
-                document.getElementById('assignMaterialQuantity').value = '1';
-            }
+        // Agregar event listeners
+        const toggleBtn = item.querySelector('.toggle-delivery-btn');
+        const removeBtn = item.querySelector('.remove-assigned-material-btn');
+        
+        if (toggleBtn) {
+            toggleBtn.addEventListener('click', function() {
+                toggleMaterialDelivery(taskId, materialId);
+            });
+        }
+        
+        if (removeBtn) {
+            removeBtn.addEventListener('click', function() {
+                item.remove();
+            });
         }
 
+        // Limpiar formulario
+        document.getElementById('assignMaterialSelect').value = '';
+        document.getElementById('assignMaterialQuantity').value = '1';
+    }
+}
         async function toggleMaterialDelivery(taskId, materialId) {
             const taskIndex = tasks.findIndex(t => t.id === taskId);
             if (taskIndex === -1) return;
@@ -3278,68 +3277,84 @@ if (task.imageUrl && task.imageUrl !== 'null' && task.imageUrl !== '' && (task.i
             openAssignMaterialsModal(taskId);
             showNotification('Material removido de la tarea', 'success');
         }
+async function saveMaterialsAssignment(taskId) {
+    const taskIndex = tasks.findIndex(t => t.id === taskId);
+    if (taskIndex === -1) return;
 
-        async function saveMaterialsAssignment(taskId) {
-            const taskIndex = tasks.findIndex(t => t.id === taskId);
-            if (taskIndex === -1) return;
+    // Obtener materiales de la lista visual (SOLO LOS NUEVOS)
+    const assignedList = document.getElementById('assignedMaterialsList');
+    const newMaterials = [];
 
-            // Obtener materiales de la lista visual
-            const assignedList = document.getElementById('assignedMaterialsList');
-            const newMaterials = [];
-
-            if (assignedList) {
-                assignedList.querySelectorAll('.assignment-item').forEach(item => {
-                    const materialId = item.getAttribute('data-material-id');
-                    const text = item.textContent;
+    if (assignedList) {
+        // Usar un Set para evitar duplicados
+        const materialIds = new Set();
+        
+        assignedList.querySelectorAll('.assignment-item').forEach(item => {
+            const materialId = item.getAttribute('data-material-id');
+            
+            // Si ya procesamos este material, saltar
+            if (materialIds.has(materialId)) {
+                return;
+            }
+            materialIds.add(materialId);
+            
+            const text = item.textContent;
+            
+            // Extraer cantidad del texto (buscar el número antes de la unidad)
+            const match = text.match(/(\d+)\s*(\w+)/);
+            if (match) {
+                const quantity = parseInt(match[1]);
+                const material = inventory.find(m => m.id === materialId);
+                
+                if (material) {
+                    // Verificar si ya existe en los materiales actuales
+                    const existingMaterialIndex = tasks[taskIndex].materials.findIndex(m => m.materialId === materialId);
                     
-                    // Extraer cantidad del texto (buscar el número antes de la unidad)
-                    const match = text.match(/(\d+)\s*(\w+)/);
-                    if (match) {
-                        const quantity = parseInt(match[1]);
-                        const material = inventory.find(m => m.id === materialId);
-                        
-                        if (material) {
-                            // Verificar si ya existe en los materiales actuales
-                            const existingMaterial = tasks[taskIndex].materials.find(m => m.materialId === materialId);
-                            
-                            newMaterials.push({
-                                materialId: materialId,
-                                quantity: quantity,
-                                delivered: existingMaterial ? existingMaterial.delivered : false
-                            });
+                    if (existingMaterialIndex === -1) {
+                        // Es un material nuevo - agregar y descontar del inventario
+                        newMaterials.push({
+                            materialId: materialId,
+                            quantity: quantity,
+                            delivered: false
+                        });
 
-                            // Descontar del inventario si es nuevo
-                            if (!existingMaterial) {
-                                const materialIndex = inventory.findIndex(m => m.id === materialId);
-                                if (materialIndex !== -1 && quantity <= inventory[materialIndex].quantity) {
-                                    inventory[materialIndex].quantity -= quantity;
-                                }
-                            }
+                        // Descontar del inventario
+                        const materialIndex = inventory.findIndex(m => m.id === materialId);
+                        if (materialIndex !== -1 && quantity <= inventory[materialIndex].quantity) {
+                            inventory[materialIndex].quantity -= quantity;
                         }
+                    } else {
+                        // Material existente - mantener el estado de entrega
+                        newMaterials.push({
+                            materialId: materialId,
+                            quantity: quantity,
+                            delivered: tasks[taskIndex].materials[existingMaterialIndex].delivered
+                        });
                     }
-                });
+                }
             }
+        });
+    }
 
-            // Actualizar tarea
-            tasks[taskIndex].materials = newMaterials;
-            tasks[taskIndex].updatedAt = new Date().toISOString();
-            
-            await saveTasks();
-            await saveInventory();
+    // Actualizar tarea SOLO con los materiales de la lista
+    tasks[taskIndex].materials = newMaterials;
+    tasks[taskIndex].updatedAt = new Date().toISOString();
+    
+    await saveTasks();
+    await saveInventory();
 
-            showNotification('Materiales asignados correctamente', 'success');
-            
-            // Cerrar modal
-            const assignModal = document.getElementById('assignMaterialsModal');
-            if (assignModal) assignModal.classList.remove('active');
-            
-            // Recargar vistas
-            if (currentPage === 'manage-tasks') {
-                loadAllTasks();
-            }
-            updateDashboard();
-        }
-
+    showNotification('Materiales asignados correctamente', 'success');
+    
+    // Cerrar modal
+    const assignModal = document.getElementById('assignMaterialsModal');
+    if (assignModal) assignModal.classList.remove('active');
+    
+    // Recargar vistas
+    if (currentPage === 'manage-tasks') {
+        loadAllTasks();
+    }
+    updateDashboard();
+}
         // ==================== GESTIÓN DE INVENTARIO ====================
         function loadInventory() {
             updateInventoryStats();
@@ -5454,3 +5469,4 @@ if (task.imageUrl && task.imageUrl !== 'null' && task.imageUrl !== '' && task.im
     </script>
 </body>
 </html>
+
