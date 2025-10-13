@@ -2794,7 +2794,7 @@ async function uploadImage(file, folder) {
                 
 // Mostrar imagen si existe
 let imageHtml = '';
-if (task.imageUrl && task.imageUrl !== 'null' && task.imageUrl !== '' && task.imageUrl.startsWith('http')) {
+if (task.imageUrl && task.imageUrl !== 'null' && task.imageUrl !== '' && (task.imageUrl.startsWith('http') || task.imageUrl.startsWith('data:image'))) {
     imageHtml = `
         <div class="image-container" style="margin: 1rem 0; text-align: center;">
             <p style="font-weight: 600; margin-bottom: 0.5rem; color: var(--primary);">
