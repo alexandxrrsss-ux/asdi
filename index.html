@@ -2162,16 +2162,21 @@
         };
 
         // Inicializar Firebase
+        let firebaseApp;
+        let db;
+        let auth;
+        let storage;
+
         try {
-            firebase.initializeApp(firebaseConfig);
+            firebaseApp = firebase.initializeApp(firebaseConfig);
+            db = firebase.firestore();
+            auth = firebase.auth();
+            storage = firebase.storage();
             console.log('Firebase inicializado correctamente');
         } catch (error) {
             console.error('Error inicializando Firebase:', error);
+            document.getElementById('loginError').style.display = 'block';
         }
-
-        const db = firebase.firestore();
-        const auth = firebase.auth();
-        const storage = firebase.storage();
 
         // ==================== VARIABLES GLOBALES ====================
         let currentUser = null;
@@ -2489,176 +2494,6 @@
                     }
                 );
             });
-        }
-
-        // ==================== FUNCIONES DE EXPORTACIÓN ====================
-        function getTasksExportData() {
-            return tasks.map(task => {
-                const assignee = users.find(u => u.username === task.assignee);
-                const materialsText = task.materials && task.materials.length > 0 
-                    ? task.materials.map(m => {
-                        const material = inventory.find(mat => mat.id === m.materialId);
-                        return material ? `${material.name} (${m.quantity} ${material.unit})` : '';
-                    }).filter(Boolean).join(', ')
-                    : 'Ninguno';
-                
-                return {
-                    'ID': task.id,
-                    'Nombre': task.name,
-                    'Descripción': task.description,
-                    'Asignado a': assignee?.name || task.assignee,
-                    'Fecha de inicio': formatDate(task.startDate),
-                    'Fecha límite': formatDate(task.dueDate),
-                    'Estado': getStatusText(task.status),
-                    'Urgencia': getUrgencyText(task.urgency),
-                    'Materiales': materialsText,
-                    'Fecha de creación': formatDate(task.createdAt),
-                    'Última actualización': formatDate(task.updatedAt)
-                };
-            });
-        }
-
-        function getReportsExportData() {
-            return reports.map(report => {
-                const reporter = users.find(u => u.username === report.reporter);
-                const relatedTask = report.taskId ? tasks.find(t => t.id === report.taskId) : null;
-                
-                let additionalInfo = '';
-                if (report.type === 'material' && report.additionalInfo) {
-                    additionalInfo = `Material: ${report.additionalInfo.materialName || 'No especificado'}, Cantidad: ${report.additionalInfo.materialQuantity || 'No especificado'}`;
-                } else if (report.type === 'equipment' && report.additionalInfo) {
-                    additionalInfo = `Equipo: ${report.additionalInfo.equipmentType || 'No especificado'}, Tiempo: ${report.additionalInfo.equipmentTime || 'No especificado'}`;
-                }
-                
-                return {
-                    'ID': report.id,
-                    'Tipo': report.type,
-                    'Título': report.title,
-                    'Descripción': report.description,
-                    'Reportado por': reporter?.name || report.reporter,
-                    'Tarea relacionada': relatedTask ? relatedTask.name : 'No relacionada',
-                    'Urgencia': getUrgencyText(report.urgency),
-                    'Bloquea progreso': report.blocksProgress,
-                    'Fecha requerida': report.requiredDate ? formatDate(report.requiredDate) : 'No especificada',
-                    'Información adicional': additionalInfo,
-                    'Estado': report.status === 'pending' ? 'Pendiente' : 'Resuelto',
-                    'Fecha de creación': formatDate(report.createdAt),
-                    'Fecha de resolución': report.resolvedAt ? formatDate(report.resolvedAt) : 'No resuelto'
-                };
-            });
-        }
-
-        function getInventoryExportData() {
-            return inventory.map(item => ({
-                'ID': item.id,
-                'Nombre': item.name,
-                'Categoría': item.category,
-                'Cantidad': item.quantity,
-                'Unidad': item.unit,
-                'Stock Mínimo': item.minStock,
-                'Proveedor': item.supplier || 'No especificado',
-                'Costo': item.cost ? `$${item.cost.toFixed(2)}` : 'No especificado',
-                'Ubicación': item.location || 'No especificada',
-                'Descripción': item.description || 'No especificada'
-            }));
-        }
-
-        function getAllExportData() {
-            return {
-                'Tareas': getTasksExportData(),
-                'Reportes': getReportsExportData(),
-                'Inventario': getInventoryExportData()
-            };
-        }
-
-        function exportToExcel(data, filename) {
-            try {
-                const wb = XLSX.utils.book_new();
-                
-                if (Array.isArray(data)) {
-                    // Si es un solo conjunto de datos
-                    const ws = XLSX.utils.json_to_sheet(data);
-                    XLSX.utils.book_append_sheet(wb, ws, "Datos");
-                } else {
-                    // Si son múltiples hojas (para exportación completa)
-                    Object.keys(data).forEach(sheetName => {
-                        const ws = XLSX.utils.json_to_sheet(data[sheetName]);
-                        XLSX.utils.book_append_sheet(wb, ws, sheetName);
-                    });
-                }
-                
-                XLSX.writeFile(wb, `${filename}.xlsx`);
-                showNotification('Archivo exportado correctamente', 'success');
-            } catch (error) {
-                console.error('Error al exportar:', error);
-                showNotification('Error al exportar el archivo', 'danger');
-            }
-        }
-
-        function exportToCSV(data, filename) {
-            try {
-                let csvContent = "";
-                
-                if (Array.isArray(data) && data.length > 0) {
-                    // Encabezados
-                    const headers = Object.keys(data[0]);
-                    csvContent += headers.join(",") + "\n";
-                    
-                    // Datos
-                    data.forEach(row => {
-                        const values = headers.map(header => {
-                            let value = row[header] || "";
-                            // Escapar comas y comillas
-                            if (typeof value === 'string' && (value.includes(',') || value.includes('"'))) {
-                                value = '"' + value.replace(/"/g, '""') + '"';
-                            }
-                            return value;
-                        });
-                        csvContent += values.join(",") + "\n";
-                    });
-                }
-                
-                const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-                const link = document.createElement("a");
-                const url = URL.createObjectURL(blob);
-                link.setAttribute("href", url);
-                link.setAttribute("download", `${filename}.csv`);
-                link.style.visibility = 'hidden';
-                document.body.appendChild(link);
-                link.click();
-                document.body.removeChild(link);
-                
-                showNotification('Archivo CSV exportado correctamente', 'success');
-            } catch (error) {
-                console.error('Error al exportar CSV:', error);
-                showNotification('Error al exportar el archivo CSV', 'danger');
-            }
-        }
-
-        function exportToPDF(data, filename) {
-            try {
-                const { jsPDF } = window.jspdf;
-                const doc = new jsPDF();
-                
-                if (Array.isArray(data) && data.length > 0) {
-                    const headers = [Object.keys(data[0])];
-                    const rows = data.map(row => Object.values(row));
-                    
-                    doc.autoTable({
-                        head: headers,
-                        body: rows,
-                        theme: 'grid',
-                        styles: { fontSize: 8 },
-                        headStyles: { fillColor: [67, 97, 238] }
-                    });
-                }
-                
-                doc.save(`${filename}.pdf`);
-                showNotification('Archivo PDF exportado correctamente', 'success');
-            } catch (error) {
-                console.error('Error al exportar PDF:', error);
-                showNotification('Error al exportar el archivo PDF', 'danger');
-            }
         }
 
         // ==================== LOGIN ====================
@@ -4315,213 +4150,6 @@
             }
         }
 
-        function handleExportData() {
-            const exportType = document.getElementById('exportType').value;
-            const exportFormat = document.getElementById('exportFormat').value;
-            const startDate = document.getElementById('startDate').value;
-            const endDate = document.getElementById('endDate').value;
-            
-            let dataToExport;
-            let filename;
-            
-            // Filtrar datos por fecha si es necesario
-            let filteredTasks = tasks;
-            let filteredReports = reports;
-            
-            if (exportType === 'date-range' && startDate && endDate) {
-                filteredTasks = tasks.filter(task => {
-                    const taskDate = new Date(task.createdAt);
-                    return taskDate >= new Date(startDate) && taskDate <= new Date(endDate);
-                });
-                
-                filteredReports = reports.filter(report => {
-                    const reportDate = new Date(report.createdAt);
-                    return reportDate >= new Date(startDate) && reportDate <= new Date(endDate);
-                });
-                
-                filename = `datos_${startDate}_a_${endDate}`;
-            } else {
-                filename = `datos_${exportType}`;
-            }
-            
-            // Obtener datos según el tipo de exportación
-            switch (exportType) {
-                case 'tasks':
-                    dataToExport = getTasksExportData(filteredTasks);
-                    break;
-                case 'reports':
-                    dataToExport = getReportsExportData(filteredReports);
-                    break;
-                case 'inventory':
-                    dataToExport = getInventoryExportData();
-                    break;
-                case 'completed':
-                    dataToExport = getTasksExportData(filteredTasks.filter(t => t.status === 'completed'));
-                    break;
-                case 'pending':
-                    dataToExport = getTasksExportData(filteredTasks.filter(t => t.status !== 'completed'));
-                    break;
-                case 'all':
-                default:
-                    dataToExport = {
-                        'Tareas': getTasksExportData(filteredTasks),
-                        'Reportes': getReportsExportData(filteredReports),
-                        'Inventario': getInventoryExportData()
-                    };
-                    break;
-            }
-            
-            // Exportar según el formato
-            switch (exportFormat) {
-                case 'excel':
-                    exportToExcel(dataToExport, filename);
-                    break;
-                case 'csv':
-                    if (Array.isArray(dataToExport)) {
-                        exportToCSV(dataToExport, filename);
-                    } else {
-                        // Para datos múltiples, exportar cada hoja como CSV separado
-                        Object.keys(dataToExport).forEach(sheetName => {
-                            exportToCSV(dataToExport[sheetName], `${filename}_${sheetName}`);
-                        });
-                    }
-                    break;
-                case 'pdf':
-                    if (Array.isArray(dataToExport)) {
-                        exportToPDF(dataToExport, filename);
-                    } else {
-                        // Para datos múltiples, exportar cada hoja como PDF separado
-                        Object.keys(dataToExport).forEach(sheetName => {
-                            exportToPDF(dataToExport[sheetName], `${filename}_${sheetName}`);
-                        });
-                    }
-                    break;
-            }
-        }
-
-        function showPreviewData() {
-            const exportType = document.getElementById('exportType').value;
-            const previewSection = document.getElementById('previewSection');
-            const previewContent = document.getElementById('previewContent');
-            
-            if (!previewSection || !previewContent) return;
-            
-            let dataToPreview;
-            
-            // Obtener datos según el tipo de exportación
-            switch (exportType) {
-                case 'tasks':
-                    dataToPreview = getTasksExportData();
-                    break;
-                case 'reports':
-                    dataToPreview = getReportsExportData();
-                    break;
-                case 'inventory':
-                    dataToPreview = getInventoryExportData();
-                    break;
-                case 'completed':
-                    dataToPreview = getTasksExportData(tasks.filter(t => t.status === 'completed'));
-                    break;
-                case 'pending':
-                    dataToPreview = getTasksExportData(tasks.filter(t => t.status !== 'completed'));
-                    break;
-                case 'all':
-                default:
-                    dataToPreview = getAllExportData();
-                    break;
-            }
-            
-            // Mostrar vista previa
-            previewContent.innerHTML = '';
-            
-            if (Array.isArray(dataToPreview)) {
-                if (dataToPreview.length === 0) {
-                    previewContent.innerHTML = '<div style="text-align: center; padding: 2rem; color: var(--gray);">No hay datos para mostrar</div>';
-                } else {
-                    const table = document.createElement('table');
-                    table.className = 'table';
-                    
-                    // Encabezados
-                    const thead = document.createElement('thead');
-                    const headerRow = document.createElement('tr');
-                    Object.keys(dataToPreview[0]).forEach(key => {
-                        const th = document.createElement('th');
-                        th.textContent = key;
-                        headerRow.appendChild(th);
-                    });
-                    thead.appendChild(headerRow);
-                    table.appendChild(thead);
-                    
-                    // Datos
-                    const tbody = document.createElement('tbody');
-                    dataToPreview.forEach(row => {
-                        const tr = document.createElement('tr');
-                        Object.values(row).forEach(value => {
-                            const td = document.createElement('td');
-                            td.textContent = value;
-                            tr.appendChild(td);
-                        });
-                        tbody.appendChild(tr);
-                    });
-                    table.appendChild(tbody);
-                    
-                    previewContent.appendChild(table);
-                }
-            } else {
-                // Para datos múltiples (varias hojas)
-                Object.keys(dataToPreview).forEach(sheetName => {
-                    const sheetData = dataToPreview[sheetName];
-                    if (sheetData.length === 0);
-                    
-                    const sheetTitle = document.createElement('h3');
-                    sheetTitle.textContent = sheetName;
-                    sheetTitle.style.marginTop = '2rem';
-                    sheetTitle.style.marginBottom = '1rem';
-                    previewContent.appendChild(sheetTitle);
-                    
-                    const table = document.createElement('table');
-                    table.className = 'table';
-                    
-                    // Encabezados
-                    const thead = document.createElement('thead');
-                    const headerRow = document.createElement('tr');
-                    Object.keys(sheetData[0]).forEach(key => {
-                        const th = document.createElement('th');
-                        th.textContent = key;
-                        headerRow.appendChild(th);
-                    });
-                    thead.appendChild(headerRow);
-                    table.appendChild(thead);
-                    
-                    // Datos (solo primeros 10 registros para vista previa)
-                    const tbody = document.createElement('tbody');
-                    sheetData.slice(0, 10).forEach(row => {
-                        const tr = document.createElement('tr');
-                        Object.values(row).forEach(value => {
-                            const td = document.createElement('td');
-                            td.textContent = value;
-                            tr.appendChild(td);
-                        });
-                        tbody.appendChild(tr);
-                    });
-                    table.appendChild(tbody);
-                    
-                    previewContent.appendChild(table);
-                    
-                    if (sheetData.length > 10) {
-                        const moreText = document.createElement('p');
-                        moreText.textContent = `... y ${sheetData.length - 10} registros más`;
-                        moreText.style.textAlign = 'center';
-                        moreText.style.color = 'var(--gray)';
-                        moreText.style.marginTop = '1rem';
-                        previewContent.appendChild(moreText);
-                    }
-                });
-            }
-            
-            previewSection.style.display = 'block';
-        }
-
         // ==================== INICIALIZACIÓN ====================
         document.addEventListener('DOMContentLoaded', function() {
             // Cargar datos
@@ -4771,7 +4399,7 @@
                     const addTaskModal = document.getElementById('addTaskModal');
                     if (addTaskModal) addTaskModal.classList.remove('active');
                 });
-            
+            }
             
             const closeMaterialModal = document.getElementById('closeMaterialModal');
             if (closeMaterialModal) {
@@ -5365,8 +4993,383 @@
                 updateDashboard();
             }
         }
+
+        // ==================== FUNCIONES DE EXPORTACIÓN ====================
+        function getTasksExportData(filteredTasks = tasks) {
+            return filteredTasks.map(task => {
+                const assignee = users.find(u => u.username === task.assignee);
+                const materialsText = task.materials && task.materials.length > 0 
+                    ? task.materials.map(m => {
+                        const material = inventory.find(mat => mat.id === m.materialId);
+                        return material ? `${material.name} (${m.quantity} ${material.unit})` : '';
+                    }).filter(Boolean).join(', ')
+                    : 'Ninguno';
+                
+                return {
+                    'ID': task.id,
+                    'Nombre': task.name,
+                    'Descripción': task.description,
+                    'Asignado a': assignee?.name || task.assignee,
+                    'Fecha de inicio': formatDate(task.startDate),
+                    'Fecha límite': formatDate(task.dueDate),
+                    'Estado': getStatusText(task.status),
+                    'Urgencia': getUrgencyText(task.urgency),
+                    'Materiales': materialsText,
+                    'Fecha de creación': formatDate(task.createdAt),
+                    'Última actualización': formatDate(task.updatedAt)
+                };
+            });
+        }
+
+        function getReportsExportData(filteredReports = reports) {
+            return filteredReports.map(report => {
+                const reporter = users.find(u => u.username === report.reporter);
+                const relatedTask = report.taskId ? tasks.find(t => t.id === report.taskId) : null;
+                
+                let additionalInfo = '';
+                if (report.type === 'material' && report.additionalInfo) {
+                    additionalInfo = `Material: ${report.additionalInfo.materialName || 'No especificado'}, Cantidad: ${report.additionalInfo.materialQuantity || 'No especificado'}`;
+                } else if (report.type === 'equipment' && report.additionalInfo) {
+                    additionalInfo = `Equipo: ${report.additionalInfo.equipmentType || 'No especificado'}, Tiempo: ${report.additionalInfo.equipmentTime || 'No especificado'}`;
+                }
+                
+                return {
+                    'ID': report.id,
+                    'Tipo': report.type,
+                    'Título': report.title,
+                    'Descripción': report.description,
+                    'Reportado por': reporter?.name || report.reporter,
+                    'Tarea relacionada': relatedTask ? relatedTask.name : 'No relacionada',
+                    'Urgencia': getUrgencyText(report.urgency),
+                    'Bloquea progreso': report.blocksProgress,
+                    'Fecha requerida': report.requiredDate ? formatDate(report.requiredDate) : 'No especificada',
+                    'Información adicional': additionalInfo,
+                    'Estado': report.status === 'pending' ? 'Pendiente' : 'Resuelto',
+                    'Fecha de creación': formatDate(report.createdAt),
+                    'Fecha de resolución': report.resolvedAt ? formatDate(report.resolvedAt) : 'No resuelto'
+                };
+            });
+        }
+
+        function getInventoryExportData() {
+            return inventory.map(item => ({
+                'ID': item.id,
+                'Nombre': item.name,
+                'Categoría': item.category,
+                'Cantidad': item.quantity,
+                'Unidad': item.unit,
+                'Stock Mínimo': item.minStock,
+                'Proveedor': item.supplier || 'No especificado',
+                'Costo': item.cost ? `$${item.cost.toFixed(2)}` : 'No especificado',
+                'Ubicación': item.location || 'No especificada',
+                'Descripción': item.description || 'No especificada'
+            }));
+        }
+
+        function getAllExportData() {
+            return {
+                'Tareas': getTasksExportData(),
+                'Reportes': getReportsExportData(),
+                'Inventario': getInventoryExportData()
+            };
+        }
+
+        function exportToExcel(data, filename) {
+            try {
+                const wb = XLSX.utils.book_new();
+                
+                if (Array.isArray(data)) {
+                    // Si es un solo conjunto de datos
+                    const ws = XLSX.utils.json_to_sheet(data);
+                    XLSX.utils.book_append_sheet(wb, ws, "Datos");
+                } else {
+                    // Si son múltiples hojas (para exportación completa)
+                    Object.keys(data).forEach(sheetName => {
+                        const ws = XLSX.utils.json_to_sheet(data[sheetName]);
+                        XLSX.utils.book_append_sheet(wb, ws, sheetName);
+                    });
+                }
+                
+                XLSX.writeFile(wb, `${filename}.xlsx`);
+                showNotification('Archivo exportado correctamente', 'success');
+            } catch (error) {
+                console.error('Error al exportar:', error);
+                showNotification('Error al exportar el archivo', 'danger');
+            }
+        }
+
+        function exportToCSV(data, filename) {
+            try {
+                let csvContent = "";
+                
+                if (Array.isArray(data) && data.length > 0) {
+                    // Encabezados
+                    const headers = Object.keys(data[0]);
+                    csvContent += headers.join(",") + "\n";
+                    
+                    // Datos
+                    data.forEach(row => {
+                        const values = headers.map(header => {
+                            let value = row[header] || "";
+                            // Escapar comas y comillas
+                            if (typeof value === 'string' && (value.includes(',') || value.includes('"'))) {
+                                value = '"' + value.replace(/"/g, '""') + '"';
+                            }
+                            return value;
+                        });
+                        csvContent += values.join(",") + "\n";
+                    });
+                }
+                
+                const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+                const link = document.createElement("a");
+                const url = URL.createObjectURL(blob);
+                link.setAttribute("href", url);
+                link.setAttribute("download", `${filename}.csv`);
+                link.style.visibility = 'hidden';
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                
+                showNotification('Archivo CSV exportado correctamente', 'success');
+            } catch (error) {
+                console.error('Error al exportar CSV:', error);
+                showNotification('Error al exportar el archivo CSV', 'danger');
+            }
+        }
+
+        function exportToPDF(data, filename) {
+            try {
+                const { jsPDF } = window.jspdf;
+                const doc = new jsPDF();
+                
+                if (Array.isArray(data) && data.length > 0) {
+                    const headers = [Object.keys(data[0])];
+                    const rows = data.map(row => Object.values(row));
+                    
+                    doc.autoTable({
+                        head: headers,
+                        body: rows,
+                        theme: 'grid',
+                        styles: { fontSize: 8 },
+                        headStyles: { fillColor: [67, 97, 238] }
+                    });
+                }
+                
+                doc.save(`${filename}.pdf`);
+                showNotification('Archivo PDF exportado correctamente', 'success');
+            } catch (error) {
+                console.error('Error al exportar PDF:', error);
+                showNotification('Error al exportar el archivo PDF', 'danger');
+            }
+        }
+
+        function handleExportData() {
+            const exportType = document.getElementById('exportType').value;
+            const exportFormat = document.getElementById('exportFormat').value;
+            const startDate = document.getElementById('startDate').value;
+            const endDate = document.getElementById('endDate').value;
+            
+            let dataToExport;
+            let filename;
+            
+            // Filtrar datos por fecha si es necesario
+            let filteredTasks = tasks;
+            let filteredReports = reports;
+            
+            if (exportType === 'date-range' && startDate && endDate) {
+                filteredTasks = tasks.filter(task => {
+                    const taskDate = new Date(task.createdAt);
+                    return taskDate >= new Date(startDate) && taskDate <= new Date(endDate);
+                });
+                
+                filteredReports = reports.filter(report => {
+                    const reportDate = new Date(report.createdAt);
+                    return reportDate >= new Date(startDate) && reportDate <= new Date(endDate);
+                });
+                
+                filename = `datos_${startDate}_a_${endDate}`;
+            } else {
+                filename = `datos_${exportType}`;
+            }
+            
+            // Obtener datos según el tipo de exportación
+            switch (exportType) {
+                case 'tasks':
+                    dataToExport = getTasksExportData(filteredTasks);
+                    break;
+                case 'reports':
+                    dataToExport = getReportsExportData(filteredReports);
+                    break;
+                case 'inventory':
+                    dataToExport = getInventoryExportData();
+                    break;
+                case 'completed':
+                    dataToExport = getTasksExportData(filteredTasks.filter(t => t.status === 'completed'));
+                    break;
+                case 'pending':
+                    dataToExport = getTasksExportData(filteredTasks.filter(t => t.status !== 'completed'));
+                    break;
+                case 'all':
+                default:
+                    dataToExport = {
+                        'Tareas': getTasksExportData(filteredTasks),
+                        'Reportes': getReportsExportData(filteredReports),
+                        'Inventario': getInventoryExportData()
+                    };
+                    break;
+            }
+            
+            // Exportar según el formato
+            switch (exportFormat) {
+                case 'excel':
+                    exportToExcel(dataToExport, filename);
+                    break;
+                case 'csv':
+                    if (Array.isArray(dataToExport)) {
+                        exportToCSV(dataToExport, filename);
+                    } else {
+                        // Para datos múltiples, exportar cada hoja como CSV separado
+                        Object.keys(dataToExport).forEach(sheetName => {
+                            exportToCSV(dataToExport[sheetName], `${filename}_${sheetName}`);
+                        });
+                    }
+                    break;
+                case 'pdf':
+                    if (Array.isArray(dataToExport)) {
+                        exportToPDF(dataToExport, filename);
+                    } else {
+                        // Para datos múltiples, exportar cada hoja como PDF separado
+                        Object.keys(dataToExport).forEach(sheetName => {
+                            exportToPDF(dataToExport[sheetName], `${filename}_${sheetName}`);
+                        });
+                    }
+                    break;
+            }
+        }
+
+        function showPreviewData() {
+            const exportType = document.getElementById('exportType').value;
+            const previewSection = document.getElementById('previewSection');
+            const previewContent = document.getElementById('previewContent');
+            
+            if (!previewSection || !previewContent) return;
+            
+            let dataToPreview;
+            
+            // Obtener datos según el tipo de exportación
+            switch (exportType) {
+                case 'tasks':
+                    dataToPreview = getTasksExportData();
+                    break;
+                case 'reports':
+                    dataToPreview = getReportsExportData();
+                    break;
+                case 'inventory':
+                    dataToPreview = getInventoryExportData();
+                    break;
+                case 'completed':
+                    dataToPreview = getTasksExportData(tasks.filter(t => t.status === 'completed'));
+                    break;
+                case 'pending':
+                    dataToPreview = getTasksExportData(tasks.filter(t => t.status !== 'completed'));
+                    break;
+                case 'all':
+                default:
+                    dataToPreview = getAllExportData();
+                    break;
+            }
+            
+            // Mostrar vista previa
+            previewContent.innerHTML = '';
+            
+            if (Array.isArray(dataToPreview)) {
+                if (dataToPreview.length === 0) {
+                    previewContent.innerHTML = '<div style="text-align: center; padding: 2rem; color: var(--gray);">No hay datos para mostrar</div>';
+                } else {
+                    const table = document.createElement('table');
+                    table.className = 'table';
+                    
+                    // Encabezados
+                    const thead = document.createElement('thead');
+                    const headerRow = document.createElement('tr');
+                    Object.keys(dataToPreview[0]).forEach(key => {
+                        const th = document.createElement('th');
+                        th.textContent = key;
+                        headerRow.appendChild(th);
+                    });
+                    thead.appendChild(headerRow);
+                    table.appendChild(thead);
+                    
+                    // Datos
+                    const tbody = document.createElement('tbody');
+                    dataToPreview.forEach(row => {
+                        const tr = document.createElement('tr');
+                        Object.values(row).forEach(value => {
+                            const td = document.createElement('td');
+                            td.textContent = value;
+                            tr.appendChild(td);
+                        });
+                        tbody.appendChild(tr);
+                    });
+                    table.appendChild(tbody);
+                    
+                    previewContent.appendChild(table);
+                }
+            } else {
+                // Para datos múltiples (varias hojas)
+                Object.keys(dataToPreview).forEach(sheetName => {
+                    const sheetData = dataToPreview[sheetName];
+                    if (sheetData.length === 0) return;
+                    
+                    const sheetTitle = document.createElement('h3');
+                    sheetTitle.textContent = sheetName;
+                    sheetTitle.style.marginTop = '2rem';
+                    sheetTitle.style.marginBottom = '1rem';
+                    previewContent.appendChild(sheetTitle);
+                    
+                    const table = document.createElement('table');
+                    table.className = 'table';
+                    
+                    // Encabezados
+                    const thead = document.createElement('thead');
+                    const headerRow = document.createElement('tr');
+                    Object.keys(sheetData[0]).forEach(key => {
+                        const th = document.createElement('th');
+                        th.textContent = key;
+                        headerRow.appendChild(th);
+                    });
+                    thead.appendChild(headerRow);
+                    table.appendChild(thead);
+                    
+                    // Datos (solo primeros 10 registros para vista previa)
+                    const tbody = document.createElement('tbody');
+                    sheetData.slice(0, 10).forEach(row => {
+                        const tr = document.createElement('tr');
+                        Object.values(row).forEach(value => {
+                            const td = document.createElement('td');
+                            td.textContent = value;
+                            tr.appendChild(td);
+                        });
+                        tbody.appendChild(tr);
+                    });
+                    table.appendChild(tbody);
+                    
+                    previewContent.appendChild(table);
+                    
+                    if (sheetData.length > 10) {
+                        const moreText = document.createElement('p');
+                        moreText.textContent = `... y ${sheetData.length - 10} registros más`;
+                        moreText.style.textAlign = 'center';
+                        moreText.style.color = 'var(--gray)';
+                        moreText.style.marginTop = '1rem';
+                        previewContent.appendChild(moreText);
+                    }
+                });
+            }
+            
+            previewSection.style.display = 'block';
+        }
     </script>
 </body>
 </html>
-
-
