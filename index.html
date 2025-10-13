@@ -3558,15 +3558,15 @@ if (task.imageUrl && task.imageUrl !== 'null' && task.imageUrl !== '' && (task.i
                 }
 
                 // Mostrar imagen si existe
-                let imageHtml = '';
-                if (report.imageUrl) {
-                    imageHtml = `
-                        <div class="image-container">
-                            <img src="${report.imageUrl}" alt="Imagen del reporte" class="image-preview active">
-                        </div>
-                    `;
-                }
-
+              // Mostrar imagen si existe
+let imageHtml = '';
+if (report.imageUrl && report.imageUrl !== 'null' && report.imageUrl !== '' && (report.imageUrl.startsWith('http') || report.imageUrl.startsWith('data:image'))) {
+    imageHtml = `
+        <div class="image-container">
+            <img src="${report.imageUrl}" alt="Imagen del reporte" class="image-preview active">
+        </div>
+    `;
+}
                 const card = document.createElement('div');
                 card.className = `report-card ${report.status === 'resolved' ? 'resolved' : ''}`;
                 
