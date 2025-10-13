@@ -3175,11 +3175,17 @@ async function addMaterialToTaskAssignment(taskId) {
         return;
     }
 
-    // Verificar si ya está asignado en la lista visual
-    const assignedList = document.getElementById('assignedMaterialsList');
-    const existingItem = assignedList.querySelector(`[data-material-id="${materialId}"]`);
-    if (existingItem) {
-        showNotification('Este material ya está en la lista', 'warning');
+    // Buscar la tarea
+    const taskIndex = tasks.findIndex(t => t.id === taskId);
+    if (taskIndex === -1) {
+        showNotification('Tarea no encontrada', 'danger');
+        return;
+    }
+
+    // Verificar si ya está asignado (en los datos reales)
+    const alreadyAssigned = tasks[taskIndex].materials?.find(m => m.materialId === materialId);
+    if (alreadyAssigned) {
+        showNotification('Este material ya está asignado a la tarea', 'warning');
         return;
     }
 
@@ -3189,179 +3195,80 @@ async function addMaterialToTaskAssignment(taskId) {
         return;
     }
 
-    // Si es el primer material, limpiar el mensaje de "No hay materiales"
-    if (assignedList.innerHTML.includes('No hay materiales asignados')) {
-        assignedList.innerHTML = '';
+    // ✅ 1. AGREGAR A LOS DATOS REALES
+    if (!tasks[taskIndex].materials) {
+        tasks[taskIndex].materials = [];
+    }
+    
+    tasks[taskIndex].materials.push({
+        materialId: materialId,
+        quantity: quantity,
+        delivered: false
+    });
+
+    // ✅ 2. DESCONTAR DEL INVENTARIO
+    const materialIndex = inventory.findIndex(m => m.id === materialId);
+    if (materialIndex !== -1) {
+        inventory[materialIndex].quantity -= quantity;
+        await saveInventory(); // Guardar inventario en Firebase
     }
 
-    // Agregar a la lista visual
-    if (assignedList) {
-        const item = document.createElement('div');
-        item.className = 'assignment-item';
-        item.setAttribute('data-material-id', materialId);
-        item.innerHTML = `
-            <div>
-                <strong>${material.name}</strong>
-                <div style="color: var(--gray); font-size: 0.9rem;">
-                    <span class="quantity-display">${quantity}</span> ${material.unit} • Pendiente
-                </div>
-            </div>
-            <div>
-                <button class="btn btn-success btn-sm toggle-delivery-btn" data-material-id="${materialId}">
-                    <i class="fas fa-check"></i> Marcar Entregado
-                </button>
-                <button class="btn btn-danger btn-sm remove-assigned-material-btn" data-material-id="${materialId}">
-                    <i class="fas fa-times"></i> Eliminar
-                </button>
-            </div>
-        `;
-        assignedList.appendChild(item);
+    // ✅ 3. GUARDAR TAREA EN FIREBASE
+    await saveTasks();
 
-        // Agregar event listeners
-        const toggleBtn = item.querySelector('.toggle-delivery-btn');
-        const removeBtn = item.querySelector('.remove-assigned-material-btn');
-        
-        if (toggleBtn) {
-            toggleBtn.addEventListener('click', function() {
-                toggleMaterialDelivery(taskId, materialId);
-            });
-        }
-        
-        if (removeBtn) {
-            removeBtn.addEventListener('click', function() {
-                removeAssignedMaterial(taskId, materialId);
-            });
-        }
-
-        // Limpiar formulario
-        document.getElementById('assignMaterialSelect').value = '';
-        document.getElementById('assignMaterialQuantity').value = '1';
-    }
+    // ✅ 4. ACTUALIZAR VISTA
+    openAssignMaterialsModal(taskId);
+    
+    // Limpiar formulario
+    document.getElementById('assignMaterialSelect').value = '';
+    document.getElementById('assignMaterialQuantity').value = '1';
+    
+    showNotification('Material agregado y guardado correctamente', 'success');
 }
-           async function toggleMaterialDelivery(taskId, materialId) {
-            const taskIndex = tasks.findIndex(t => t.id === taskId);
-            if (taskIndex === -1) return;
-
-            const materialIndex = tasks[taskIndex].materials.findIndex(m => m.materialId === materialId);
-            if (materialIndex === -1) return;
-
-            // Cambiar estado de entrega
-            tasks[taskIndex].materials[materialIndex].delivered = !tasks[taskIndex].materials[materialIndex].delivered;
-            
-            await saveTasks();
-            
-            // Recargar el modal para mostrar el cambio
-            openAssignMaterialsModal(taskId);
-            
-            showNotification(`Material ${tasks[taskIndex].materials[materialIndex].delivered ? 'marcado como entregado' : 'marcado como pendiente'}`, 'success');
+async function removeAssignedMaterial(taskId, materialId) {
+    try {
+        const taskIndex = tasks.findIndex(t => t.id === taskId);
+        if (taskIndex === -1) {
+            showNotification('Error: Tarea no encontrada', 'danger');
+            return;
         }
 
-async function removeAssignedMaterial(taskId, materialId) {
-    const taskIndex = tasks.findIndex(t => t.id === taskId);
-    if (taskIndex === -1) return;
-
-    // Encontrar el material para restaurar el stock
-    const materialToRemove = tasks[taskIndex].materials.find(m => m.materialId === materialId);
-    if (materialToRemove) {
-        const materialIndex = inventory.findIndex(m => m.id === materialId);
-        if (materialIndex !== -1) {
-            // Restaurar stock si no estaba entregado
-            if (!materialToRemove.delivered) {
+        // Encontrar el material para restaurar stock
+        const materialToRemove = tasks[taskIndex].materials.find(m => m.materialId === materialId);
+        if (materialToRemove) {
+            const materialIndex = inventory.findIndex(m => m.id === materialId);
+            if (materialIndex !== -1 && !materialToRemove.delivered) {
+                // Restaurar stock si no estaba entregado
                 inventory[materialIndex].quantity += materialToRemove.quantity;
                 await saveInventory();
             }
         }
-    }
 
-    // Remover de la tarea
-    tasks[taskIndex].materials = tasks[taskIndex].materials.filter(m => m.materialId !== materialId);
-    await saveTasks();
-
-    // Remover visualmente del DOM
-    const itemToRemove = document.querySelector(`[data-material-id="${materialId}"]`);
-    if (itemToRemove) {
-        itemToRemove.remove();
-    }
-
-    // Si no quedan materiales, mostrar mensaje
-    const assignedList = document.getElementById('assignedMaterialsList');
-    if (assignedList && assignedList.children.length === 0) {
-        assignedList.innerHTML = '<div style="text-align: center; padding: 1rem; color: var(--gray);">No hay materiales asignados</div>';
-    }
-
-    showNotification('Material removido de la tarea', 'success');
-}
-async function saveMaterialsAssignment(taskId) {
-    const taskIndex = tasks.findIndex(t => t.id === taskId);
-    if (taskIndex === -1) return;
-
-    // Obtener materiales de la lista visual (SOLO LOS NUEVOS)
-    const assignedList = document.getElementById('assignedMaterialsList');
-    const newMaterials = [];
-
-    if (assignedList) {
-        // Usar un Set para evitar duplicados
-        const materialIds = new Set();
+        // Remover de la tarea
+        tasks[taskIndex].materials = tasks[taskIndex].materials.filter(m => m.materialId !== materialId);
         
-        assignedList.querySelectorAll('.assignment-item').forEach(item => {
-            const materialId = item.getAttribute('data-material-id');
-            
-            // Si ya procesamos este material, saltar
-            if (materialIds.has(materialId)) {
-                return;
-            }
-            materialIds.add(materialId);
-            
-            const text = item.textContent;
-            
-            // Extraer cantidad del texto (buscar el número antes de la unidad)
-            const match = text.match(/(\d+)\s*(\w+)/);
-            if (match) {
-                const quantity = parseInt(match[1]);
-                const material = inventory.find(m => m.id === materialId);
-                
-                if (material) {
-                    // Verificar si ya existe en los materiales actuales
-                    const existingMaterialIndex = tasks[taskIndex].materials.findIndex(m => m.materialId === materialId);
-                    
-                    if (existingMaterialIndex === -1) {
-                        // Es un material nuevo - agregar y descontar del inventario
-                        newMaterials.push({
-                            materialId: materialId,
-                            quantity: quantity,
-                            delivered: false
-                        });
+        // ✅ GUARDAR EN FIREBASE INMEDIATAMENTE
+        await saveTasks();
 
-                        // Descontar del inventario
-                        const materialIndex = inventory.findIndex(m => m.id === materialId);
-                        if (materialIndex !== -1 && quantity <= inventory[materialIndex].quantity) {
-                            inventory[materialIndex].quantity -= quantity;
-                        }
-                    } else {
-                        // Material existente - mantener el estado de entrega
-                        newMaterials.push({
-                            materialId: materialId,
-                            quantity: quantity,
-                            delivered: tasks[taskIndex].materials[existingMaterialIndex].delivered
-                        });
-                    }
-                }
-            }
-        });
+        // Recargar el modal para mostrar cambios
+        openAssignMaterialsModal(taskId);
+        
+        showNotification('Material eliminado y cambios guardados', 'success');
+        
+    } catch (error) {
+        console.error('Error eliminando material:', error);
+        showNotification('Error al eliminar el material', 'danger');
     }
+}
 
-    // Actualizar tarea SOLO con los materiales de la lista
-    tasks[taskIndex].materials = newMaterials;
-    tasks[taskIndex].updatedAt = new Date().toISOString();
+async function saveMaterialsAssignment(taskId) {
+    // Los cambios YA están guardados automáticamente al agregar/eliminar
+    // Esta función solo cierra el modal
     
-    await saveTasks();
-    await saveInventory();
-
-    showNotification('Materiales asignados correctamente', 'success');
-    
-    // Cerrar modal
     const assignModal = document.getElementById('assignMaterialsModal');
     if (assignModal) assignModal.classList.remove('active');
+    
+    showNotification('Todos los cambios han sido guardados', 'success');
     
     // Recargar vistas
     if (currentPage === 'manage-tasks') {
