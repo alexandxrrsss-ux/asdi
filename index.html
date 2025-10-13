@@ -3160,8 +3160,7 @@ if (task.imageUrl && task.imageUrl !== 'null' && task.imageUrl !== '' && (task.i
                 });
             }, 100);
         }
-
-     async function addMaterialToTaskAssignment(taskId) {
+async function addMaterialToTaskAssignment(taskId) {
     const materialId = document.getElementById('assignMaterialSelect').value;
     const quantity = parseInt(document.getElementById('assignMaterialQuantity').value);
 
@@ -3190,6 +3189,11 @@ if (task.imageUrl && task.imageUrl !== 'null' && task.imageUrl !== '' && (task.i
         return;
     }
 
+    // Si es el primer material, limpiar el mensaje de "No hay materiales"
+    if (assignedList.innerHTML.includes('No hay materiales asignados')) {
+        assignedList.innerHTML = '';
+    }
+
     // Agregar a la lista visual
     if (assignedList) {
         const item = document.createElement('div');
@@ -3199,7 +3203,7 @@ if (task.imageUrl && task.imageUrl !== 'null' && task.imageUrl !== '' && (task.i
             <div>
                 <strong>${material.name}</strong>
                 <div style="color: var(--gray); font-size: 0.9rem;">
-                    ${quantity} ${material.unit} • Pendiente
+                    <span class="quantity-display">${quantity}</span> ${material.unit} • Pendiente
                 </div>
             </div>
             <div>
@@ -3225,7 +3229,7 @@ if (task.imageUrl && task.imageUrl !== 'null' && task.imageUrl !== '' && (task.i
         
         if (removeBtn) {
             removeBtn.addEventListener('click', function() {
-                item.remove();
+                removeAssignedMaterial(taskId, materialId);
             });
         }
 
@@ -3234,7 +3238,7 @@ if (task.imageUrl && task.imageUrl !== 'null' && task.imageUrl !== '' && (task.i
         document.getElementById('assignMaterialQuantity').value = '1';
     }
 }
-        async function toggleMaterialDelivery(taskId, materialId) {
+           async function toggleMaterialDelivery(taskId, materialId) {
             const taskIndex = tasks.findIndex(t => t.id === taskId);
             if (taskIndex === -1) return;
 
@@ -3252,31 +3256,41 @@ if (task.imageUrl && task.imageUrl !== 'null' && task.imageUrl !== '' && (task.i
             showNotification(`Material ${tasks[taskIndex].materials[materialIndex].delivered ? 'marcado como entregado' : 'marcado como pendiente'}`, 'success');
         }
 
-        async function removeAssignedMaterial(taskId, materialId) {
-            const taskIndex = tasks.findIndex(t => t.id === taskId);
-            if (taskIndex === -1) return;
+async function removeAssignedMaterial(taskId, materialId) {
+    const taskIndex = tasks.findIndex(t => t.id === taskId);
+    if (taskIndex === -1) return;
 
-            // Encontrar el material para restaurar el stock
-            const materialToRemove = tasks[taskIndex].materials.find(m => m.materialId === materialId);
-            if (materialToRemove) {
-                const materialIndex = inventory.findIndex(m => m.id === materialId);
-                if (materialIndex !== -1) {
-                    // Restaurar stock si no estaba entregado
-                    if (!materialToRemove.delivered) {
-                        inventory[materialIndex].quantity += materialToRemove.quantity;
-                        await saveInventory();
-                    }
-                }
+    // Encontrar el material para restaurar el stock
+    const materialToRemove = tasks[taskIndex].materials.find(m => m.materialId === materialId);
+    if (materialToRemove) {
+        const materialIndex = inventory.findIndex(m => m.id === materialId);
+        if (materialIndex !== -1) {
+            // Restaurar stock si no estaba entregado
+            if (!materialToRemove.delivered) {
+                inventory[materialIndex].quantity += materialToRemove.quantity;
+                await saveInventory();
             }
-
-            // Remover de la tarea
-            tasks[taskIndex].materials = tasks[taskIndex].materials.filter(m => m.materialId !== materialId);
-            await saveTasks();
-
-            // Recargar el modal
-            openAssignMaterialsModal(taskId);
-            showNotification('Material removido de la tarea', 'success');
         }
+    }
+
+    // Remover de la tarea
+    tasks[taskIndex].materials = tasks[taskIndex].materials.filter(m => m.materialId !== materialId);
+    await saveTasks();
+
+    // Remover visualmente del DOM
+    const itemToRemove = document.querySelector(`[data-material-id="${materialId}"]`);
+    if (itemToRemove) {
+        itemToRemove.remove();
+    }
+
+    // Si no quedan materiales, mostrar mensaje
+    const assignedList = document.getElementById('assignedMaterialsList');
+    if (assignedList && assignedList.children.length === 0) {
+        assignedList.innerHTML = '<div style="text-align: center; padding: 1rem; color: var(--gray);">No hay materiales asignados</div>';
+    }
+
+    showNotification('Material removido de la tarea', 'success');
+}
 async function saveMaterialsAssignment(taskId) {
     const taskIndex = tasks.findIndex(t => t.id === taskId);
     if (taskIndex === -1) return;
