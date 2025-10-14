@@ -2604,70 +2604,71 @@ function compressImageForMobile(file, maxWidth = 800, quality = 0.7) {
 }
 
         // ==================== LOGIN ====================
-        async function handleLogin(e){
-            e.preventDefault();
-            
-            const usernameInput = document.getElementById('username');
-            const passwordInput = document.getElementById('password');
-            
-            if (!usernameInput || !passwordInput) return;
-            
-            const username = sanitizeInput(usernameInput.value);
-            const password = passwordInput.value;
+// ==================== LOGIN ====================
+async function handleLogin(e) {  // ← AGREGAR 'async' AQUÍ
+    e.preventDefault();
+    
+    const usernameInput = document.getElementById('username');
+    const passwordInput = document.getElementById('password');
+    
+    if (!usernameInput || !passwordInput) return;
+    
+    const username = sanitizeInput(usernameInput.value);
+    const password = passwordInput.value;
 
-            if (!username || !password) {
-                showNotification('Completa todos los campos', 'warning');
-                return;
-            }
+    if (!username || !password) {
+        showNotification('Completa todos los campos', 'warning');
+        return;
+    }
 
-            // Buscar usuario
-            const user = users.find(u => u.username === username && u.password === password);
-            
-  if (user) {
-    currentUser = user;
+    // Buscar usuario
+    const user = users.find(u => u.username === username && u.password === password);
     
-    // ✅ 1. GUARDAR ÚLTIMO ACCESO EN FIREBASE
-    try {
-        await db.collection('users').doc(user.username).update({
-            lastLogin: new Date().toISOString(),
-            isActive: true,
-            forceLogout: false  // Resetear el flag
-        });
-    } catch (error) {
-        console.error('Error actualizando último acceso:', error);
-    }
-    
-    saveSession();
-    
-    const loginScreen = document.getElementById('loginScreen');
-    const app = document.getElementById('app');
-    if (loginScreen && app) {
-        loginScreen.style.display = 'none';
-        app.style.display = 'block';
-    }
-    
-    // ✅ 2. INICIAR MONITOREO DE SESIÓN
-    setupSessionMonitoring();
-                const userInitials = document.getElementById('userInitials');
-                const userName = document.getElementById('userName');
-                const userRole = document.getElementById('userRole');
-                
-                if (userInitials) userInitials.textContent = user.name.charAt(0).toUpperCase();
-                if (userName) userName.textContent = user.name;
-                if (userRole) userRole.textContent = user.role === 'admin' ? 'Administrador' : 'Trabajador';
-                
-                // Ocultar elementos de admin si el usuario no es admin
-                document.querySelectorAll('.admin-only').forEach(el => {
-                    el.style.display = user.role === 'admin' ? 'flex' : 'none';
-                });
-                
-                loadUserData();
-                showNotification(`Bienvenido ${user.name}`, 'success');
-            } else {
-                showNotification('Usuario o contraseña incorrectos', 'danger');
-            }
+    if (user) {
+        currentUser = user;
+        
+        // ✅ 1. GUARDAR ÚLTIMO ACCESO EN FIREBASE
+        try {
+            await db.collection('users').doc(user.username).update({
+                lastLogin: new Date().toISOString(),
+                isActive: true,
+                forceLogout: false  // Resetear el flag
+            });
+        } catch (error) {
+            console.error('Error actualizando último acceso:', error);
         }
-
+        
+        saveSession();
+        
+        const loginScreen = document.getElementById('loginScreen');
+        const app = document.getElementById('app');
+        if (loginScreen && app) {
+            loginScreen.style.display = 'none';
+            app.style.display = 'block';
+        }
+        
+        // ✅ 2. INICIAR MONITOREO DE SESIÓN
+        setupSessionMonitoring();
+        
+        const userInitials = document.getElementById('userInitials');
+        const userName = document.getElementById('userName');
+        const userRole = document.getElementById('userRole');
+        
+        if (userInitials) userInitials.textContent = user.name.charAt(0).toUpperCase();
+        if (userName) userName.textContent = user.name;
+        if (userRole) userRole.textContent = user.role === 'admin' ? 'Administrador' : 'Trabajador';
+        
+        // Ocultar elementos de admin si el usuario no es admin
+        document.querySelectorAll('.admin-only').forEach(el => {
+            el.style.display = user.role === 'admin' ? 'flex' : 'none';
+        });
+        
+        loadUserData();
+        showNotification(`Bienvenido ${user.name}`, 'success');
+    } else {
+        showNotification('Usuario o contraseña incorrectos', 'danger');
+    }
+}
         function handleLogout() {
             function handleLogout() {
     // ✅ ACTUALIZAR ESTADO EN FIREBASE AL CERRAR SESIÓN
