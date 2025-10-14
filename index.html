@@ -2623,17 +2623,31 @@ function compressImageForMobile(file, maxWidth = 800, quality = 0.7) {
             // Buscar usuario
             const user = users.find(u => u.username === username && u.password === password);
             
-            if (user) {
-                currentUser = user;
-                saveSession();
-                
-                const loginScreen = document.getElementById('loginScreen');
-                const app = document.getElementById('app');
-                if (loginScreen && app) {
-                    loginScreen.style.display = 'none';
-                    app.style.display = 'block';
-                }
-                
+  if (user) {
+    currentUser = user;
+    
+    // ✅ 1. GUARDAR ÚLTIMO ACCESO EN FIREBASE
+    try {
+        await db.collection('users').doc(user.username).update({
+            lastLogin: new Date().toISOString(),
+            isActive: true,
+            forceLogout: false  // Resetear el flag
+        });
+    } catch (error) {
+        console.error('Error actualizando último acceso:', error);
+    }
+    
+    saveSession();
+    
+    const loginScreen = document.getElementById('loginScreen');
+    const app = document.getElementById('app');
+    if (loginScreen && app) {
+        loginScreen.style.display = 'none';
+        app.style.display = 'block';
+    }
+    
+    // ✅ 2. INICIAR MONITOREO DE SESIÓN
+    setupSessionMonitoring();
                 const userInitials = document.getElementById('userInitials');
                 const userName = document.getElementById('userName');
                 const userRole = document.getElementById('userRole');
@@ -2655,7 +2669,20 @@ function compressImageForMobile(file, maxWidth = 800, quality = 0.7) {
         }
 
         function handleLogout() {
-            currentUser = null;
+            function handleLogout() {
+    // ✅ ACTUALIZAR ESTADO EN FIREBASE AL CERRAR SESIÓN
+    if (currentUser) {
+        try {
+            db.collection('users').doc(currentUser.username).update({
+                isActive: false,
+                lastLogout: new Date().toISOString()
+            });
+        } catch (error) {
+            console.error('Error actualizando estado de logout:', error);
+        }
+    }
+    
+             currentUser = null;
             localStorage.removeItem('taskmaster_session');
             
             const loginScreen = document.getElementById('loginScreen');
@@ -2670,6 +2697,85 @@ function compressImageForMobile(file, maxWidth = 800, quality = 0.7) {
             
             showNotification('Sesión cerrada correctamente', 'success');
         }
+        // ==================== MONITOREO DE SESIÓN EN TIEMPO REAL ====================
+function setupSessionMonitoring() {
+    if (!currentUser) return;
+    
+    console.log('🔐 Iniciando monitoreo de sesión para:', currentUser.username);
+    
+    // Escuchar cambios específicos en el usuario actual
+    db.collection('users').doc(currentUser.username).onSnapshot(async (doc) => {
+        if (!doc.exists) return;
+        
+        const userData = doc.data();
+        console.log('🔄 Cambio detectado en usuario:', userData);
+        
+        // ✅ 1. VERIFICAR SI SE FORZÓ EL CIERRE DE SESIÓN
+        if (userData.forceLogout === true) {
+            console.log('🚨 Sesión forzada a cerrarse desde otro dispositivo');
+            showNotification('Tu sesión fue cerrada desde otro dispositivo', 'warning');
+            
+            // Quitar el flag de forceLogout
+            try {
+                await db.collection('users').doc(currentUser.username).update({
+                    forceLogout: false
+                });
+            } catch (error) {
+                console.error('Error removiendo flag forceLogout:', error);
+            }
+            
+            // Cerrar sesión después de 2 segundos
+            setTimeout(() => {
+                handleLogout();
+            }, 2000);
+            return;
+        }
+        
+        // ✅ 2. VERIFICAR SI SE CAMBIÓ LA CONTRASEÑA
+        if (userData.password !== currentUser.password) {
+            console.log('🔐 Contraseña cambiada - Cerrando sesión');
+            showNotification('Tu contraseña fue cambiada - Sesión cerrada por seguridad', 'warning');
+            
+            // Actualizar usuario local
+            currentUser.password = userData.password;
+            saveSession();
+            
+            // Cerrar sesión después de 2 segundos
+            setTimeout(() => {
+                handleLogout();
+            }, 2000);
+        }
+        
+        // ✅ 3. ACTUALIZAR DATOS LOCALES DEL USUARIO
+        currentUser.lastLogin = userData.lastLogin;
+        currentUser.isActive = userData.isActive;
+    }, (error) => {
+        console.error('Error en monitoreo de sesión:', error);
+    });
+}
+// ==================== CERRAR SESIÓN EN TODOS LOS DISPOSITIVOS ====================
+async function logoutAllDevices(username) {
+    if (!username) {
+        showNotification('Error: No se especificó usuario', 'danger');
+        return;
+    }
+    
+    try {
+        console.log('🚨 Cerrando sesión remota para:', username);
+        
+        await db.collection('users').doc(username).update({
+            forceLogout: true,
+            lastLogoutAll: new Date().toISOString(),
+            logoutInitiatedBy: currentUser.username
+        });
+        
+        showNotification(`✅ Sesión cerrada en todos los dispositivos para ${username}`, 'success');
+        
+    } catch (error) {
+        console.error('Error cerrando sesiones:', error);
+        showNotification('❌ Error al cerrar sesiones en otros dispositivos', 'danger');
+    }
+}
 
         // ==================== PERSISTENCIA DE SESIÓN ====================
         function saveSession() {
@@ -2724,13 +2830,11 @@ async function loadSession() {
                 // ✅ VERIFICAR SI LA CONTRASEÑA SIGUE SIENDO VÁLIDA EN FIREBASE
                 const isValid = await verifySessionPassword(sessionData.user);
                 
-                if (!isValid) {
-                    console.log('🔐 Contraseña cambió en Firebase - Cerrando sesión automáticamente');
-                    localStorage.removeItem('taskmaster_session');
-                    showNotification('Tu sesión se cerró porque la contraseña fue actualizada', 'warning');
-                    return false;
-                }
-                
+              if (!isValid) {
+    console.log('🔐 Contraseña inválida o sesión expirada');
+    localStorage.removeItem('taskmaster_session');
+    return false;
+}                
                 currentUser = sessionData.user;
                 
                 const loginScreen = document.getElementById('loginScreen');
@@ -3778,16 +3882,17 @@ if (report.imageUrl && report.imageUrl !== 'null' && report.imageUrl !== '' && (
                     <td>${user.username}</td>
                     <td>${user.name}</td>
                     <td><span class="badge ${user.role === 'admin' ? 'badge-primary' : 'badge-secondary'}">${user.role === 'admin' ? 'Administrador' : 'Trabajador'}</span></td>
-                    <td>${activeTasks}</td>
-                    <td>
-                        <button class="btn btn-outline edit-user-btn" data-user-id="${user.username}" style="margin-bottom: 5px;">
-                            <i class="fas fa-edit"></i> Editar
-                        </button>
-                        ${user.username !== currentUser.username ? `
-                        <button class="btn btn-danger delete-user-btn" data-user-id="${user.username}">
-                            <i class="fas fa-trash"></i> Eliminar
-                        </button>
-                        ` : ''}
+<td>${activeTasks}</td>
+<td>
+    <button class="btn btn-outline edit-user-btn" data-user-id="${user.username}" style="margin-bottom: 5px;">
+        <i class="fas fa-edit"></i> Editar
+    </button>
+    
+    ${user.username !== currentUser.username ? `
+    <button class="btn btn-warning remote-logout-btn" data-user-id="${user.username}" style="margin-bottom: 5px;">
+        <i class="fas fa-sign-out-alt"></i> Cerrar Sesión Remota
+    </button>
+    ` : ''}
                     </td>
                 `;
                 tbody.appendChild(row);
@@ -3839,6 +3944,15 @@ if (report.imageUrl && report.imageUrl !== 'null' && report.imageUrl !== '' && (
                 };
             }
         }
+        // Event listener para cerrar sesión remota
+document.querySelectorAll('.remote-logout-btn').forEach(btn => {
+    btn.addEventListener('click', function() {
+        const username = this.getAttribute('data-user-id');
+        if (confirm(`¿Estás seguro de que quieres cerrar la sesión de ${username} en todos los dispositivos?`)) {
+            logoutAllDevices(username);
+        }
+    });
+});
 
         function openEditUserModal(userId) {
             console.log('Abriendo modal para editar usuario:', userId);
