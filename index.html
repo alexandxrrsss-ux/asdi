@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-    <html lang="es">
+<html lang="es">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -2252,171 +2252,156 @@
         }
 
         // ==================== GESTIÓN DE DATOS CON FIREBASE ====================
-     // ==================== GESTIÓN DE DATOS CON FIREBASE (TIEMPO REAL) ====================
-async function loadData() {
-    try {
-        showLoading();
-        
-        // Configurar escuchas en tiempo real para todos los datos
-        await setupRealTimeListeners();
-        
-        hideLoading();
-        
-    } catch (error) {
-        console.error('Error cargando datos de Firebase:', error);
-        const loginError = document.getElementById('loginError');
-        if (loginError) {
-            loginError.style.display = 'block';
-            loginError.textContent = 'Error de conexión con Firebase. Verifica tu conexión a internet.';
-        }
-        hideLoading();
-    }
-}
-
-// ==================== ESCUCHAS EN TIEMPO REAL ====================
-function setupRealTimeListeners() {
-    return new Promise((resolve, reject) => {
-        try {
-            // Escuchar cambios en USUARIOS en tiempo real
-            db.collection('users').onSnapshot((snapshot) => {
-                console.log('🔄 Cambios detectados en usuarios - Recargando datos...');
-                users = [];
-                snapshot.forEach(doc => {
-                    users.push({ id: doc.id, ...doc.data() });
-                });
+        async function loadData() {
+            try {
+                showLoading();
                 
-                // Si hay un usuario logueado, verificar si su contraseña cambió
-                if (currentUser) {
-                    const updatedUser = users.find(u => u.username === currentUser.username);
-                    if (updatedUser && updatedUser.password !== currentUser.password) {
-                        console.log('🔐 Contraseña cambiada - Cerrando sesión automáticamente');
-                        showNotification('Tu sesión se cerró porque la contraseña fue actualizada', 'warning');
-                        setTimeout(() => {
-                            handleLogout();
-                        }, 2000);
-                    }
+                // Configurar escuchas en tiempo real para todos los datos
+                await setupRealTimeListeners();
+                
+                hideLoading();
+                
+            } catch (error) {
+                console.error('Error cargando datos de Firebase:', error);
+                const loginError = document.getElementById('loginError');
+                if (loginError) {
+                    loginError.style.display = 'block';
+                    loginError.textContent = 'Error de conexión con Firebase. Verifica tu conexión a internet.';
                 }
-                
-                // Actualizar interfaz si es necesario
-                if (currentPage === 'users') {
+                hideLoading();
+            }
+        }
+
+        // ==================== ESCUCHAS EN TIEMPO REAL ====================
+        function setupRealTimeListeners() {
+            return new Promise((resolve, reject) => {
+                try {
+                    // Escuchar cambios en USUARIOS en tiempo real
+                    db.collection('users').onSnapshot((snapshot) => {
+                        console.log('🔄 Cambios detectados en usuarios - Recargando datos...');
+                        users = [];
+                        snapshot.forEach(doc => {
+                            users.push({ id: doc.id, ...doc.data() });
+                        });
+                        
+                        // Si hay un usuario logueado, verificar si su contraseña cambió
+                        if (currentUser) {
+                            const updatedUser = users.find(u => u.username === currentUser.username);
+                            if (updatedUser && updatedUser.password !== currentUser.password) {
+                                console.log('🔐 Contraseña cambiada - Cerrando sesión automáticamente');
+                                showNotification('Tu sesión se cerró porque la contraseña fue actualizada', 'warning');
+                                setTimeout(() => {
+                                    handleLogout();
+                                }, 2000);
+                            }
+                        }
+                        
+                        // Actualizar interfaz si es necesario
+                        if (currentPage === 'users') {
+                            updateUsersTable();
+                        }
+                        
+                        resolve();
+                    }, (error) => {
+                        console.error('Error en escucha de usuarios:', error);
+                        reject(error);
+                    });
+
+                    // Escuchar cambios en TAREAS en tiempo real
+                    db.collection('tasks').onSnapshot((snapshot) => {
+                        console.log('🔄 Cambios detectados en tareas - Recargando datos...');
+                        tasks = [];
+                        snapshot.forEach(doc => {
+                            tasks.push({ id: doc.id, ...doc.data() });
+                        });
+                        
+                        // Actualizar interfaz si es necesario
+                        if (currentPage === 'dashboard') updateDashboard();
+                        if (currentPage === 'tasks') loadMyTasks();
+                        if (currentPage === 'manage-tasks') loadAllTasks();
+                    });
+
+                    // Escuchar cambios en REPORTES en tiempo real
+                    db.collection('reports').onSnapshot((snapshot) => {
+                        console.log('🔄 Cambios detectados en reportes - Recargando datos...');
+                        reports = [];
+                        snapshot.forEach(doc => {
+                            reports.push({ id: doc.id, ...doc.data() });
+                        });
+                        
+                        // Actualizar interfaz si es necesario
+                        if (currentPage === 'dashboard') updateDashboard();
+                        if (currentPage === 'reports-admin') loadReports();
+                    });
+
+                    // Escuchar cambios en INVENTARIO en tiempo real
+                    db.collection('inventory').onSnapshot((snapshot) => {
+                        console.log('🔄 Cambios detectados en inventario - Recargando datos...');
+                        inventory = [];
+                        snapshot.forEach(doc => {
+                            inventory.push({ id: doc.id, ...doc.data() });
+                        });
+                        
+                        // Actualizar interfaz si es necesario
+                        if (currentPage === 'dashboard') updateDashboard();
+                        if (currentPage === 'inventory') loadInventory();
+                    });
+
+                } catch (error) {
+                    console.error('Error configurando escuchas en tiempo real:', error);
+                    reject(error);
+                }
+            });
+        }
+
+        // ==================== FUNCIONES FALTANTES CORREGIDAS ====================
+
+        // Función toggleMaterialDelivery que faltaba
+        async function toggleMaterialDelivery(taskId, materialId) {
+            const taskIndex = tasks.findIndex(t => t.id === taskId);
+            if (taskIndex === -1) return;
+
+            const materialIndex = tasks[taskIndex].materials.findIndex(m => m.materialId === materialId);
+            if (materialIndex === -1) return;
+
+            // Cambiar estado de entrega
+            tasks[taskIndex].materials[materialIndex].delivered = 
+                !tasks[taskIndex].materials[materialIndex].delivered;
+
+            await saveTasks();
+            
+            // Recargar el modal para mostrar cambios
+            openAssignMaterialsModal(taskId);
+            
+            showNotification(`Material ${tasks[taskIndex].materials[materialIndex].delivered ? 'marcado como entregado' : 'marcado como pendiente'}`, 'success');
+        }
+
+        // Función deleteUser que faltaba
+        async function deleteUser(username) {
+            if (username === currentUser.username) {
+                showNotification('No puedes eliminar tu propio usuario', 'danger');
+                return;
+            }
+            
+            if (confirm(`¿Estás seguro de que quieres eliminar al usuario ${username}?`)) {
+                try {
+                    // ✅ ELIMINAR DE FIREBASE
+                    await db.collection('users').doc(username).delete();
+                    
+                    // ✅ ELIMINAR DE DATOS LOCALES
+                    users = users.filter(u => u.username !== username);
+                    
+                    showNotification('Usuario eliminado correctamente', 'success');
                     updateUsersTable();
+                    
+                } catch (error) {
+                    console.error('Error eliminando usuario:', error);
+                    showNotification('Error al eliminar el usuario', 'danger');
                 }
-                
-                resolve();
-            }, (error) => {
-                console.error('Error en escucha de usuarios:', error);
-                reject(error);
-            });
-
-            // Escuchar cambios en TAREAS en tiempo real
-            db.collection('tasks').onSnapshot((snapshot) => {
-                console.log('🔄 Cambios detectados en tareas - Recargando datos...');
-                tasks = [];
-                snapshot.forEach(doc => {
-                    tasks.push({ id: doc.id, ...doc.data() });
-                });
-                
-                // Actualizar interfaz si es necesario
-                if (currentPage === 'dashboard') updateDashboard();
-                if (currentPage === 'tasks') loadMyTasks();
-                if (currentPage === 'manage-tasks') loadAllTasks();
-            });
-
-            // Escuchar cambios en REPORTES en tiempo real
-            db.collection('reports').onSnapshot((snapshot) => {
-                console.log('🔄 Cambios detectados en reportes - Recargando datos...');
-                reports = [];
-                snapshot.forEach(doc => {
-                    reports.push({ id: doc.id, ...doc.data() });
-                });
-                
-                // Actualizar interfaz si es necesario
-                if (currentPage === 'dashboard') updateDashboard();
-                if (currentPage === 'reports-admin') loadReports();
-            });
-
-            // Escuchar cambios en INVENTARIO en tiempo real
-            db.collection('inventory').onSnapshot((snapshot) => {
-                console.log('🔄 Cambios detectados en inventario - Recargando datos...');
-                inventory = [];
-                snapshot.forEach(doc => {
-                    inventory.push({ id: doc.id, ...doc.data() });
-                });
-                
-                // Actualizar interfaz si es necesario
-                if (currentPage === 'dashboard') updateDashboard();
-                if (currentPage === 'inventory') loadInventory();
-            });
-
-        } catch (error) {
-            console.error('Error configurando escuchas en tiempo real:', error);
-            reject(error);
-        }
-    });
-}
-        async function initializeDefaultUsers() {
-            const defaultUsers = [
-                { username: "admin", name: "Administrador", role: "admin", password: "admin123" },
-                { username: "juan", name: "Juan Pérez", role: "worker", password: "juan123" },
-                { username: "maria", name: "María García", role: "worker", password: "maria123" }
-            ];
-            
-            for (const user of defaultUsers) {
-                await db.collection('users').doc(user.username).set({
-                    username: user.username,
-                    name: user.name,
-                    role: user.role,
-                    password: user.password
-                });
             }
-            
-            // Recargar usuarios
-            const usersSnapshot = await db.collection('users').get();
-            users = [];
-            usersSnapshot.forEach(doc => {
-                users.push({ id: doc.id, ...doc.data() });
-            });
         }
 
-        async function initializeDefaultInventory() {
-            const defaultInventory = [
-                {
-                    name: "Cable eléctrico 2.5mm",
-                    category: "Electricidad",
-                    quantity: 150,
-                    unit: "metros",
-                    minStock: 50,
-                    supplier: "Proveedor A",
-                    cost: 2.50,
-                    location: "Almacén A - Estante 3",
-                    description: "Cable eléctrico para instalaciones residenciales"
-                },
-                {
-                    name: "Tubería PVC 1/2\"",
-                    category: "Fontanería", 
-                    quantity: 80,
-                    unit: "metros",
-                    minStock: 30,
-                    supplier: "Proveedor B",
-                    cost: 1.80,
-                    location: "Almacén B - Estante 1",
-                    description: "Tubería para sistemas de agua"
-                }
-            ];
-            
-            for (const material of defaultInventory) {
-                await db.collection('inventory').add(material);
-            }
-            
-            // Recargar inventario
-            const inventorySnapshot = await db.collection('inventory').get();
-            inventory = [];
-            inventorySnapshot.forEach(doc => {
-                inventory.push({ id: doc.id, ...doc.data() });
-            });
-        }
-
-        // Funciones para guardar datos - CORREGIDAS
+        // ==================== FUNCIONES DE GUARDADO CORREGIDAS ====================
         async function saveUsers() {
             try {
                 for (const user of users) {
@@ -2459,7 +2444,6 @@ function setupRealTimeListeners() {
         async function saveReports() {
             try {
                 for (const report of reports) {
-                    // Crear objeto limpio sin valores undefined
                     const reportData = {
                         type: report.type,
                         taskId: report.taskId || null,
@@ -2475,7 +2459,6 @@ function setupRealTimeListeners() {
                         createdAt: report.createdAt
                     };
                     
-                    // Solo agregar resolvedAt si existe y no es undefined
                     if (report.resolvedAt) {
                         reportData.resolvedAt = report.resolvedAt;
                     }
@@ -2509,181 +2492,87 @@ function setupRealTimeListeners() {
             }
         }
 
-        // ==================== FUNCIONES DE SUBIDA DE IMÁGENES ====================
-// ==================== FUNCIONES DE SUBIDA DE IMÁGENES ====================
-async function uploadImage(file, folder) {
-    return new Promise((resolve, reject) => {
-        if (!file) {
-            resolve(null);
-            return;
-        }
-        
-        // COMPRIMIR IMAGEN ANTES DE SUBIR - ESPECIAL PARA CELULARES
-        compressImageForMobile(file).then(compressedFile => {
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                console.log('✅ Imagen comprimida y convertida a base64');
-                resolve(e.target.result);
-            };
-            reader.onerror = function(error) {
-                console.error('❌ Error leyendo imagen:', error);
-                reject(error);
-            };
-            reader.readAsDataURL(compressedFile);
-        }).catch(error => {
-            console.error('Error en compresión:', error);
-            // Si falla la compresión, subir la original
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                resolve(e.target.result);
-            };
-            reader.readAsDataURL(file);
-        });
-    });
-}
+        // ==================== LOGIN Y AUTENTICACIÓN ====================
+        async function handleLogin(e) {
+            e.preventDefault();
+            
+            const usernameInput = document.getElementById('username');
+            const passwordInput = document.getElementById('password');
+            
+            if (!usernameInput || !passwordInput) return;
+            
+            const username = sanitizeInput(usernameInput.value);
+            const password = passwordInput.value;
 
-// NUEVA FUNCIÓN PARA COMPRIMIR IMÁGENES DE CELULAR
-function compressImageForMobile(file, maxWidth = 800, quality = 0.7) {
-    return new Promise((resolve, reject) => {
-        // Si el archivo es pequeño (< 1MB), no comprimir
-        if (file.size < 1024 * 1024) {
-            resolve(file);
-            return;
-        }
+            if (!username || !password) {
+                showNotification('Completa todos los campos', 'warning');
+                return;
+            }
 
-        const reader = new FileReader();
-        reader.onload = function(e) {
-            const img = new Image();
-            img.onload = function() {
-                const canvas = document.createElement('canvas');
+            // Buscar usuario
+            const user = users.find(u => u.username === username && u.password === password);
+            
+            if (user) {
+                currentUser = user;
                 
-                // Calcular nuevas dimensiones manteniendo proporción
-                let width = img.width;
-                let height = img.height;
-                
-                if (width > maxWidth) {
-                    height = Math.round((height * maxWidth) / width);
-                    width = maxWidth;
+                // ✅ GUARDAR ÚLTIMO ACCESO EN FIREBASE
+                try {
+                    await db.collection('users').doc(user.username).update({
+                        lastLogin: new Date().toISOString(),
+                        isActive: true,
+                        forceLogout: false
+                    });
+                } catch (error) {
+                    console.error('Error actualizando último acceso:', error);
                 }
                 
-                canvas.width = width;
-                canvas.height = height;
+                saveSession();
                 
-                const ctx = canvas.getContext('2d');
-                ctx.drawImage(img, 0, 0, width, height);
+                const loginScreen = document.getElementById('loginScreen');
+                const app = document.getElementById('app');
+                if (loginScreen && app) {
+                    loginScreen.style.display = 'none';
+                    app.style.display = 'block';
+                }
                 
-                // Convertir a blob comprimido
-                canvas.toBlob(
-                    blob => {
-                        if (!blob) {
-                            reject(new Error('Error al comprimir imagen'));
-                            return;
-                        }
-                        
-                        // Crear nuevo archivo con el blob comprimido
-                        const compressedFile = new File([blob], file.name, {
-                            type: 'image/jpeg',
-                            lastModified: Date.now()
-                        });
-                        
-                        console.log(`✅ Imagen comprimida: ${(file.size / 1024 / 1024).toFixed(2)}MB → ${(compressedFile.size / 1024 / 1024).toFixed(2)}MB`);
-                        resolve(compressedFile);
-                    },
-                    'image/jpeg',
-                    quality
-                );
-            };
-            
-            img.onerror = reject;
-            img.src = e.target.result;
-        };
-        
-        reader.onerror = reject;
-        reader.readAsDataURL(file);
-    });
-}
-
-        // ==================== LOGIN ====================
-// ==================== LOGIN ====================
-async function handleLogin(e) {  // ← AGREGAR 'async' AQUÍ
-    e.preventDefault();
-    
-    const usernameInput = document.getElementById('username');
-    const passwordInput = document.getElementById('password');
-    
-    if (!usernameInput || !passwordInput) return;
-    
-    const username = sanitizeInput(usernameInput.value);
-    const password = passwordInput.value;
-
-    if (!username || !password) {
-        showNotification('Completa todos los campos', 'warning');
-        return;
-    }
-
-    // Buscar usuario
-    const user = users.find(u => u.username === username && u.password === password);
-    
-    if (user) {
-        currentUser = user;
-        
-        // ✅ 1. GUARDAR ÚLTIMO ACCESO EN FIREBASE
-        try {
-            await db.collection('users').doc(user.username).update({
-                lastLogin: new Date().toISOString(),
-                isActive: true,
-                forceLogout: false  // Resetear el flag
-            });
-        } catch (error) {
-            console.error('Error actualizando último acceso:', error);
+                // ✅ INICIAR MONITOREO DE SESIÓN
+                setupSessionMonitoring();
+                
+                const userInitials = document.getElementById('userInitials');
+                const userName = document.getElementById('userName');
+                const userRole = document.getElementById('userRole');
+                
+                if (userInitials) userInitials.textContent = user.name.charAt(0).toUpperCase();
+                if (userName) userName.textContent = user.name;
+                if (userRole) userRole.textContent = user.role === 'admin' ? 'Administrador' : 'Trabajador';
+                
+                // Ocultar elementos de admin si el usuario no es admin
+                document.querySelectorAll('.admin-only').forEach(el => {
+                    el.style.display = user.role === 'admin' ? 'flex' : 'none';
+                });
+                
+                loadUserData();
+                showNotification(`Bienvenido ${user.name}`, 'success');
+            } else {
+                showNotification('Usuario o contraseña incorrectos', 'danger');
+            }
         }
-        
-        saveSession();
-        
-        const loginScreen = document.getElementById('loginScreen');
-        const app = document.getElementById('app');
-        if (loginScreen && app) {
-            loginScreen.style.display = 'none';
-            app.style.display = 'block';
-        }
-        
-        // ✅ 2. INICIAR MONITOREO DE SESIÓN
-        setupSessionMonitoring();
-        
-        const userInitials = document.getElementById('userInitials');
-        const userName = document.getElementById('userName');
-        const userRole = document.getElementById('userRole');
-        
-        if (userInitials) userInitials.textContent = user.name.charAt(0).toUpperCase();
-        if (userName) userName.textContent = user.name;
-        if (userRole) userRole.textContent = user.role === 'admin' ? 'Administrador' : 'Trabajador';
-        
-        // Ocultar elementos de admin si el usuario no es admin
-        document.querySelectorAll('.admin-only').forEach(el => {
-            el.style.display = user.role === 'admin' ? 'flex' : 'none';
-        });
-        
-        loadUserData();
-        showNotification(`Bienvenido ${user.name}`, 'success');
-    } else {
-        showNotification('Usuario o contraseña incorrectos', 'danger');
-    }
-}
+
+        // ==================== LOGOUT CORREGIDO ====================
         function handleLogout() {
-            function handleLogout() {
-    // ✅ ACTUALIZAR ESTADO EN FIREBASE AL CERRAR SESIÓN
-    if (currentUser) {
-        try {
-            db.collection('users').doc(currentUser.username).update({
-                isActive: false,
-                lastLogout: new Date().toISOString()
-            });
-        } catch (error) {
-            console.error('Error actualizando estado de logout:', error);
-        }
-    }
-    
-             currentUser = null;
+            // ✅ ACTUALIZAR ESTADO EN FIREBASE AL CERRAR SESIÓN
+            if (currentUser) {
+                try {
+                    db.collection('users').doc(currentUser.username).update({
+                        isActive: false,
+                        lastLogout: new Date().toISOString()
+                    });
+                } catch (error) {
+                    console.error('Error actualizando estado de logout:', error);
+                }
+            }
+            
+            currentUser = null;
             localStorage.removeItem('taskmaster_session');
             
             const loginScreen = document.getElementById('loginScreen');
@@ -2698,85 +2587,87 @@ async function handleLogin(e) {  // ← AGREGAR 'async' AQUÍ
             
             showNotification('Sesión cerrada correctamente', 'success');
         }
-        // ==================== MONITOREO DE SESIÓN EN TIEMPO REAL ====================
-function setupSessionMonitoring() {
-    if (!currentUser) return;
-    
-    console.log('🔐 Iniciando monitoreo de sesión para:', currentUser.username);
-    
-    // Escuchar cambios específicos en el usuario actual
-    db.collection('users').doc(currentUser.username).onSnapshot(async (doc) => {
-        if (!doc.exists) return;
-        
-        const userData = doc.data();
-        console.log('🔄 Cambio detectado en usuario:', userData);
-        
-        // ✅ 1. VERIFICAR SI SE FORZÓ EL CIERRE DE SESIÓN
-        if (userData.forceLogout === true) {
-            console.log('🚨 Sesión forzada a cerrarse desde otro dispositivo');
-            showNotification('Tu sesión fue cerrada desde otro dispositivo', 'warning');
+
+        // ==================== MONITOREO DE SESIÓN ====================
+        function setupSessionMonitoring() {
+            if (!currentUser) return;
             
-            // Quitar el flag de forceLogout
-            try {
-                await db.collection('users').doc(currentUser.username).update({
-                    forceLogout: false
-                });
-            } catch (error) {
-                console.error('Error removiendo flag forceLogout:', error);
+            console.log('🔐 Iniciando monitoreo de sesión para:', currentUser.username);
+            
+            // Escuchar cambios específicos en el usuario actual
+            db.collection('users').doc(currentUser.username).onSnapshot(async (doc) => {
+                if (!doc.exists) return;
+                
+                const userData = doc.data();
+                console.log('🔄 Cambio detectado en usuario:', userData);
+                
+                // ✅ VERIFICAR SI SE FORZÓ EL CIERRE DE SESIÓN
+                if (userData.forceLogout === true) {
+                    console.log('🚨 Sesión forzada a cerrarse desde otro dispositivo');
+                    showNotification('Tu sesión fue cerrada desde otro dispositivo', 'warning');
+                    
+                    // Quitar el flag de forceLogout
+                    try {
+                        await db.collection('users').doc(currentUser.username).update({
+                            forceLogout: false
+                        });
+                    } catch (error) {
+                        console.error('Error removiendo flag forceLogout:', error);
+                    }
+                    
+                    // Cerrar sesión después de 2 segundos
+                    setTimeout(() => {
+                        handleLogout();
+                    }, 2000);
+                    return;
+                }
+                
+                // ✅ VERIFICAR SI SE CAMBIÓ LA CONTRASEÑA
+                if (userData.password !== currentUser.password) {
+                    console.log('🔐 Contraseña cambiada - Cerrando sesión');
+                    showNotification('Tu contraseña fue cambiada - Sesión cerrada por seguridad', 'warning');
+                    
+                    // Actualizar usuario local
+                    currentUser.password = userData.password;
+                    saveSession();
+                    
+                    // Cerrar sesión después de 2 segundos
+                    setTimeout(() => {
+                        handleLogout();
+                    }, 2000);
+                }
+                
+                // ✅ ACTUALIZAR DATOS LOCALES DEL USUARIO
+                currentUser.lastLogin = userData.lastLogin;
+                currentUser.isActive = userData.isActive;
+            }, (error) => {
+                console.error('Error en monitoreo de sesión:', error);
+            });
+        }
+
+        // ==================== CERRAR SESIÓN EN TODOS LOS DISPOSITIVOS ====================
+        async function logoutAllDevices(username) {
+            if (!username) {
+                showNotification('Error: No se especificó usuario', 'danger');
+                return;
             }
             
-            // Cerrar sesión después de 2 segundos
-            setTimeout(() => {
-                handleLogout();
-            }, 2000);
-            return;
+            try {
+                console.log('🚨 Cerrando sesión remota para:', username);
+                
+                await db.collection('users').doc(username).update({
+                    forceLogout: true,
+                    lastLogoutAll: new Date().toISOString(),
+                    logoutInitiatedBy: currentUser.username
+                });
+                
+                showNotification(`✅ Sesión cerrada en todos los dispositivos para ${username}`, 'success');
+                
+            } catch (error) {
+                console.error('Error cerrando sesiones:', error);
+                showNotification('❌ Error al cerrar sesiones en otros dispositivos', 'danger');
+            }
         }
-        
-        // ✅ 2. VERIFICAR SI SE CAMBIÓ LA CONTRASEÑA
-        if (userData.password !== currentUser.password) {
-            console.log('🔐 Contraseña cambiada - Cerrando sesión');
-            showNotification('Tu contraseña fue cambiada - Sesión cerrada por seguridad', 'warning');
-            
-            // Actualizar usuario local
-            currentUser.password = userData.password;
-            saveSession();
-            
-            // Cerrar sesión después de 2 segundos
-            setTimeout(() => {
-                handleLogout();
-            }, 2000);
-        }
-        
-        // ✅ 3. ACTUALIZAR DATOS LOCALES DEL USUARIO
-        currentUser.lastLogin = userData.lastLogin;
-        currentUser.isActive = userData.isActive;
-    }, (error) => {
-        console.error('Error en monitoreo de sesión:', error);
-    });
-}
-// ==================== CERRAR SESIÓN EN TODOS LOS DISPOSITIVOS ====================
-async function logoutAllDevices(username) {
-    if (!username) {
-        showNotification('Error: No se especificó usuario', 'danger');
-        return;
-    }
-    
-    try {
-        console.log('🚨 Cerrando sesión remota para:', username);
-        
-        await db.collection('users').doc(username).update({
-            forceLogout: true,
-            lastLogoutAll: new Date().toISOString(),
-            logoutInitiatedBy: currentUser.username
-        });
-        
-        showNotification(`✅ Sesión cerrada en todos los dispositivos para ${username}`, 'success');
-        
-    } catch (error) {
-        console.error('Error cerrando sesiones:', error);
-        showNotification('❌ Error al cerrar sesiones en otros dispositivos', 'danger');
-    }
-}
 
         // ==================== PERSISTENCIA DE SESIÓN ====================
         function saveSession() {
@@ -2788,93 +2679,92 @@ async function logoutAllDevices(username) {
                 localStorage.setItem('taskmaster_session', JSON.stringify(sessionData));
             }
         }
-        // ==================== VERIFICACIÓN DE CONTRASEÑA ACTUAL ====================
-// ==================== VERIFICACIÓN DE CONTRASEÑA ACTUAL ====================
-async function verifySessionPassword(savedUser) {
-    try {
-        // Obtener el usuario actualizado directamente de Firebase
-        const userDoc = await db.collection('users').doc(savedUser.username).get();
-        
-        if (!userDoc.exists) {
-            console.log('❌ Usuario no encontrado en Firebase');
-            return false;
-        }
-        
-        const currentUserData = userDoc.data();
-        const passwordMatches = currentUserData.password === savedUser.password;
-        
-        console.log('🔐 Verificación de contraseña:', {
-            usuario: savedUser.username,
-            contraseñaGuardada: savedUser.password,
-            contraseñaActual: currentUserData.password,
-            coincide: passwordMatches
-        });
-        
-        return passwordMatches;
-        
-    } catch (error) {
-        console.error('Error verificando contraseña en Firebase:', error);
-        return false;
-    }
-}
 
-
-async function loadSession() {
-    const savedSession = localStorage.getItem('taskmaster_session');
-    if (savedSession) {
-        try {
-            const sessionData = JSON.parse(savedSession);
-            const now = new Date().getTime();
-            
-            // Verificar si la sesión es reciente (menos de 24 horas)
-            if (now - sessionData.timestamp < 24 * 60 * 60 * 1000) {
-                // ✅ VERIFICAR SI LA CONTRASEÑA SIGUE SIENDO VÁLIDA EN FIREBASE
-                const isValid = await verifySessionPassword(sessionData.user);
+        async function verifySessionPassword(savedUser) {
+            try {
+                const userDoc = await db.collection('users').doc(savedUser.username).get();
                 
-              if (!isValid) {
-    console.log('🔐 Contraseña inválida o sesión expirada');
-    localStorage.removeItem('taskmaster_session');
-    return false;
-}                
-                currentUser = sessionData.user;
-                
-                const loginScreen = document.getElementById('loginScreen');
-                const app = document.getElementById('app');
-                if (loginScreen && app) {
-                    loginScreen.style.display = 'none';
-                    app.style.display = 'block';
+                if (!userDoc.exists) {
+                    console.log('❌ Usuario no encontrado en Firebase');
+                    return false;
                 }
                 
-                const userInitials = document.getElementById('userInitials');
-                const userName = document.getElementById('userName');
-                const userRole = document.getElementById('userRole');
+                const currentUserData = userDoc.data();
+                const passwordMatches = currentUserData.password === savedUser.password;
                 
-                if (userInitials) userInitials.textContent = currentUser.name.charAt(0).toUpperCase();
-                if (userName) userName.textContent = currentUser.name;
-                if (userRole) userRole.textContent = currentUser.role === 'admin' ? 'Administrador' : 'Trabajador';
-                
-                // Ocultar elementos de admin si el usuario no es admin
-                document.querySelectorAll('.admin-only').forEach(el => {
-                    el.style.display = currentUser.role === 'admin' ? 'flex' : 'none';
+                console.log('🔐 Verificación de contraseña:', {
+                    usuario: savedUser.username,
+                    contraseñaGuardada: savedUser.password,
+                    contraseñaActual: currentUserData.password,
+                    coincide: passwordMatches
                 });
                 
-                // Configurar escuchas en tiempo real
-                await setupRealTimeListeners();
-                updateDashboard();
+                return passwordMatches;
                 
-                return true;
-            } else {
-                // Sesión expirada
-                localStorage.removeItem('taskmaster_session');
+            } catch (error) {
+                console.error('Error verificando contraseña en Firebase:', error);
+                return false;
             }
-        } catch (error) {
-            console.error('Error cargando sesión:', error);
-            localStorage.removeItem('taskmaster_session');
         }
-    }
-    return false;
-}
-// ==================== NAVEGACIÓN ====================
+
+        async function loadSession() {
+            const savedSession = localStorage.getItem('taskmaster_session');
+            if (savedSession) {
+                try {
+                    const sessionData = JSON.parse(savedSession);
+                    const now = new Date().getTime();
+                    
+                    // Verificar si la sesión es reciente (menos de 24 horas)
+                    if (now - sessionData.timestamp < 24 * 60 * 60 * 1000) {
+                        // ✅ VERIFICAR SI LA CONTRASEÑA SIGUE SIENDO VÁLIDA EN FIREBASE
+                        const isValid = await verifySessionPassword(sessionData.user);
+                        
+                        if (!isValid) {
+                            console.log('🔐 Contraseña inválida o sesión expirada');
+                            localStorage.removeItem('taskmaster_session');
+                            return false;
+                        }                
+                        
+                        currentUser = sessionData.user;
+                        
+                        const loginScreen = document.getElementById('loginScreen');
+                        const app = document.getElementById('app');
+                        if (loginScreen && app) {
+                            loginScreen.style.display = 'none';
+                            app.style.display = 'block';
+                        }
+                        
+                        const userInitials = document.getElementById('userInitials');
+                        const userName = document.getElementById('userName');
+                        const userRole = document.getElementById('userRole');
+                        
+                        if (userInitials) userInitials.textContent = currentUser.name.charAt(0).toUpperCase();
+                        if (userName) userName.textContent = currentUser.name;
+                        if (userRole) userRole.textContent = currentUser.role === 'admin' ? 'Administrador' : 'Trabajador';
+                        
+                        // Ocultar elementos de admin si el usuario no es admin
+                        document.querySelectorAll('.admin-only').forEach(el => {
+                            el.style.display = currentUser.role === 'admin' ? 'flex' : 'none';
+                        });
+                        
+                        // Configurar escuchas en tiempo real
+                        await setupRealTimeListeners();
+                        updateDashboard();
+                        
+                        return true;
+                    } else {
+                        // Sesión expirada
+                        localStorage.removeItem('taskmaster_session');
+                    }
+                } catch (error) {
+                    console.error('Error cargando sesión:', error);
+                    localStorage.removeItem('taskmaster_session');
+                }
+            }
+            return false;
+        }
+
+        // ==================== NAVEGACIÓN ====================
         function switchPage(page) {
             const adminPages = ['manage-tasks', 'reports-admin', 'users', 'export', 'inventory'];
             
@@ -3062,20 +2952,20 @@ async function loadSession() {
                     `;
                 }
 
-                
-// Mostrar imagen si existe
-let imageHtml = '';
-if (task.imageUrl && task.imageUrl !== 'null' && task.imageUrl !== '' && (task.imageUrl.startsWith('http') || task.imageUrl.startsWith('data:image'))) {
-    imageHtml = `
-        <div class="image-container" style="margin: 1rem 0; text-align: center;">
-            <p style="font-weight: 600; margin-bottom: 0.5rem; color: var(--primary);">
-                <i class="fas fa-image"></i> Imagen de la tarea:
-            </p>
-            <img src="${task.imageUrl}" alt="Imagen de la tarea" 
-                 style="max-width: 100%; max-height: 200px; border-radius: 8px; border: 2px solid #eee; box-shadow: 0 3px 10px rgba(0,0,0,0.1);">
-        </div>
-    `;
-}
+                // Mostrar imagen si existe
+                let imageHtml = '';
+                if (task.imageUrl && task.imageUrl !== 'null' && task.imageUrl !== '' && (task.imageUrl.startsWith('http') || task.imageUrl.startsWith('data:image'))) {
+                    imageHtml = `
+                        <div class="image-container" style="margin: 1rem 0; text-align: center;">
+                            <p style="font-weight: 600; margin-bottom: 0.5rem; color: var(--primary);">
+                                <i class="fas fa-image"></i> Imagen de la tarea:
+                            </p>
+                            <img src="${task.imageUrl}" alt="Imagen de la tarea" 
+                                 style="max-width: 100%; max-height: 200px; border-radius: 8px; border: 2px solid #eee; box-shadow: 0 3px 10px rgba(0,0,0,0.1);">
+                        </div>
+                    `;
+                }
+
                 const card = document.createElement('div');
                 card.className = `task-card ${task.urgency}`;
                 
@@ -3360,122 +3250,125 @@ if (task.imageUrl && task.imageUrl !== 'null' && task.imageUrl !== '' && (task.i
                 });
             }, 100);
         }
-async function addMaterialToTaskAssignment(taskId) {
-    const materialId = document.getElementById('assignMaterialSelect').value;
-    const quantity = parseInt(document.getElementById('assignMaterialQuantity').value);
 
-    if (!materialId || !quantity || quantity <= 0) {
-        showNotification('Selecciona un material y una cantidad válida', 'warning');
-        return;
-    }
+        async function addMaterialToTaskAssignment(taskId) {
+            const materialId = document.getElementById('assignMaterialSelect').value;
+            const quantity = parseInt(document.getElementById('assignMaterialQuantity').value);
 
-    const material = inventory.find(m => m.id === materialId);
-    if (!material) {
-        showNotification('Material no encontrado', 'danger');
-        return;
-    }
+            if (!materialId || !quantity || quantity <= 0) {
+                showNotification('Selecciona un material y una cantidad válida', 'warning');
+                return;
+            }
 
-    // Buscar la tarea
-    const taskIndex = tasks.findIndex(t => t.id === taskId);
-    if (taskIndex === -1) {
-        showNotification('Tarea no encontrada', 'danger');
-        return;
-    }
+            const material = inventory.find(m => m.id === materialId);
+            if (!material) {
+                showNotification('Material no encontrado', 'danger');
+                return;
+            }
 
-    // Verificar si ya está asignado (en los datos reales)
-    const alreadyAssigned = tasks[taskIndex].materials?.find(m => m.materialId === materialId);
-    if (alreadyAssigned) {
-        showNotification('Este material ya está asignado a la tarea', 'warning');
-        return;
-    }
+            // Buscar la tarea
+            const taskIndex = tasks.findIndex(t => t.id === taskId);
+            if (taskIndex === -1) {
+                showNotification('Tarea no encontrada', 'danger');
+                return;
+            }
 
-    // Verificar stock disponible
-    if (quantity > material.quantity) {
-        showNotification(`No hay suficiente stock. Disponible: ${material.quantity} ${material.unit}`, 'danger');
-        return;
-    }
+            // Verificar si ya está asignado (en los datos reales)
+            const alreadyAssigned = tasks[taskIndex].materials?.find(m => m.materialId === materialId);
+            if (alreadyAssigned) {
+                showNotification('Este material ya está asignado a la tarea', 'warning');
+                return;
+            }
 
-    // ✅ 1. AGREGAR A LOS DATOS REALES
-    if (!tasks[taskIndex].materials) {
-        tasks[taskIndex].materials = [];
-    }
-    
-    tasks[taskIndex].materials.push({
-        materialId: materialId,
-        quantity: quantity,
-        delivered: false
-    });
+            // Verificar stock disponible
+            if (quantity > material.quantity) {
+                showNotification(`No hay suficiente stock. Disponible: ${material.quantity} ${material.unit}`, 'danger');
+                return;
+            }
 
-    // ✅ 2. DESCONTAR DEL INVENTARIO
-    const materialIndex = inventory.findIndex(m => m.id === materialId);
-    if (materialIndex !== -1) {
-        inventory[materialIndex].quantity -= quantity;
-        await saveInventory(); // Guardar inventario en Firebase
-    }
+            // ✅ AGREGAR A LOS DATOS REALES
+            if (!tasks[taskIndex].materials) {
+                tasks[taskIndex].materials = [];
+            }
+            
+            tasks[taskIndex].materials.push({
+                materialId: materialId,
+                quantity: quantity,
+                delivered: false
+            });
 
-    // ✅ 3. GUARDAR TAREA EN FIREBASE
-    await saveTasks();
+            // ✅ DESCONTAR DEL INVENTARIO
+            const materialIndex = inventory.findIndex(m => m.id === materialId);
+            if (materialIndex !== -1) {
+                inventory[materialIndex].quantity -= quantity;
+                await saveInventory();
+            }
 
-    // ✅ 4. ACTUALIZAR VISTA
-    openAssignMaterialsModal(taskId);
-    
-    // Limpiar formulario
-    document.getElementById('assignMaterialSelect').value = '';
-    document.getElementById('assignMaterialQuantity').value = '1';
-    
-    showNotification('Material agregado y guardado correctamente', 'success');
-}
-async function removeAssignedMaterial(taskId, materialId) {
-    try {
-        const taskIndex = tasks.findIndex(t => t.id === taskId);
-        if (taskIndex === -1) {
-            showNotification('Error: Tarea no encontrada', 'danger');
-            return;
+            // ✅ GUARDAR TAREA EN FIREBASE
+            await saveTasks();
+
+            // ✅ ACTUALIZAR VISTA
+            openAssignMaterialsModal(taskId);
+            
+            // Limpiar formulario
+            document.getElementById('assignMaterialSelect').value = '';
+            document.getElementById('assignMaterialQuantity').value = '1';
+            
+            showNotification('Material agregado y guardado correctamente', 'success');
         }
 
-        // Encontrar el material para restaurar stock
-        const materialToRemove = tasks[taskIndex].materials.find(m => m.materialId === materialId);
-        if (materialToRemove) {
-            const materialIndex = inventory.findIndex(m => m.id === materialId);
-            if (materialIndex !== -1 && !materialToRemove.delivered) {
-                // Restaurar stock si no estaba entregado
-                inventory[materialIndex].quantity += materialToRemove.quantity;
-                await saveInventory();
+        async function removeAssignedMaterial(taskId, materialId) {
+            try {
+                const taskIndex = tasks.findIndex(t => t.id === taskId);
+                if (taskIndex === -1) {
+                    showNotification('Error: Tarea no encontrada', 'danger');
+                    return;
+                }
+
+                // Encontrar el material para restaurar stock
+                const materialToRemove = tasks[taskIndex].materials.find(m => m.materialId === materialId);
+                if (materialToRemove) {
+                    const materialIndex = inventory.findIndex(m => m.id === materialId);
+                    if (materialIndex !== -1 && !materialToRemove.delivered) {
+                        // Restaurar stock si no estaba entregado
+                        inventory[materialIndex].quantity += materialToRemove.quantity;
+                        await saveInventory();
+                    }
+                }
+
+                // Remover de la tarea
+                tasks[taskIndex].materials = tasks[taskIndex].materials.filter(m => m.materialId !== materialId);
+                
+                // ✅ GUARDAR EN FIREBASE INMEDIATAMENTE
+                await saveTasks();
+
+                // Recargar el modal para mostrar cambios
+                openAssignMaterialsModal(taskId);
+                
+                showNotification('Material eliminado y cambios guardados', 'success');
+                
+            } catch (error) {
+                console.error('Error eliminando material:', error);
+                showNotification('Error al eliminar el material', 'danger');
             }
         }
 
-        // Remover de la tarea
-        tasks[taskIndex].materials = tasks[taskIndex].materials.filter(m => m.materialId !== materialId);
-        
-        // ✅ GUARDAR EN FIREBASE INMEDIATAMENTE
-        await saveTasks();
+        async function saveMaterialsAssignment(taskId) {
+            // Los cambios YA están guardados automáticamente al agregar/eliminar
+            // Esta función solo cierra el modal
+            
+            const assignModal = document.getElementById('assignMaterialsModal');
+            if (assignModal) assignModal.classList.remove('active');
+            
+            showNotification('Todos los cambios han sido guardados', 'success');
+            
+            // Recargar vistas
+            if (currentPage === 'manage-tasks') {
+                loadAllTasks();
+            }
+            updateDashboard();
+        }
 
-        // Recargar el modal para mostrar cambios
-        openAssignMaterialsModal(taskId);
-        
-        showNotification('Material eliminado y cambios guardados', 'success');
-        
-    } catch (error) {
-        console.error('Error eliminando material:', error);
-        showNotification('Error al eliminar el material', 'danger');
-    }
-}
-
-async function saveMaterialsAssignment(taskId) {
-    // Los cambios YA están guardados automáticamente al agregar/eliminar
-    // Esta función solo cierra el modal
-    
-    const assignModal = document.getElementById('assignMaterialsModal');
-    if (assignModal) assignModal.classList.remove('active');
-    
-    showNotification('Todos los cambios han sido guardados', 'success');
-    
-    // Recargar vistas
-    if (currentPage === 'manage-tasks') {
-        loadAllTasks();
-    }
-    updateDashboard();
-}
         // ==================== GESTIÓN DE INVENTARIO ====================
         function loadInventory() {
             updateInventoryStats();
@@ -3765,15 +3658,15 @@ async function saveMaterialsAssignment(taskId) {
                 }
 
                 // Mostrar imagen si existe
-              // Mostrar imagen si existe
-let imageHtml = '';
-if (report.imageUrl && report.imageUrl !== 'null' && report.imageUrl !== '' && (report.imageUrl.startsWith('http') || report.imageUrl.startsWith('data:image'))) {
-    imageHtml = `
-        <div class="image-container">
-            <img src="${report.imageUrl}" alt="Imagen del reporte" class="image-preview active">
-        </div>
-    `;
-}
+                let imageHtml = '';
+                if (report.imageUrl && report.imageUrl !== 'null' && report.imageUrl !== '' && (report.imageUrl.startsWith('http') || report.imageUrl.startsWith('data:image'))) {
+                    imageHtml = `
+                        <div class="image-container">
+                            <img src="${report.imageUrl}" alt="Imagen del reporte" class="image-preview active">
+                        </div>
+                    `;
+                }
+
                 const card = document.createElement('div');
                 card.className = `report-card ${report.status === 'resolved' ? 'resolved' : ''}`;
                 
@@ -3883,17 +3776,19 @@ if (report.imageUrl && report.imageUrl !== 'null' && report.imageUrl !== '' && (
                     <td>${user.username}</td>
                     <td>${user.name}</td>
                     <td><span class="badge ${user.role === 'admin' ? 'badge-primary' : 'badge-secondary'}">${user.role === 'admin' ? 'Administrador' : 'Trabajador'}</span></td>
-<td>${activeTasks}</td>
-<td>
-    <button class="btn btn-outline edit-user-btn" data-user-id="${user.username}" style="margin-bottom: 5px;">
-        <i class="fas fa-edit"></i> Editar
-    </button>
-    
-    ${user.username !== currentUser.username ? `
-    <button class="btn btn-warning remote-logout-btn" data-user-id="${user.username}" style="margin-bottom: 5px;">
-        <i class="fas fa-sign-out-alt"></i> Cerrar Sesión Remota
-    </button>
-    ` : ''}
+                    <td>${activeTasks}</td>
+                    <td>
+                        <button class="btn btn-outline edit-user-btn" data-user-id="${user.username}" style="margin-bottom: 5px;">
+                            <i class="fas fa-edit"></i> Editar
+                        </button>
+                        ${user.username !== currentUser.username ? `
+                        <button class="btn btn-warning remote-logout-btn" data-user-id="${user.username}" style="margin-bottom: 5px;">
+                            <i class="fas fa-sign-out-alt"></i> Cerrar Sesión Remota
+                        </button>
+                        <button class="btn btn-danger delete-user-btn" data-user-id="${user.username}">
+                            <i class="fas fa-trash"></i> Eliminar
+                        </button>
+                        ` : ''}
                     </td>
                 `;
                 tbody.appendChild(row);
@@ -3904,6 +3799,15 @@ if (report.imageUrl && report.imageUrl !== 'null' && report.imageUrl !== '' && (
                 btn.addEventListener('click', function() {
                     const userId = this.getAttribute('data-user-id');
                     openEditUserModal(userId);
+                });
+            });
+
+            document.querySelectorAll('.remote-logout-btn').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    const username = this.getAttribute('data-user-id');
+                    if (confirm(`¿Estás seguro de que quieres cerrar la sesión de ${username} en todos los dispositivos?`)) {
+                        logoutAllDevices(username);
+                    }
                 });
             });
 
@@ -3945,15 +3849,6 @@ if (report.imageUrl && report.imageUrl !== 'null' && report.imageUrl !== '' && (
                 };
             }
         }
-        // Event listener para cerrar sesión remota
-document.querySelectorAll('.remote-logout-btn').forEach(btn => {
-    btn.addEventListener('click', function() {
-        const username = this.getAttribute('data-user-id');
-        if (confirm(`¿Estás seguro de que quieres cerrar la sesión de ${username} en todos los dispositivos?`)) {
-            logoutAllDevices(username);
-        }
-    });
-});
 
         function openEditUserModal(userId) {
             console.log('Abriendo modal para editar usuario:', userId);
@@ -4184,95 +4079,96 @@ document.querySelectorAll('.remote-logout-btn').forEach(btn => {
             }
         }
 
-async function updateUser(userId) {
-    console.log('Actualizando usuario:', userId);
-    
-    // Validar formulario (para edición)
-    if (!validateUserForm(true)) {
-        const userFormError = document.getElementById('userFormError');
-        if (userFormError) {
-            userFormError.textContent = 'Por favor, corrige los errores en el formulario';
-            userFormError.style.display = 'block';
-        }
-        return;
-    }
+        async function updateUser(userId) {
+            console.log('Actualizando usuario:', userId);
+            
+            // Validar formulario (para edición)
+            if (!validateUserForm(true)) {
+                const userFormError = document.getElementById('userFormError');
+                if (userFormError) {
+                    userFormError.textContent = 'Por favor, corrige los errores en el formulario';
+                    userFormError.style.display = 'block';
+                }
+                return;
+            }
 
-    const username = document.getElementById('userUsername').value.trim();
-    const name = document.getElementById('userName').value.trim();
-    const password = document.getElementById('userPassword').value;
-    const role = document.getElementById('userRole').value;
-    
-    // Verificar si el usuario ya existe (excluyendo el usuario actual)
-    const existingUser = users.find(u => u.username === username && u.username !== userId);
-    if (existingUser) {
-        showUserFormError('userUsername', 'El nombre de usuario ya existe');
-        const userFormError = document.getElementById('userFormError');
-        if (userFormError) {
-            userFormError.textContent = 'El nombre de usuario ya está en uso';
-            userFormError.style.display = 'block';
+            const username = document.getElementById('userUsername').value.trim();
+            const name = document.getElementById('userName').value.trim();
+            const password = document.getElementById('userPassword').value;
+            const role = document.getElementById('userRole').value;
+            
+            // Verificar si el usuario ya existe (excluyendo el usuario actual)
+            const existingUser = users.find(u => u.username === username && u.username !== userId);
+            if (existingUser) {
+                showUserFormError('userUsername', 'El nombre de usuario ya existe');
+                const userFormError = document.getElementById('userFormError');
+                if (userFormError) {
+                    userFormError.textContent = 'El nombre de usuario ya está en uso';
+                    userFormError.style.display = 'block';
+                }
+                return;
+            }
+            
+            // Buscar usuario a actualizar
+            const userIndex = users.findIndex(u => u.username === userId);
+            if (userIndex === -1) {
+                showNotification('Usuario no encontrado', 'danger');
+                return;
+            }
+            
+            // ✅ VERIFICAR SI SE ESTÁ CAMBIANDO LA CONTRASEÑA DEL USUARIO ACTUAL
+            const isChangingOwnPassword = (userId === currentUser.username && password);
+            
+            // Preparar datos de actualización
+            const updateData = {
+                username: username,
+                name: name,
+                role: role
+            };
+            
+            // Si se proporcionó una nueva contraseña, actualizarla
+            if (password && password.length >= 6) {
+                updateData.password = password;
+            }
+            
+            console.log('Actualizando usuario en Firebase:', updateData);
+            
+            try {
+                // Actualizar en Firebase
+                await db.collection('users').doc(userId).update(updateData);
+                
+                // Actualizar lista local
+                users[userIndex] = { ...users[userIndex], ...updateData };
+                
+                // ✅ SI SE CAMBIÓ LA CONTRASEÑA DEL USUARIO ACTUAL, CERRAR SESIÓN
+                if (isChangingOwnPassword) {
+                    showNotification('Contraseña actualizada. Tu sesión se cerrará por seguridad.', 'success');
+                    
+                    // Cerrar modal primero
+                    const addUserModal = document.getElementById('addUserModal');
+                    if (addUserModal) addUserModal.classList.remove('active');
+                    
+                    // Pequeña pausa y luego cerrar sesión
+                    setTimeout(() => {
+                        handleLogout();
+                    }, 2000);
+                } else {
+                    showNotification('Usuario actualizado correctamente', 'success');
+                    
+                    // Cerrar modal
+                    const addUserModal = document.getElementById('addUserModal');
+                    if (addUserModal) addUserModal.classList.remove('active');
+                }
+                
+                // Recargar tabla
+                updateUsersTable();
+                
+            } catch (error) {
+                console.error('Error al actualizar usuario:', error);
+                showNotification('Error al actualizar el usuario: ' + error.message, 'danger');
+            }
         }
-        return;
-    }
-    
-    // Buscar usuario a actualizar
-    const userIndex = users.findIndex(u => u.username === userId);
-    if (userIndex === -1) {
-        showNotification('Usuario no encontrado', 'danger');
-        return;
-    }
-    
-    // ✅ VERIFICAR SI SE ESTÁ CAMBIANDO LA CONTRASEÑA DEL USUARIO ACTUAL
-    const isChangingOwnPassword = (userId === currentUser.username && password);
-    
-    // Preparar datos de actualización
-    const updateData = {
-        username: username,
-        name: name,
-        role: role
-    };
-    
-    // Si se proporcionó una nueva contraseña, actualizarla
-    if (password && password.length >= 6) {
-        updateData.password = password;
-    }
-    
-    console.log('Actualizando usuario en Firebase:', updateData);
-    
-    try {
-        // Actualizar en Firebase
-        await db.collection('users').doc(userId).update(updateData);
-        
-        // Actualizar lista local
-        users[userIndex] = { ...users[userIndex], ...updateData };
-        
-        // ✅ SI SE CAMBIÓ LA CONTRASEÑA DEL USUARIO ACTUAL, CERRAR SESIÓN
-        if (isChangingOwnPassword) {
-            showNotification('Contraseña actualizada. Tu sesión se cerrará por seguridad.', 'success');
-            
-            // Cerrar modal primero
-            const addUserModal = document.getElementById('addUserModal');
-            if (addUserModal) addUserModal.classList.remove('active');
-            
-            // Pequeña pausa y luego cerrar sesión
-            setTimeout(() => {
-                handleLogout();
-            }, 2000);
-        } else {
-            showNotification('Usuario actualizado correctamente', 'success');
-            
-            // Cerrar modal
-            const addUserModal = document.getElementById('addUserModal');
-            if (addUserModal) addUserModal.classList.remove('active');
-        }
-        
-        // Recargar tabla
-        updateUsersTable();
-        
-    } catch (error) {
-        console.error('Error al actualizar usuario:', error);
-        showNotification('Error al actualizar el usuario: ' + error.message, 'danger');
-    }
-}
+
         // ==================== FUNCIONES RESTANTES ====================
         function loadUserData() {
             loadData();
@@ -4340,62 +4236,874 @@ async function updateUser(userId) {
                 previewDataBtn.onclick = showPreviewData;
             }
         }
-        // ==================== DEBUG DE IMÁGENES ====================
-function debugImages() {
-    console.log('=== DEBUG IMÁGENES ===');
-    console.log('Total tareas:', tasks.length);
-    
-    tasks.forEach((task, index) => {
-        console.log(`Tarea ${index + 1}:`, {
-            nombre: task.name,
-            tieneImagen: !!task.imageUrl,
-            imageUrl: task.imageUrl,
-            imagenValida: task.imageUrl && task.imageUrl.startsWith('http')
-        });
-    });
-}
 
-// Para probar, puedes llamar: debugImages();
- // ==================== INICIALIZACIÓN ====================
-document.addEventListener('DOMContentLoaded', function() {
-    // Intentar cargar sesión (esto ahora carga los datos también)
-    loadSession().then(sessionLoaded => {
-        if (!sessionLoaded) {
-            const loginScreen = document.getElementById('loginScreen');
-            const app = document.getElementById('app');
-            if (loginScreen && app) {
-                loginScreen.style.display = 'flex';
-                app.style.display = 'none';
+        // ==================== FUNCIONES DE SUBIDA DE IMÁGENES ====================
+        async function uploadImage(file, folder) {
+            return new Promise((resolve, reject) => {
+                if (!file) {
+                    resolve(null);
+                    return;
+                }
+                
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    resolve(e.target.result);
+                };
+                reader.onerror = function(error) {
+                    console.error('Error leyendo imagen:', error);
+                    reject(error);
+                };
+                reader.readAsDataURL(file);
+            });
+        }
+
+        // ==================== FUNCIONES DE CREACIÓN ====================
+        async function createNewTask() {
+            const taskName = document.getElementById('taskName').value;
+            const taskDescription = document.getElementById('taskDescription').value;
+            const taskAssignee = document.getElementById('taskAssignee').value;
+            const taskStartDate = document.getElementById('taskStartDate').value;
+            const taskDueDate = document.getElementById('taskDueDate').value;
+            const taskUrgency = document.getElementById('taskUrgency').value;
+            const taskImage = document.getElementById('taskImage').files[0];
+            
+            if (!taskName || !taskDescription || !taskAssignee || !taskStartDate || !taskDueDate) {
+                showNotification('Completa todos los campos obligatorios', 'warning');
+                return;
             }
             
-            // Cargar datos iniciales para el login
-            loadData();
+            showLoading();
+            
+            // Subir imagen si existe
+            let imageUrl = null;
+            if (taskImage && taskImage.size > 0) {
+                try {
+                    console.log('Subiendo imagen...', taskImage.name);
+                    imageUrl = await uploadImage(taskImage, 'tasks');
+                    console.log('✅ Imagen subida correctamente:', imageUrl);
+                } catch (error) {
+                    console.error('❌ Error subiendo imagen:', error);
+                    showNotification('Error al subir la imagen, pero la tarea se creará sin imagen', 'warning');
+                }
+            } else {
+                console.log('No hay imagen para subir o imagen vacía');
+            }            
+            
+            // Recopilar materiales
+            const materials = [];
+            const materialsList = document.getElementById('taskMaterialsList');
+            if (materialsList) {
+                materialsList.querySelectorAll('.assignment-item').forEach(item => {
+                    const text = item.textContent.trim();
+                    const match = text.match(/(.+) - (\d+) (.+)/);
+                    if (match) {
+                        const materialName = match[1];
+                        const quantity = parseInt(match[2]);
+                        const unit = match[3];
+                        
+                        const material = inventory.find(m => m.name === materialName);
+                        if (material) {
+                            materials.push({
+                                materialId: material.id,
+                                quantity: quantity,
+                                delivered: false
+                            });
+                            
+                            // Descontar del inventario
+                            updateMaterialQuantity(material.id, -quantity);
+                        }
+                    }
+                });
+            }
+            
+            // Crear nueva tarea
+            const newTask = {
+                id: generateId(),
+                name: taskName,
+                description: taskDescription,
+                assignee: taskAssignee,
+                startDate: taskStartDate,
+                dueDate: taskDueDate,
+                urgency: taskUrgency,
+                status: 'pending',
+                materials: materials,
+                imageUrl: imageUrl,
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString()
+            };
+            
+            tasks.push(newTask);
+            await saveTasks();
+            
+            hideLoading();
+            showNotification('Tarea creada correctamente', 'success');
+            const addTaskModal = document.getElementById('addTaskModal');
+            if (addTaskModal) addTaskModal.classList.remove('active');
+            
+            if (currentPage === 'manage-tasks') {
+                loadAllTasks();
+            }
+            updateDashboard();
         }
-    }).catch(error => {
-        console.error('Error en inicialización:', error);
-        const loginScreen = document.getElementById('loginScreen');
-        const app = document.getElementById('app');
-        if (loginScreen && app) {
-            loginScreen.style.display = 'flex';
-            app.style.display = 'none';
+
+        async function createNewMaterial() {
+            const materialName = document.getElementById('materialNameModal').value;
+            const materialCategory = document.getElementById('materialCategory').value;
+            const materialQuantity = parseInt(document.getElementById('materialQuantityModal').value);
+            const materialUnit = document.getElementById('materialUnit').value;
+            const materialMinStock = parseInt(document.getElementById('materialMinStock').value);
+            const materialSupplier = document.getElementById('materialSupplier').value;
+            const materialCost = parseFloat(document.getElementById('materialCost').value) || 0;
+            const materialLocation = document.getElementById('materialLocation').value;
+            const materialDescription = document.getElementById('materialDescription').value;
+            
+            if (!materialName || !materialCategory || isNaN(materialQuantity) || !materialUnit || isNaN(materialMinStock)) {
+                showNotification('Completa todos los campos obligatorios', 'warning');
+                return;
+            }
+            
+            // Crear nuevo material
+            const newMaterial = {
+                id: generateId(),
+                name: materialName,
+                category: materialCategory,
+                quantity: materialQuantity,
+                unit: materialUnit,
+                minStock: materialMinStock,
+                supplier: materialSupplier,
+                cost: materialCost,
+                location: materialLocation,
+                description: materialDescription
+            };
+            
+            inventory.push(newMaterial);
+            await saveInventory();
+            
+            showNotification('Material creado correctamente', 'success');
+            const addMaterialModal = document.getElementById('addMaterialModal');
+            if (addMaterialModal) addMaterialModal.classList.remove('active');
+            loadInventory();
+            updateDashboard();
         }
-        loadData();
-    });
-    
-    // Event listeners (SOLO UNA VEZ)
-    const loginForm = document.getElementById('loginForm');
-    if (loginForm) loginForm.addEventListener('submit', handleLogin);
-    
-    const logoutBtn = document.getElementById('logoutBtn');
-    if (logoutBtn) logoutBtn.addEventListener('click', handleLogout);
-    
-    const menuToggle = document.getElementById('menuToggle');
-    if (menuToggle) {
-        menuToggle.addEventListener('click', function() {
-            const sidebar = document.getElementById('sidebar');
-            if (sidebar) sidebar.classList.toggle('active');
-        });
-    }
+
+        // ==================== FUNCIONES FALTANTES ====================
+        function openEditTaskModal(taskId) {
+            const task = tasks.find(t => t.id === taskId);
+            if (!task) {
+                showNotification('Tarea no encontrada', 'danger');
+                return;
+            }
+            
+            // Llenar el formulario con los datos de la tarea
+            document.getElementById('taskName').value = task.name;
+            document.getElementById('taskDescription').value = task.description;
+            document.getElementById('taskAssignee').value = task.assignee;
+            document.getElementById('taskStartDate').value = task.startDate;
+            document.getElementById('taskDueDate').value = task.dueDate;
+            document.getElementById('taskUrgency').value = task.urgency;
+            
+            // Llenar el select de trabajadores
+            const taskAssignee = document.getElementById('taskAssignee');
+            if (taskAssignee) {
+                taskAssignee.innerHTML = '<option value="">Selecciona un trabajador</option>';
+                users.filter(u => u.role === 'worker').forEach(user => {
+                    const option = document.createElement('option');
+                    option.value = user.username;
+                    option.textContent = user.name;
+                    option.selected = user.username === task.assignee;
+                    taskAssignee.appendChild(option);
+                });
+            }
+            
+            // Llenar el select de materiales
+            const materialSelect = document.getElementById('materialSelect');
+            if (materialSelect) {
+                materialSelect.innerHTML = '<option value="">Seleccionar material</option>';
+                inventory.forEach(material => {
+                    const option = document.createElement('option');
+                    option.value = material.id;
+                    option.textContent = `${material.name} (${material.quantity} ${material.unit} disponible)`;
+                    materialSelect.appendChild(option);
+                });
+            }
+            
+            // Limpiar y llenar la lista de materiales
+            const materialsList = document.getElementById('taskMaterialsList');
+            if (materialsList) {
+                materialsList.innerHTML = '';
+                
+                if (task.materials && task.materials.length > 0) {
+                    task.materials.forEach(material => {
+                        const mat = inventory.find(m => m.id === material.materialId);
+                        if (mat) {
+                            const item = document.createElement('div');
+                            item.className = 'assignment-item';
+                            item.innerHTML = `
+                                <span>${mat.name} - ${material.quantity} ${mat.unit}</span>
+                                <button class="btn btn-danger btn-sm remove-material-btn" data-material-id="${material.materialId}">
+                                    <i class="fas fa-times"></i>
+                                </button>
+                            `;
+                            materialsList.appendChild(item);
+                        }
+                    });
+                }
+            }
+            
+            // Mostrar imagen si existe
+            const taskImagePreview = document.getElementById('taskImagePreview');
+            const taskImagePlaceholder = document.getElementById('taskImagePlaceholder');
+            if (task.imageUrl && task.imageUrl !== 'null' && task.imageUrl !== '' && task.imageUrl.startsWith('http')) {
+                if (taskImagePreview) {
+                    taskImagePreview.src = task.imageUrl;
+                    taskImagePreview.classList.add('active');
+                }
+                if (taskImagePlaceholder) {
+                    taskImagePlaceholder.style.display = 'none';
+                }
+            } else {
+                if (taskImagePreview) {
+                    taskImagePreview.src = '';
+                    taskImagePreview.classList.remove('active');
+                }
+                if (taskImagePlaceholder) {
+                    taskImagePlaceholder.style.display = 'flex';
+                }
+            }            
+            
+            // Mostrar el modal
+            const addTaskModal = document.getElementById('addTaskModal');
+            if (addTaskModal) addTaskModal.classList.add('active');
+            
+            // Configurar el botón de guardar para actualizar la tarea
+            const saveTaskBtn = document.getElementById('saveTaskBtn');
+            if (saveTaskBtn) {
+                saveTaskBtn.onclick = function() {
+                    updateTask(taskId);
+                };
+            }
+        }
+
+        async function updateTask(taskId) {
+            const taskIndex = tasks.findIndex(t => t.id === taskId);
+            if (taskIndex === -1) {
+                showNotification('Error: Tarea no encontrada', 'danger');
+                return;
+            }
+            
+            const taskName = document.getElementById('taskName').value;
+            const taskDescription = document.getElementById('taskDescription').value;
+            const taskAssignee = document.getElementById('taskAssignee').value;
+            const taskStartDate = document.getElementById('taskStartDate').value;
+            const taskDueDate = document.getElementById('taskDueDate').value;
+            const taskUrgency = document.getElementById('taskUrgency').value;
+            const taskImage = document.getElementById('taskImage').files[0];
+            
+            if (!taskName || !taskDescription || !taskAssignee || !taskStartDate || !taskDueDate) {
+                showNotification('Completa todos los campos obligatorios', 'warning');
+                return;
+            }
+            
+            showLoading();
+            
+            // Subir nueva imagen si se seleccionó
+            let imageUrl = tasks[taskIndex].imageUrl;
+            if (taskImage) {
+                try {
+                    imageUrl = await uploadImage(taskImage, 'tasks');
+                } catch (error) {
+                    console.error('Error subiendo imagen:', error);
+                    showNotification('Error al subir la imagen', 'danger');
+                    hideLoading();
+                    return;
+                }
+            }
+            
+            // Recopilar materiales
+            const materials = [];
+            const materialsList = document.getElementById('taskMaterialsList');
+            if (materialsList) {
+                materialsList.querySelectorAll('.assignment-item').forEach(item => {
+                    const text = item.textContent.trim();
+                    const match = text.match(/(.+) - (\d+) (.+)/);
+                    if (match) {
+                        const materialName = match[1];
+                        const quantity = parseInt(match[2]);
+                        const unit = match[3];
+                        
+                        const material = inventory.find(m => m.name === materialName);
+                        if (material) {
+                            materials.push({
+                                materialId: material.id,
+                                quantity: quantity,
+                                delivered: false
+                            });
+                        }
+                    }
+                });
+            }
+            
+            // Actualizar la tarea
+            tasks[taskIndex] = {
+                ...tasks[taskIndex],
+                name: taskName,
+                description: taskDescription,
+                assignee: taskAssignee,
+                startDate: taskStartDate,
+                dueDate: taskDueDate,
+                urgency: taskUrgency,
+                materials: materials,
+                imageUrl: imageUrl,
+                updatedAt: new Date().toISOString()
+            };
+            
+            await saveTasks();
+            
+            hideLoading();
+            showNotification('Tarea actualizada correctamente', 'success');
+            const addTaskModal = document.getElementById('addTaskModal');
+            if (addTaskModal) addTaskModal.classList.remove('active');
+            
+            if (currentPage === 'manage-tasks') {
+                loadAllTasks();
+            }
+            updateDashboard();
+        }
+
+        async function deleteTask(taskId) {
+            if (confirm('¿Estás seguro de que quieres eliminar esta tarea?')) {
+                tasks = tasks.filter(t => t.id !== taskId);
+                
+                await saveTasks();
+                
+                showNotification('Tarea eliminada correctamente', 'success');
+                
+                if (currentPage === 'manage-tasks') {
+                    loadAllTasks();
+                }
+                updateDashboard();
+            }
+        }
+
+        function openEditMaterialModal(materialId) {
+            const material = inventory.find(m => m.id === materialId);
+            if (!material) return;
+            
+            // Llenar el formulario con los datos del material
+            document.getElementById('materialNameModal').value = material.name;
+            document.getElementById('materialCategory').value = material.category;
+            document.getElementById('materialQuantityModal').value = material.quantity;
+            document.getElementById('materialUnit').value = material.unit;
+            document.getElementById('materialMinStock').value = material.minStock;
+            document.getElementById('materialSupplier').value = material.supplier || '';
+            document.getElementById('materialCost').value = material.cost || '';
+            document.getElementById('materialLocation').value = material.location || '';
+            document.getElementById('materialDescription').value = material.description || '';
+            
+            // Mostrar el modal
+            const addMaterialModal = document.getElementById('addMaterialModal');
+            if (addMaterialModal) addMaterialModal.classList.add('active');
+            
+            // Configurar el botón de guardar para actualizar el material
+            const saveMaterialBtn = document.getElementById('saveMaterialBtn');
+            if (saveMaterialBtn) {
+                saveMaterialBtn.onclick = function() {
+                    updateMaterial(materialId);
+                };
+            }
+        }
+
+        async function updateMaterial(materialId) {
+            const materialIndex = inventory.findIndex(m => m.id === materialId);
+            if (materialIndex === -1) return;
+            
+            const materialName = document.getElementById('materialNameModal').value;
+            const materialCategory = document.getElementById('materialCategory').value;
+            const materialQuantity = parseInt(document.getElementById('materialQuantityModal').value);
+            const materialUnit = document.getElementById('materialUnit').value;
+            const materialMinStock = parseInt(document.getElementById('materialMinStock').value);
+            const materialSupplier = document.getElementById('materialSupplier').value;
+            const materialCost = parseFloat(document.getElementById('materialCost').value) || 0;
+            const materialLocation = document.getElementById('materialLocation').value;
+            const materialDescription = document.getElementById('materialDescription').value;
+            
+            if (!materialName || !materialCategory || isNaN(materialQuantity) || !materialUnit || isNaN(materialMinStock)) {
+                showNotification('Completa todos los campos obligatorios', 'warning');
+                return;
+            }
+            
+            // Actualizar el material
+            inventory[materialIndex] = {
+                ...inventory[materialIndex],
+                name: materialName,
+                category: materialCategory,
+                quantity: materialQuantity,
+                unit: materialUnit,
+                minStock: materialMinStock,
+                supplier: materialSupplier,
+                cost: materialCost,
+                location: materialLocation,
+                description: materialDescription
+            };
+            
+            await saveInventory();
+            
+            showNotification('Material actualizado correctamente', 'success');
+            const addMaterialModal = document.getElementById('addMaterialModal');
+            if (addMaterialModal) addMaterialModal.classList.remove('active');
+            loadInventory();
+            updateDashboard();
+        }
+
+        async function deleteMaterial(materialId) {
+            if (confirm('¿Estás seguro de que quieres eliminar este material?')) {
+                try {
+                    // Verificar si el material está siendo usado en alguna tarea
+                    const isUsedInTasks = tasks.some(task => 
+                        task.materials && task.materials.some(m => m.materialId === materialId)
+                    );
+                    
+                    if (isUsedInTasks) {
+                        showNotification('No se puede eliminar el material porque está siendo usado en una tarea', 'danger');
+                        return;
+                    }
+                    
+                    // ✅ ELIMINAR DE FIREBASE
+                    await db.collection('inventory').doc(materialId).delete();
+                    
+                    // ✅ ELIMINAR DE LOS DATOS LOCALES
+                    inventory = inventory.filter(m => m.id !== materialId);
+                    
+                    showNotification('Material eliminado correctamente', 'success');
+                    
+                    // ✅ RECARGAR LA VISTA
+                    loadInventory();
+                    updateDashboard();
+                    
+                } catch (error) {
+                    console.error('Error eliminando material:', error);
+                    showNotification('Error al eliminar el material: ' + error.message, 'danger');
+                }
+            }
+        }
+
+        // ==================== FUNCIONES DE EXPORTACIÓN ====================
+        function getTasksExportData(filteredTasks = tasks) {
+            return filteredTasks.map(task => {
+                const assignee = users.find(u => u.username === task.assignee);
+                const materialsText = task.materials && task.materials.length > 0 
+                    ? task.materials.map(m => {
+                        const material = inventory.find(mat => mat.id === m.materialId);
+                        return material ? `${material.name} (${m.quantity} ${material.unit})` : '';
+                    }).filter(Boolean).join(', ')
+                    : 'Ninguno';
+                
+                return {
+                    'ID': task.id,
+                    'Nombre': task.name,
+                    'Descripción': task.description,
+                    'Asignado a': assignee?.name || task.assignee,
+                    'Fecha de inicio': formatDate(task.startDate),
+                    'Fecha límite': formatDate(task.dueDate),
+                    'Estado': getStatusText(task.status),
+                    'Urgencia': getUrgencyText(task.urgency),
+                    'Materiales': materialsText,
+                    'Fecha de creación': formatDate(task.createdAt),
+                    'Última actualización': formatDate(task.updatedAt)
+                };
+            });
+        }
+
+        function getReportsExportData(filteredReports = reports) {
+            return filteredReports.map(report => {
+                const reporter = users.find(u => u.username === report.reporter);
+                const relatedTask = report.taskId ? tasks.find(t => t.id === report.taskId) : null;
+                
+                let additionalInfo = '';
+                if (report.type === 'material' && report.additionalInfo) {
+                    additionalInfo = `Material: ${report.additionalInfo.materialName || 'No especificado'}, Cantidad: ${report.additionalInfo.materialQuantity || 'No especificado'}`;
+                } else if (report.type === 'equipment' && report.additionalInfo) {
+                    additionalInfo = `Equipo: ${report.additionalInfo.equipmentType || 'No especificado'}, Tiempo: ${report.additionalInfo.equipmentTime || 'No especificado'}`;
+                }
+                
+                return {
+                    'ID': report.id,
+                    'Tipo': report.type,
+                    'Título': report.title,
+                    'Descripción': report.description,
+                    'Reportado por': reporter?.name || report.reporter,
+                    'Tarea relacionada': relatedTask ? relatedTask.name : 'No relacionada',
+                    'Urgencia': getUrgencyText(report.urgency),
+                    'Bloquea progreso': report.blocksProgress,
+                    'Fecha requerida': report.requiredDate ? formatDate(report.requiredDate) : 'No especificada',
+                    'Información adicional': additionalInfo,
+                    'Estado': report.status === 'pending' ? 'Pendiente' : 'Resuelto',
+                    'Fecha de creación': formatDate(report.createdAt),
+                    'Fecha de resolución': report.resolvedAt ? formatDate(report.resolvedAt) : 'No resuelto'
+                };
+            });
+        }
+
+        function getInventoryExportData() {
+            return inventory.map(item => ({
+                'ID': item.id,
+                'Nombre': item.name,
+                'Categoría': item.category,
+                'Cantidad': item.quantity,
+                'Unidad': item.unit,
+                'Stock Mínimo': item.minStock,
+                'Proveedor': item.supplier || 'No especificado',
+                'Costo': item.cost ? `$${item.cost.toFixed(2)}` : 'No especificado',
+                'Ubicación': item.location || 'No especificada',
+                'Descripción': item.description || 'No especificada'
+            }));
+        }
+
+        function getAllExportData() {
+            return {
+                'Tareas': getTasksExportData(),
+                'Reportes': getReportsExportData(),
+                'Inventario': getInventoryExportData()
+            };
+        }
+
+        function exportToExcel(data, filename) {
+            try {
+                const wb = XLSX.utils.book_new();
+                
+                if (Array.isArray(data)) {
+                    // Si es un solo conjunto de datos
+                    const ws = XLSX.utils.json_to_sheet(data);
+                    XLSX.utils.book_append_sheet(wb, ws, "Datos");
+                } else {
+                    // Si son múltiples hojas (para exportación completa)
+                    Object.keys(data).forEach(sheetName => {
+                        const ws = XLSX.utils.json_to_sheet(data[sheetName]);
+                        XLSX.utils.book_append_sheet(wb, ws, sheetName);
+                    });
+                }
+                
+                XLSX.writeFile(wb, `${filename}.xlsx`);
+                showNotification('Archivo exportado correctamente', 'success');
+            } catch (error) {
+                console.error('Error al exportar:', error);
+                showNotification('Error al exportar el archivo', 'danger');
+            }
+        }
+
+        function exportToCSV(data, filename) {
+            try {
+                let csvContent = "";
+                
+                if (Array.isArray(data) && data.length > 0) {
+                    // Encabezados
+                    const headers = Object.keys(data[0]);
+                    csvContent += headers.join(",") + "\n";
+                    
+                    // Datos
+                    data.forEach(row => {
+                        const values = headers.map(header => {
+                            let value = row[header] || "";
+                            // Escapar comas y comillas
+                            if (typeof value === 'string' && (value.includes(',') || value.includes('"'))) {
+                                value = '"' + value.replace(/"/g, '""') + '"';
+                            }
+                            return value;
+                        });
+                        csvContent += values.join(",") + "\n";
+                    });
+                }
+                
+                const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+                const link = document.createElement("a");
+                const url = URL.createObjectURL(blob);
+                link.setAttribute("href", url);
+                link.setAttribute("download", `${filename}.csv`);
+                link.style.visibility = 'hidden';
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                
+                showNotification('Archivo CSV exportado correctamente', 'success');
+            } catch (error) {
+                console.error('Error al exportar CSV:', error);
+                showNotification('Error al exportar el archivo CSV', 'danger');
+            }
+        }
+
+        function exportToPDF(data, filename) {
+            try {
+                const { jsPDF } = window.jspdf;
+                const doc = new jsPDF();
+                
+                if (Array.isArray(data) && data.length > 0) {
+                    const headers = [Object.keys(data[0])];
+                    const rows = data.map(row => Object.values(row));
+                    
+                    doc.autoTable({
+                        head: headers,
+                        body: rows,
+                        theme: 'grid',
+                        styles: { fontSize: 8 },
+                        headStyles: { fillColor: [67, 97, 238] }
+                    });
+                }
+                
+                doc.save(`${filename}.pdf`);
+                showNotification('Archivo PDF exportado correctamente', 'success');
+            } catch (error) {
+                console.error('Error al exportar PDF:', error);
+                showNotification('Error al exportar el archivo PDF', 'danger');
+            }
+        }
+
+        function handleExportData() {
+            const exportType = document.getElementById('exportType').value;
+            const exportFormat = document.getElementById('exportFormat').value;
+            const startDate = document.getElementById('startDate').value;
+            const endDate = document.getElementById('endDate').value;
+            
+            let dataToExport;
+            let filename;
+            
+            // Filtrar datos por fecha si es necesario
+            let filteredTasks = tasks;
+            let filteredReports = reports;
+            
+            if (exportType === 'date-range' && startDate && endDate) {
+                filteredTasks = tasks.filter(task => {
+                    const taskDate = new Date(task.createdAt);
+                    return taskDate >= new Date(startDate) && taskDate <= new Date(endDate);
+                });
+                
+                filteredReports = reports.filter(report => {
+                    const reportDate = new Date(report.createdAt);
+                    return reportDate >= new Date(startDate) && reportDate <= new Date(endDate);
+                });
+                
+                filename = `datos_${startDate}_a_${endDate}`;
+            } else {
+                filename = `datos_${exportType}`;
+            }
+            
+            // Obtener datos según el tipo de exportación
+            switch (exportType) {
+                case 'tasks':
+                    dataToExport = getTasksExportData(filteredTasks);
+                    break;
+                case 'reports':
+                    dataToExport = getReportsExportData(filteredReports);
+                    break;
+                case 'inventory':
+                    dataToExport = getInventoryExportData();
+                    break;
+                case 'completed':
+                    dataToExport = getTasksExportData(filteredTasks.filter(t => t.status === 'completed'));
+                    break;
+                case 'pending':
+                    dataToExport = getTasksExportData(filteredTasks.filter(t => t.status !== 'completed'));
+                    break;
+                case 'all':
+                default:
+                    dataToExport = {
+                        'Tareas': getTasksExportData(filteredTasks),
+                        'Reportes': getReportsExportData(filteredReports),
+                        'Inventario': getInventoryExportData()
+                    };
+                    break;
+            }
+            
+            // Exportar según el formato
+            switch (exportFormat) {
+                case 'excel':
+                    exportToExcel(dataToExport, filename);
+                    break;
+                case 'csv':
+                    if (Array.isArray(dataToExport)) {
+                        exportToCSV(dataToExport, filename);
+                    } else {
+                        // Para datos múltiples, exportar cada hoja como CSV separado
+                        Object.keys(dataToExport).forEach(sheetName => {
+                            exportToCSV(dataToExport[sheetName], `${filename}_${sheetName}`);
+                        });
+                    }
+                    break;
+                case 'pdf':
+                    if (Array.isArray(dataToExport)) {
+                        exportToPDF(dataToExport, filename);
+                    } else {
+                        // Para datos múltiples, exportar cada hoja como PDF separado
+                        Object.keys(dataToExport).forEach(sheetName => {
+                            exportToPDF(dataToExport[sheetName], `${filename}_${sheetName}`);
+                        });
+                    }
+                    break;
+            }
+        }
+
+        function showPreviewData() {
+            const exportType = document.getElementById('exportType').value;
+            const previewSection = document.getElementById('previewSection');
+            const previewContent = document.getElementById('previewContent');
+            
+            if (!previewSection || !previewContent) return;
+            
+            let dataToPreview;
+            
+            // Obtener datos según el tipo de exportación
+            switch (exportType) {
+                case 'tasks':
+                    dataToPreview = getTasksExportData();
+                    break;
+                case 'reports':
+                    dataToPreview = getReportsExportData();
+                    break;
+                case 'inventory':
+                    dataToPreview = getInventoryExportData();
+                    break;
+                case 'completed':
+                    dataToPreview = getTasksExportData(tasks.filter(t => t.status === 'completed'));
+                    break;
+                case 'pending':
+                    dataToPreview = getTasksExportData(tasks.filter(t => t.status !== 'completed'));
+                    break;
+                case 'all':
+                default:
+                    dataToPreview = getAllExportData();
+                    break;
+            }
+            
+            // Mostrar vista previa
+            previewContent.innerHTML = '';
+            
+            if (Array.isArray(dataToPreview)) {
+                if (dataToPreview.length === 0) {
+                    previewContent.innerHTML = '<div style="text-align: center; padding: 2rem; color: var(--gray);">No hay datos para mostrar</div>';
+                } else {
+                    const table = document.createElement('table');
+                    table.className = 'table';
+                    
+                    // Encabezados
+                    const thead = document.createElement('thead');
+                    const headerRow = document.createElement('tr');
+                    Object.keys(dataToPreview[0]).forEach(key => {
+                        const th = document.createElement('th');
+                        th.textContent = key;
+                        headerRow.appendChild(th);
+                    });
+                    thead.appendChild(headerRow);
+                    table.appendChild(thead);
+                    
+                    // Datos
+                    const tbody = document.createElement('tbody');
+                    dataToPreview.forEach(row => {
+                        const tr = document.createElement('tr');
+                        Object.values(row).forEach(value => {
+                            const td = document.createElement('td');
+                            td.textContent = value;
+                            tr.appendChild(td);
+                        });
+                        tbody.appendChild(tr);
+                    });
+                    table.appendChild(tbody);
+                    
+                    previewContent.appendChild(table);
+                }
+            } else {
+                // Para datos múltiples (varias hojas)
+                Object.keys(dataToPreview).forEach(sheetName => {
+                    const sheetData = dataToPreview[sheetName];
+                    if (sheetData.length === 0) return;
+                    
+                    const sheetTitle = document.createElement('h3');
+                    sheetTitle.textContent = sheetName;
+                    sheetTitle.style.marginTop = '2rem';
+                    sheetTitle.style.marginBottom = '1rem';
+                    previewContent.appendChild(sheetTitle);
+                    
+                    const table = document.createElement('table');
+                    table.className = 'table';
+                    
+                    // Encabezados
+                    const thead = document.createElement('thead');
+                    const headerRow = document.createElement('tr');
+                    Object.keys(sheetData[0]).forEach(key => {
+                        const th = document.createElement('th');
+                        th.textContent = key;
+                        headerRow.appendChild(th);
+                    });
+                    thead.appendChild(headerRow);
+                    table.appendChild(thead);
+                    
+                    // Datos (solo primeros 10 registros para vista previa)
+                    const tbody = document.createElement('tbody');
+                    sheetData.slice(0, 10).forEach(row => {
+                        const tr = document.createElement('tr');
+                        Object.values(row).forEach(value => {
+                            const td = document.createElement('td');
+                            td.textContent = value;
+                            tr.appendChild(td);
+                        });
+                        tbody.appendChild(tr);
+                    });
+                    table.appendChild(tbody);
+                    
+                    previewContent.appendChild(table);
+                    
+                    if (sheetData.length > 10) {
+                        const moreText = document.createElement('p');
+                        moreText.textContent = `... y ${sheetData.length - 10} registros más`;
+                        moreText.style.textAlign = 'center';
+                        moreText.style.color = 'var(--gray)';
+                        moreText.style.marginTop = '1rem';
+                        previewContent.appendChild(moreText);
+                    }
+                });
+            }
+            
+            previewSection.style.display = 'block';
+        }
+
+        // ==================== INICIALIZACIÓN ====================
+        document.addEventListener('DOMContentLoaded', function() {
+            // Intentar cargar sesión
+            loadSession().then(sessionLoaded => {
+                if (!sessionLoaded) {
+                    const loginScreen = document.getElementById('loginScreen');
+                    const app = document.getElementById('app');
+                    if (loginScreen && app) {
+                        loginScreen.style.display = 'flex';
+                        app.style.display = 'none';
+                    }
+                    
+                    // Cargar datos iniciales para el login
+                    loadData();
+                }
+            }).catch(error => {
+                console.error('Error en inicialización:', error);
+                const loginScreen = document.getElementById('loginScreen');
+                const app = document.getElementById('app');
+                if (loginScreen && app) {
+                    loginScreen.style.display = 'flex';
+                    app.style.display = 'none';
+                }
+                loadData();
+            });
+            
+            // Event listeners
+            const loginForm = document.getElementById('loginForm');
+            if (loginForm) loginForm.addEventListener('submit', handleLogin);
+            
+            const logoutBtn = document.getElementById('logoutBtn');
+            if (logoutBtn) logoutBtn.addEventListener('click', handleLogout);
+            
+            const menuToggle = document.getElementById('menuToggle');
+            if (menuToggle) {
+                menuToggle.addEventListener('click', function() {
+                    const sidebar = document.getElementById('sidebar');
+                    if (sidebar) sidebar.classList.toggle('active');
+                });
+            }
             
             // Navegación
             document.querySelectorAll('.nav-item').forEach(item => {
@@ -4792,812 +5500,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 });
             }
         });
-
-        // ==================== FUNCIONES DE CREACIÓN ====================
-        async function createNewTask() {
-            const taskName = document.getElementById('taskName').value;
-            const taskDescription = document.getElementById('taskDescription').value;
-            const taskAssignee = document.getElementById('taskAssignee').value;
-            const taskStartDate = document.getElementById('taskStartDate').value;
-            const taskDueDate = document.getElementById('taskDueDate').value;
-            const taskUrgency = document.getElementById('taskUrgency').value;
-            const taskImage = document.getElementById('taskImage').files[0];
-            
-            if (!taskName || !taskDescription || !taskAssignee || !taskStartDate || !taskDueDate) {
-                showNotification('Completa todos los campos obligatorios', 'warning');
-                return;
-            }
-            
-            showLoading();
-            
-// Subir imagen si existe
-let imageUrl = null;
-if (taskImage && taskImage.size > 0) {
-    try {
-        console.log('Subiendo imagen...', taskImage.name);
-        imageUrl = await uploadImage(taskImage, 'tasks');
-        console.log('✅ Imagen subida correctamente:', imageUrl);
-    } catch (error) {
-        console.error('❌ Error subiendo imagen:', error);
-        showNotification('Error al subir la imagen, pero la tarea se creará sin imagen', 'warning');
-        // NO retornes aquí, deja que continúe sin imagen
-    }
-} else {
-    console.log('No hay imagen para subir o imagen vacía');
-}            
-            // Recopilar materiales
-            const materials = [];
-            const materialsList = document.getElementById('taskMaterialsList');
-            if (materialsList) {
-                materialsList.querySelectorAll('.assignment-item').forEach(item => {
-                    const text = item.textContent.trim();
-                    const match = text.match(/(.+) - (\d+) (.+)/);
-                    if (match) {
-                        const materialName = match[1];
-                        const quantity = parseInt(match[2]);
-                        const unit = match[3];
-                        
-                        const material = inventory.find(m => m.name === materialName);
-                        if (material) {
-                            materials.push({
-                                materialId: material.id,
-                                quantity: quantity,
-                                delivered: false
-                            });
-                            
-                            // Descontar del inventario
-                            updateMaterialQuantity(material.id, -quantity);
-                        }
-                    }
-                });
-            }
-            
-            // Crear nueva tarea
-            const newTask = {
-                id: generateId(),
-                name: taskName,
-                description: taskDescription,
-                assignee: taskAssignee,
-                startDate: taskStartDate,
-                dueDate: taskDueDate,
-                urgency: taskUrgency,
-                status: 'pending',
-                materials: materials,
-                imageUrl: imageUrl,
-                createdAt: new Date().toISOString(),
-                updatedAt: new Date().toISOString()
-            };
-            
-            tasks.push(newTask);
-            await saveTasks();
-            
-            hideLoading();
-            showNotification('Tarea creada correctamente', 'success');
-            const addTaskModal = document.getElementById('addTaskModal');
-            if (addTaskModal) addTaskModal.classList.remove('active');
-            
-            if (currentPage === 'manage-tasks') {
-                loadAllTasks();
-            }
-            updateDashboard();
-        }
-
-        async function createNewMaterial() {
-            const materialName = document.getElementById('materialNameModal').value;
-            const materialCategory = document.getElementById('materialCategory').value;
-            const materialQuantity = parseInt(document.getElementById('materialQuantityModal').value);
-            const materialUnit = document.getElementById('materialUnit').value;
-            const materialMinStock = parseInt(document.getElementById('materialMinStock').value);
-            const materialSupplier = document.getElementById('materialSupplier').value;
-            const materialCost = parseFloat(document.getElementById('materialCost').value) || 0;
-            const materialLocation = document.getElementById('materialLocation').value;
-            const materialDescription = document.getElementById('materialDescription').value;
-            
-            if (!materialName || !materialCategory || isNaN(materialQuantity) || !materialUnit || isNaN(materialMinStock)) {
-                showNotification('Completa todos los campos obligatorios', 'warning');
-                return;
-            }
-            
-            // Crear nuevo material
-            const newMaterial = {
-                id: generateId(),
-                name: materialName,
-                category: materialCategory,
-                quantity: materialQuantity,
-                unit: materialUnit,
-                minStock: materialMinStock,
-                supplier: materialSupplier,
-                cost: materialCost,
-                location: materialLocation,
-                description: materialDescription
-            };
-            
-            inventory.push(newMaterial);
-            await saveInventory();
-            
-            showNotification('Material creado correctamente', 'success');
-            const addMaterialModal = document.getElementById('addMaterialModal');
-            if (addMaterialModal) addMaterialModal.classList.remove('active');
-            loadInventory();
-            updateDashboard();
-        }
-
-        // ==================== FUNCIONES FALTANTES ====================
-        function openEditTaskModal(taskId) {
-            const task = tasks.find(t => t.id === taskId);
-            if (!task) {
-                showNotification('Tarea no encontrada', 'danger');
-                return;
-            }
-            
-            // Llenar el formulario con los datos de la tarea
-            document.getElementById('taskName').value = task.name;
-            document.getElementById('taskDescription').value = task.description;
-            document.getElementById('taskAssignee').value = task.assignee;
-            document.getElementById('taskStartDate').value = task.startDate;
-            document.getElementById('taskDueDate').value = task.dueDate;
-            document.getElementById('taskUrgency').value = task.urgency;
-            
-            // Llenar el select de trabajadores
-            const taskAssignee = document.getElementById('taskAssignee');
-            if (taskAssignee) {
-                taskAssignee.innerHTML = '<option value="">Selecciona un trabajador</option>';
-                users.filter(u => u.role === 'worker').forEach(user => {
-                    const option = document.createElement('option');
-                    option.value = user.username;
-                    option.textContent = user.name;
-                    option.selected = user.username === task.assignee;
-                    taskAssignee.appendChild(option);
-                });
-            }
-            
-            // Llenar el select de materiales
-            const materialSelect = document.getElementById('materialSelect');
-            if (materialSelect) {
-                materialSelect.innerHTML = '<option value="">Seleccionar material</option>';
-                inventory.forEach(material => {
-                    const option = document.createElement('option');
-                    option.value = material.id;
-                    option.textContent = `${material.name} (${material.quantity} ${material.unit} disponible)`;
-                    materialSelect.appendChild(option);
-                });
-            }
-            
-            // Limpiar y llenar la lista de materiales
-            const materialsList = document.getElementById('taskMaterialsList');
-            if (materialsList) {
-                materialsList.innerHTML = '';
-                
-                if (task.materials && task.materials.length > 0) {
-                    task.materials.forEach(material => {
-                        const mat = inventory.find(m => m.id === material.materialId);
-                        if (mat) {
-                            const item = document.createElement('div');
-                            item.className = 'assignment-item';
-                            item.innerHTML = `
-                                <span>${mat.name} - ${material.quantity} ${mat.unit}</span>
-                                <button class="btn btn-danger btn-sm remove-material-btn" data-material-id="${material.materialId}">
-                                    <i class="fas fa-times"></i>
-                                </button>
-                            `;
-                            materialsList.appendChild(item);
-                        }
-                    });
-                }
-            }
-            
-// Mostrar imagen si existe
-const taskImagePreview = document.getElementById('taskImagePreview');
-const taskImagePlaceholder = document.getElementById('taskImagePlaceholder');
-if (task.imageUrl && task.imageUrl !== 'null' && task.imageUrl !== '' && task.imageUrl.startsWith('http')) {
-    if (taskImagePreview) {
-        taskImagePreview.src = task.imageUrl;
-        taskImagePreview.classList.add('active');
-    }
-    if (taskImagePlaceholder) {
-        taskImagePlaceholder.style.display = 'none';
-    }
-} else {
-    if (taskImagePreview) {
-        taskImagePreview.src = '';
-        taskImagePreview.classList.remove('active');
-    }
-    if (taskImagePlaceholder) {
-        taskImagePlaceholder.style.display = 'flex';
-    }
-}            
-            // Mostrar el modal
-            const addTaskModal = document.getElementById('addTaskModal');
-            if (addTaskModal) addTaskModal.classList.add('active');
-            
-            // Configurar el botón de guardar para actualizar la tarea
-            const saveTaskBtn = document.getElementById('saveTaskBtn');
-            if (saveTaskBtn) {
-                saveTaskBtn.onclick = function() {
-                    updateTask(taskId);
-                };
-            }
-        }
-
-        async function updateTask(taskId) {
-            const taskIndex = tasks.findIndex(t => t.id === taskId);
-            if (taskIndex === -1) {
-                showNotification('Error: Tarea no encontrada', 'danger');
-                return;
-            }
-            
-            const taskName = document.getElementById('taskName').value;
-            const taskDescription = document.getElementById('taskDescription').value;
-            const taskAssignee = document.getElementById('taskAssignee').value;
-            const taskStartDate = document.getElementById('taskStartDate').value;
-            const taskDueDate = document.getElementById('taskDueDate').value;
-            const taskUrgency = document.getElementById('taskUrgency').value;
-            const taskImage = document.getElementById('taskImage').files[0];
-            
-            if (!taskName || !taskDescription || !taskAssignee || !taskStartDate || !taskDueDate) {
-                showNotification('Completa todos los campos obligatorios', 'warning');
-                return;
-            }
-            
-            showLoading();
-            
-            // Subir nueva imagen si se seleccionó
-            let imageUrl = tasks[taskIndex].imageUrl;
-            if (taskImage) {
-                try {
-                    imageUrl = await uploadImage(taskImage, 'tasks');
-                } catch (error) {
-                    console.error('Error subiendo imagen:', error);
-                    showNotification('Error al subir la imagen', 'danger');
-                    hideLoading();
-                    return;
-                }
-            }
-            
-            // Recopilar materiales
-            const materials = [];
-            const materialsList = document.getElementById('taskMaterialsList');
-            if (materialsList) {
-                materialsList.querySelectorAll('.assignment-item').forEach(item => {
-                    const text = item.textContent.trim();
-                    const match = text.match(/(.+) - (\d+) (.+)/);
-                    if (match) {
-                        const materialName = match[1];
-                        const quantity = parseInt(match[2]);
-                        const unit = match[3];
-                        
-                        const material = inventory.find(m => m.name === materialName);
-                        if (material) {
-                            materials.push({
-                                materialId: material.id,
-                                quantity: quantity,
-                                delivered: false
-                            });
-                        }
-                    }
-                });
-            }
-            
-            // Actualizar la tarea
-            tasks[taskIndex] = {
-                ...tasks[taskIndex],
-                name: taskName,
-                description: taskDescription,
-                assignee: taskAssignee,
-                startDate: taskStartDate,
-                dueDate: taskDueDate,
-                urgency: taskUrgency,
-                materials: materials,
-                imageUrl: imageUrl,
-                updatedAt: new Date().toISOString()
-            };
-            
-            await saveTasks();
-            
-            hideLoading();
-            showNotification('Tarea actualizada correctamente', 'success');
-            const addTaskModal = document.getElementById('addTaskModal');
-            if (addTaskModal) addTaskModal.classList.remove('active');
-            
-            if (currentPage === 'manage-tasks') {
-                loadAllTasks();
-            }
-            updateDashboard();
-        }
-
-        async function deleteTask(taskId) {
-            if (confirm('¿Estás seguro de que quieres eliminar esta tarea?')) {
-                tasks = tasks.filter(t => t.id !== taskId);
-                
-                await saveTasks();
-                
-                showNotification('Tarea eliminada correctamente', 'success');
-                
-                if (currentPage === 'manage-tasks') {
-                    loadAllTasks();
-                }
-                updateDashboard();
-            }
-        }
-
-        function openEditMaterialModal(materialId) {
-            const material = inventory.find(m => m.id === materialId);
-            if (!material) return;
-            
-            // Llenar el formulario con los datos del material
-            document.getElementById('materialNameModal').value = material.name;
-            document.getElementById('materialCategory').value = material.category;
-            document.getElementById('materialQuantityModal').value = material.quantity;
-            document.getElementById('materialUnit').value = material.unit;
-            document.getElementById('materialMinStock').value = material.minStock;
-            document.getElementById('materialSupplier').value = material.supplier || '';
-            document.getElementById('materialCost').value = material.cost || '';
-            document.getElementById('materialLocation').value = material.location || '';
-            document.getElementById('materialDescription').value = material.description || '';
-            
-            // Mostrar el modal
-            const addMaterialModal = document.getElementById('addMaterialModal');
-            if (addMaterialModal) addMaterialModal.classList.add('active');
-            
-            // Configurar el botón de guardar para actualizar el material
-            const saveMaterialBtn = document.getElementById('saveMaterialBtn');
-            if (saveMaterialBtn) {
-                saveMaterialBtn.onclick = function() {
-                    updateMaterial(materialId);
-                };
-            }
-        }
-
-        async function updateMaterial(materialId) {
-            const materialIndex = inventory.findIndex(m => m.id === materialId);
-            if (materialIndex === -1) return;
-            
-            const materialName = document.getElementById('materialNameModal').value;
-            const materialCategory = document.getElementById('materialCategory').value;
-            const materialQuantity = parseInt(document.getElementById('materialQuantityModal').value);
-            const materialUnit = document.getElementById('materialUnit').value;
-            const materialMinStock = parseInt(document.getElementById('materialMinStock').value);
-            const materialSupplier = document.getElementById('materialSupplier').value;
-            const materialCost = parseFloat(document.getElementById('materialCost').value) || 0;
-            const materialLocation = document.getElementById('materialLocation').value;
-            const materialDescription = document.getElementById('materialDescription').value;
-            
-            if (!materialName || !materialCategory || isNaN(materialQuantity) || !materialUnit || isNaN(materialMinStock)) {
-                showNotification('Completa todos los campos obligatorios', 'warning');
-                return;
-            }
-            
-            // Actualizar el material
-            inventory[materialIndex] = {
-                ...inventory[materialIndex],
-                name: materialName,
-                category: materialCategory,
-                quantity: materialQuantity,
-                unit: materialUnit,
-                minStock: materialMinStock,
-                supplier: materialSupplier,
-                cost: materialCost,
-                location: materialLocation,
-                description: materialDescription
-            };
-            
-            await saveInventory();
-            
-            showNotification('Material actualizado correctamente', 'success');
-            const addMaterialModal = document.getElementById('addMaterialModal');
-            if (addMaterialModal) addMaterialModal.classList.remove('active');
-            loadInventory();
-            updateDashboard();
-        }
-
-async function deleteMaterial(materialId) {
-    if (confirm('¿Estás seguro de que quieres eliminar este material?')) {
-        try {
-            // Verificar si el material está siendo usado en alguna tarea
-            const isUsedInTasks = tasks.some(task => 
-                task.materials && task.materials.some(m => m.materialId === materialId)
-            );
-            
-            if (isUsedInTasks) {
-                showNotification('No se puede eliminar el material porque está siendo usado en una tarea', 'danger');
-                return;
-            }
-            
-            // ✅ 1. ELIMINAR DE FIREBASE
-            await db.collection('inventory').doc(materialId).delete();
-            
-            // ✅ 2. ELIMINAR DE LOS DATOS LOCALES
-            inventory = inventory.filter(m => m.id !== materialId);
-            
-            showNotification('Material eliminado correctamente', 'success');
-            
-            // ✅ 3. RECARGAR LA VISTA
-            loadInventory();
-            updateDashboard();
-            
-        } catch (error) {
-            console.error('Error eliminando material:', error);
-            showNotification('Error al eliminar el material: ' + error.message, 'danger');
-        }
-    }
-}
-        // ==================== FUNCIONES DE EXPORTACIÓN ====================
-        function getTasksExportData(filteredTasks = tasks) {
-            return filteredTasks.map(task => {
-                const assignee = users.find(u => u.username === task.assignee);
-                const materialsText = task.materials && task.materials.length > 0 
-                    ? task.materials.map(m => {
-                        const material = inventory.find(mat => mat.id === m.materialId);
-                        return material ? `${material.name} (${m.quantity} ${material.unit})` : '';
-                    }).filter(Boolean).join(', ')
-                    : 'Ninguno';
-                
-                return {
-                    'ID': task.id,
-                    'Nombre': task.name,
-                    'Descripción': task.description,
-                    'Asignado a': assignee?.name || task.assignee,
-                    'Fecha de inicio': formatDate(task.startDate),
-                    'Fecha límite': formatDate(task.dueDate),
-                    'Estado': getStatusText(task.status),
-                    'Urgencia': getUrgencyText(task.urgency),
-                    'Materiales': materialsText,
-                    'Fecha de creación': formatDate(task.createdAt),
-                    'Última actualización': formatDate(task.updatedAt)
-                };
-            });
-        }
-
-        function getReportsExportData(filteredReports = reports) {
-            return filteredReports.map(report => {
-                const reporter = users.find(u => u.username === report.reporter);
-                const relatedTask = report.taskId ? tasks.find(t => t.id === report.taskId) : null;
-                
-                let additionalInfo = '';
-                if (report.type === 'material' && report.additionalInfo) {
-                    additionalInfo = `Material: ${report.additionalInfo.materialName || 'No especificado'}, Cantidad: ${report.additionalInfo.materialQuantity || 'No especificado'}`;
-                } else if (report.type === 'equipment' && report.additionalInfo) {
-                    additionalInfo = `Equipo: ${report.additionalInfo.equipmentType || 'No especificado'}, Tiempo: ${report.additionalInfo.equipmentTime || 'No especificado'}`;
-                }
-                
-                return {
-                    'ID': report.id,
-                    'Tipo': report.type,
-                    'Título': report.title,
-                    'Descripción': report.description,
-                    'Reportado por': reporter?.name || report.reporter,
-                    'Tarea relacionada': relatedTask ? relatedTask.name : 'No relacionada',
-                    'Urgencia': getUrgencyText(report.urgency),
-                    'Bloquea progreso': report.blocksProgress,
-                    'Fecha requerida': report.requiredDate ? formatDate(report.requiredDate) : 'No especificada',
-                    'Información adicional': additionalInfo,
-                    'Estado': report.status === 'pending' ? 'Pendiente' : 'Resuelto',
-                    'Fecha de creación': formatDate(report.createdAt),
-                    'Fecha de resolución': report.resolvedAt ? formatDate(report.resolvedAt) : 'No resuelto'
-                };
-            });
-        }
-
-        function getInventoryExportData() {
-            return inventory.map(item => ({
-                'ID': item.id,
-                'Nombre': item.name,
-                'Categoría': item.category,
-                'Cantidad': item.quantity,
-                'Unidad': item.unit,
-                'Stock Mínimo': item.minStock,
-                'Proveedor': item.supplier || 'No especificado',
-                'Costo': item.cost ? `$${item.cost.toFixed(2)}` : 'No especificado',
-                'Ubicación': item.location || 'No especificada',
-                'Descripción': item.description || 'No especificada'
-            }));
-        }
-
-        function getAllExportData() {
-            return {
-                'Tareas': getTasksExportData(),
-                'Reportes': getReportsExportData(),
-                'Inventario': getInventoryExportData()
-            };
-        }
-
-        function exportToExcel(data, filename) {
-            try {
-                const wb = XLSX.utils.book_new();
-                
-                if (Array.isArray(data)) {
-                    // Si es un solo conjunto de datos
-                    const ws = XLSX.utils.json_to_sheet(data);
-                    XLSX.utils.book_append_sheet(wb, ws, "Datos");
-                } else {
-                    // Si son múltiples hojas (para exportación completa)
-                    Object.keys(data).forEach(sheetName => {
-                        const ws = XLSX.utils.json_to_sheet(data[sheetName]);
-                        XLSX.utils.book_append_sheet(wb, ws, sheetName);
-                    });
-                }
-                
-                XLSX.writeFile(wb, `${filename}.xlsx`);
-                showNotification('Archivo exportado correctamente', 'success');
-            } catch (error) {
-                console.error('Error al exportar:', error);
-                showNotification('Error al exportar el archivo', 'danger');
-            }
-        }
-
-        function exportToCSV(data, filename) {
-            try {
-                let csvContent = "";
-                
-                if (Array.isArray(data) && data.length > 0) {
-                    // Encabezados
-                    const headers = Object.keys(data[0]);
-                    csvContent += headers.join(",") + "\n";
-                    
-                    // Datos
-                    data.forEach(row => {
-                        const values = headers.map(header => {
-                            let value = row[header] || "";
-                            // Escapar comas y comillas
-                            if (typeof value === 'string' && (value.includes(',') || value.includes('"'))) {
-                                value = '"' + value.replace(/"/g, '""') + '"';
-                            }
-                            return value;
-                        });
-                        csvContent += values.join(",") + "\n";
-                    });
-                }
-                
-                const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-                const link = document.createElement("a");
-                const url = URL.createObjectURL(blob);
-                link.setAttribute("href", url);
-                link.setAttribute("download", `${filename}.csv`);
-                link.style.visibility = 'hidden';
-                document.body.appendChild(link);
-                link.click();
-                document.body.removeChild(link);
-                
-                showNotification('Archivo CSV exportado correctamente', 'success');
-            } catch (error) {
-                console.error('Error al exportar CSV:', error);
-                showNotification('Error al exportar el archivo CSV', 'danger');
-            }
-        }
-
-        function exportToPDF(data, filename) {
-            try {
-                const { jsPDF } = window.jspdf;
-                const doc = new jsPDF();
-                
-                if (Array.isArray(data) && data.length > 0) {
-                    const headers = [Object.keys(data[0])];
-                    const rows = data.map(row => Object.values(row));
-                    
-                    doc.autoTable({
-                        head: headers,
-                        body: rows,
-                        theme: 'grid',
-                        styles: { fontSize: 8 },
-                        headStyles: { fillColor: [67, 97, 238] }
-                    });
-                }
-                
-                doc.save(`${filename}.pdf`);
-                showNotification('Archivo PDF exportado correctamente', 'success');
-            } catch (error) {
-                console.error('Error al exportar PDF:', error);
-                showNotification('Error al exportar el archivo PDF', 'danger');
-            }
-        }
-
-        function handleExportData() {
-            const exportType = document.getElementById('exportType').value;
-            const exportFormat = document.getElementById('exportFormat').value;
-            const startDate = document.getElementById('startDate').value;
-            const endDate = document.getElementById('endDate').value;
-            
-            let dataToExport;
-            let filename;
-            
-            // Filtrar datos por fecha si es necesario
-            let filteredTasks = tasks;
-            let filteredReports = reports;
-            
-            if (exportType === 'date-range' && startDate && endDate) {
-                filteredTasks = tasks.filter(task => {
-                    const taskDate = new Date(task.createdAt);
-                    return taskDate >= new Date(startDate) && taskDate <= new Date(endDate);
-                });
-                
-                filteredReports = reports.filter(report => {
-                    const reportDate = new Date(report.createdAt);
-                    return reportDate >= new Date(startDate) && reportDate <= new Date(endDate);
-                });
-                
-                filename = `datos_${startDate}_a_${endDate}`;
-            } else {
-                filename = `datos_${exportType}`;
-            }
-            
-            // Obtener datos según el tipo de exportación
-            switch (exportType) {
-                case 'tasks':
-                    dataToExport = getTasksExportData(filteredTasks);
-                    break;
-                case 'reports':
-                    dataToExport = getReportsExportData(filteredReports);
-                    break;
-                case 'inventory':
-                    dataToExport = getInventoryExportData();
-                    break;
-                case 'completed':
-                    dataToExport = getTasksExportData(filteredTasks.filter(t => t.status === 'completed'));
-                    break;
-                case 'pending':
-                    dataToExport = getTasksExportData(filteredTasks.filter(t => t.status !== 'completed'));
-                    break;
-                case 'all':
-                default:
-                    dataToExport = {
-                        'Tareas': getTasksExportData(filteredTasks),
-                        'Reportes': getReportsExportData(filteredReports),
-                        'Inventario': getInventoryExportData()
-                    };
-                    break;
-            }
-            
-            // Exportar según el formato
-            switch (exportFormat) {
-                case 'excel':
-                    exportToExcel(dataToExport, filename);
-                    break;
-                case 'csv':
-                    if (Array.isArray(dataToExport)) {
-                        exportToCSV(dataToExport, filename);
-                    } else {
-                        // Para datos múltiples, exportar cada hoja como CSV separado
-                        Object.keys(dataToExport).forEach(sheetName => {
-                            exportToCSV(dataToExport[sheetName], `${filename}_${sheetName}`);
-                        });
-                    }
-                    break;
-                case 'pdf':
-                    if (Array.isArray(dataToExport)) {
-                        exportToPDF(dataToExport, filename);
-                    } else {
-                        // Para datos múltiples, exportar cada hoja como PDF separado
-                        Object.keys(dataToExport).forEach(sheetName => {
-                            exportToPDF(dataToExport[sheetName], `${filename}_${sheetName}`);
-                        });
-                    }
-                    break;
-            }
-        }
-
-        function showPreviewData() {
-            const exportType = document.getElementById('exportType').value;
-            const previewSection = document.getElementById('previewSection');
-            const previewContent = document.getElementById('previewContent');
-            
-            if (!previewSection || !previewContent) return;
-            
-            let dataToPreview;
-            
-            // Obtener datos según el tipo de exportación
-            switch (exportType) {
-                case 'tasks':
-                    dataToPreview = getTasksExportData();
-                    break;
-                case 'reports':
-                    dataToPreview = getReportsExportData();
-                    break;
-                case 'inventory':
-                    dataToPreview = getInventoryExportData();
-                    break;
-                case 'completed':
-                    dataToPreview = getTasksExportData(tasks.filter(t => t.status === 'completed'));
-                    break;
-                case 'pending':
-                    dataToPreview = getTasksExportData(tasks.filter(t => t.status !== 'completed'));
-                    break;
-                case 'all':
-                default:
-                    dataToPreview = getAllExportData();
-                    break;
-            }
-            
-            // Mostrar vista previa
-            previewContent.innerHTML = '';
-            
-            if (Array.isArray(dataToPreview)) {
-                if (dataToPreview.length === 0) {
-                    previewContent.innerHTML = '<div style="text-align: center; padding: 2rem; color: var(--gray);">No hay datos para mostrar</div>';
-                } else {
-                    const table = document.createElement('table');
-                    table.className = 'table';
-                    
-                    // Encabezados
-                    const thead = document.createElement('thead');
-                    const headerRow = document.createElement('tr');
-                    Object.keys(dataToPreview[0]).forEach(key => {
-                        const th = document.createElement('th');
-                        th.textContent = key;
-                        headerRow.appendChild(th);
-                    });
-                    thead.appendChild(headerRow);
-                    table.appendChild(thead);
-                    
-                    // Datos
-                    const tbody = document.createElement('tbody');
-                    dataToPreview.forEach(row => {
-                        const tr = document.createElement('tr');
-                        Object.values(row).forEach(value => {
-                            const td = document.createElement('td');
-                            td.textContent = value;
-                            tr.appendChild(td);
-                        });
-                        tbody.appendChild(tr);
-                    });
-                    table.appendChild(tbody);
-                    
-                    previewContent.appendChild(table);
-                }
-            } else {
-                // Para datos múltiples (varias hojas)
-                Object.keys(dataToPreview).forEach(sheetName => {
-                    const sheetData = dataToPreview[sheetName];
-                    if (sheetData.length === 0) return;
-                    
-                    const sheetTitle = document.createElement('h3');
-                    sheetTitle.textContent = sheetName;
-                    sheetTitle.style.marginTop = '2rem';
-                    sheetTitle.style.marginBottom = '1rem';
-                    previewContent.appendChild(sheetTitle);
-                    
-                    const table = document.createElement('table');
-                    table.className = 'table';
-                    
-                    // Encabezados
-                    const thead = document.createElement('thead');
-                    const headerRow = document.createElement('tr');
-                    Object.keys(sheetData[0]).forEach(key => {
-                        const th = document.createElement('th');
-                        th.textContent = key;
-                        headerRow.appendChild(th);
-                    });
-                    thead.appendChild(headerRow);
-                    table.appendChild(thead);
-                    
-                    // Datos (solo primeros 10 registros para vista previa)
-                    const tbody = document.createElement('tbody');
-                    sheetData.slice(0, 10).forEach(row => {
-                        const tr = document.createElement('tr');
-                        Object.values(row).forEach(value => {
-                            const td = document.createElement('td');
-                            td.textContent = value;
-                            tr.appendChild(td);
-                        });
-                        tbody.appendChild(tr);
-                    });
-                    table.appendChild(tbody);
-                    
-                    previewContent.appendChild(table);
-                    
-                    if (sheetData.length > 10) {
-                        const moreText = document.createElement('p');
-                        moreText.textContent = `... y ${sheetData.length - 10} registros más`;
-                        moreText.style.textAlign = 'center';
-                        moreText.style.color = 'var(--gray)';
-                        moreText.style.marginTop = '1rem';
-                        previewContent.appendChild(moreText);
-                    }
-                });
-            }
-            
-            previewSection.style.display = 'block';
-        }
     </script>
 </body>
 </html>
-
