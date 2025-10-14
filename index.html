@@ -2634,47 +2634,68 @@ function compressImageForMobile(file, maxWidth = 800, quality = 0.7) {
                 localStorage.setItem('taskmaster_session', JSON.stringify(sessionData));
             }
         }
-
-        function loadSession() {
-            const savedSession = localStorage.getItem('taskmaster_session');
-            if (savedSession) {
-                const sessionData = JSON.parse(savedSession);
-                // Verificar si la sesión es reciente (menos de 24 horas)
-                const now = new Date().getTime();
-                if (now - sessionData.timestamp < 24 * 60 * 60 * 1000) {
-                    currentUser = sessionData.user;
-                    
-                    const loginScreen = document.getElementById('loginScreen');
-                    const app = document.getElementById('app');
-                    if (loginScreen && app) {
-                        loginScreen.style.display = 'none';
-                        app.style.display = 'block';
-                    }
-                    
-                    const userInitials = document.getElementById('userInitials');
-                    const userName = document.getElementById('userName');
-                    const userRole = document.getElementById('userRole');
-                    
-                    if (userInitials) userInitials.textContent = currentUser.name.charAt(0).toUpperCase();
-                    if (userName) userName.textContent = currentUser.name;
-                    if (userRole) userRole.textContent = currentUser.role === 'admin' ? 'Administrador' : 'Trabajador';
-                    
-                    // Ocultar elementos de admin si el usuario no es admin
-                    document.querySelectorAll('.admin-only').forEach(el => {
-                        el.style.display = currentUser.role === 'admin' ? 'flex' : 'none';
-                    });
-                    
-                    loadUserData();
-                    return true;
-                } else {
-                    // Sesión expirada
+        // ==================== VERIFICACIÓN DE CONTRASEÑA ACTUAL ====================
+function verifySessionPassword(savedUser) {
+    const currentUser = users.find(u => u.username === savedUser.username);
+    return currentUser && currentUser.password === savedUser.password;
+}
+        // ==================== VERIFICACIÓN DE CONTRASEÑA ACTUAL ====================
+function verifySessionPassword(savedUser) {
+    const currentUser = users.find(u => u.username === savedUser.username);
+    return currentUser && currentUser.password === savedUser.password;
+}
+function loadSession() {
+    const savedSession = localStorage.getItem('taskmaster_session');
+    if (savedSession) {
+        try {
+            const sessionData = JSON.parse(savedSession);
+            const now = new Date().getTime();
+            
+            // Verificar si la sesión es reciente (menos de 24 horas)
+            if (now - sessionData.timestamp < 24 * 60 * 60 * 1000) {
+                // ✅ VERIFICAR SI LA CONTRASEÑA SIGUE SIENDO VÁLIDA
+                if (!verifySessionPassword(sessionData.user)) {
+                    console.log('Contraseña cambió - cerrando sesión automáticamente');
                     localStorage.removeItem('taskmaster_session');
+                    showNotification('Tu sesión se cerró porque la contraseña fue actualizada', 'warning');
+                    return false;
                 }
+                
+                currentUser = sessionData.user;
+                
+                const loginScreen = document.getElementById('loginScreen');
+                const app = document.getElementById('app');
+                if (loginScreen && app) {
+                    loginScreen.style.display = 'none';
+                    app.style.display = 'block';
+                }
+                
+                const userInitials = document.getElementById('userInitials');
+                const userName = document.getElementById('userName');
+                const userRole = document.getElementById('userRole');
+                
+                if (userInitials) userInitials.textContent = currentUser.name.charAt(0).toUpperCase();
+                if (userName) userName.textContent = currentUser.name;
+                if (userRole) userRole.textContent = currentUser.role === 'admin' ? 'Administrador' : 'Trabajador';
+                
+                // Ocultar elementos de admin si el usuario no es admin
+                document.querySelectorAll('.admin-only').forEach(el => {
+                    el.style.display = currentUser.role === 'admin' ? 'flex' : 'none';
+                });
+                
+                loadUserData();
+                return true;
+            } else {
+                // Sesión expirada
+                localStorage.removeItem('taskmaster_session');
             }
-            return false;
+        } catch (error) {
+            console.error('Error cargando sesión:', error);
+            localStorage.removeItem('taskmaster_session');
         }
-
-        // ==================== NAVEGACIÓN ====================
+    }
+    return false;
+}        // ==================== NAVEGACIÓN ====================
         function switchPage(page) {
             const adminPages = ['manage-tasks', 'reports-admin', 'users', 'export', 'inventory'];
             
@@ -3974,114 +3995,95 @@ if (report.imageUrl && report.imageUrl !== 'null' && report.imageUrl !== '' && (
             }
         }
 
-        async function updateUser(userId) {
-            console.log('Actualizando usuario:', userId);
-            
-            // Validar formulario (para edición)
-            if (!validateUserForm(true)) {
-                const userFormError = document.getElementById('userFormError');
-                if (userFormError) {
-                    userFormError.textContent = 'Por favor, corrige los errores en el formulario';
-                    userFormError.style.display = 'block';
-                }
-                return;
-            }
-
-            const username = document.getElementById('userUsername').value.trim();
-            const name = document.getElementById('userName').value.trim();
-            const password = document.getElementById('userPassword').value;
-            const role = document.getElementById('userRole').value;
-            
-            // Verificar si el usuario ya existe (excluyendo el usuario actual)
-            const existingUser = users.find(u => u.username === username && u.username !== userId);
-            if (existingUser) {
-                showUserFormError('userUsername', 'El nombre de usuario ya existe');
-                const userFormError = document.getElementById('userFormError');
-                if (userFormError) {
-                    userFormError.textContent = 'El nombre de usuario ya está en uso';
-                    userFormError.style.display = 'block';
-                }
-                return;
-            }
-            
-            // Buscar usuario a actualizar
-            const userIndex = users.findIndex(u => u.username === userId);
-            if (userIndex === -1) {
-                showNotification('Usuario no encontrado', 'danger');
-                return;
-            }
-            
-            // Preparar datos de actualización
-            const updateData = {
-                username: username,
-                name: name,
-                role: role
-            };
-            
-            // Si se proporcionó una nueva contraseña, actualizarla
-            if (password && password.length >= 6) {
-                updateData.password = password;
-            }
-            
-            console.log('Actualizando usuario en Firebase:', updateData);
-            
-            try {
-                // Actualizar en Firebase
-                await db.collection('users').doc(userId).update(updateData);
-                
-                // Actualizar lista local
-                users[userIndex] = { ...users[userIndex], ...updateData };
-                
-                showNotification('Usuario actualizado correctamente', 'success');
-                
-                // Cerrar modal
-                const addUserModal = document.getElementById('addUserModal');
-                if (addUserModal) addUserModal.classList.remove('active');
-                
-                // Recargar tabla
-                updateUsersTable();
-                
-            } catch (error) {
-                console.error('Error al actualizar usuario:', error);
-                showNotification('Error al actualizar el usuario: ' + error.message, 'danger');
-            }
+async function updateUser(userId) {
+    console.log('Actualizando usuario:', userId);
+    
+    // Validar formulario (para edición)
+    if (!validateUserForm(true)) {
+        const userFormError = document.getElementById('userFormError');
+        if (userFormError) {
+            userFormError.textContent = 'Por favor, corrige los errores en el formulario';
+            userFormError.style.display = 'block';
         }
+        return;
+    }
 
-        async function deleteUser(userId) {
-            const user = users.find(u => u.username === userId);
-            if (!user) return;
-
-            // No permitir eliminar al usuario actual
-            if (user.username === currentUser.username) {
-                showNotification('No puedes eliminar tu propio usuario', 'danger');
-                return;
-            }
-
-            // Verificar si el usuario tiene tareas asignadas
-            const userTasks = tasks.filter(task => task.assignee === user.username && task.status !== 'completed');
-            if (userTasks.length > 0) {
-                showNotification(`No se puede eliminar el usuario porque tiene ${userTasks.length} tarea(s) activa(s) asignada(s)`, 'danger');
-                return;
-            }
-
-            if (confirm(`¿Estás seguro de que quieres eliminar al usuario "${user.name}"?`)) {
-                try {
-                    // Eliminar de Firebase
-                    await db.collection('users').doc(userId).delete();
-                    
-                    // Actualizar lista local
-                    users = users.filter(u => u.username !== userId);
-                    
-                    showNotification('Usuario eliminado correctamente', 'success');
-                    updateUsersTable();
-                    
-                } catch (error) {
-                    console.error('Error al eliminar usuario:', error);
-                    showNotification('Error al eliminar el usuario: ' + error.message, 'danger');
-                }
-            }
+    const username = document.getElementById('userUsername').value.trim();
+    const name = document.getElementById('userName').value.trim();
+    const password = document.getElementById('userPassword').value;
+    const role = document.getElementById('userRole').value;
+    
+    // Verificar si el usuario ya existe (excluyendo el usuario actual)
+    const existingUser = users.find(u => u.username === username && u.username !== userId);
+    if (existingUser) {
+        showUserFormError('userUsername', 'El nombre de usuario ya existe');
+        const userFormError = document.getElementById('userFormError');
+        if (userFormError) {
+            userFormError.textContent = 'El nombre de usuario ya está en uso';
+            userFormError.style.display = 'block';
         }
-
+        return;
+    }
+    
+    // Buscar usuario a actualizar
+    const userIndex = users.findIndex(u => u.username === userId);
+    if (userIndex === -1) {
+        showNotification('Usuario no encontrado', 'danger');
+        return;
+    }
+    
+    // ✅ VERIFICAR SI SE ESTÁ CAMBIANDO LA CONTRASEÑA DEL USUARIO ACTUAL
+    const isChangingOwnPassword = (userId === currentUser.username && password);
+    
+    // Preparar datos de actualización
+    const updateData = {
+        username: username,
+        name: name,
+        role: role
+    };
+    
+    // Si se proporcionó una nueva contraseña, actualizarla
+    if (password && password.length >= 6) {
+        updateData.password = password;
+    }
+    
+    console.log('Actualizando usuario en Firebase:', updateData);
+    
+    try {
+        // Actualizar en Firebase
+        await db.collection('users').doc(userId).update(updateData);
+        
+        // Actualizar lista local
+        users[userIndex] = { ...users[userIndex], ...updateData };
+        
+        // ✅ SI SE CAMBIÓ LA CONTRASEÑA DEL USUARIO ACTUAL, CERRAR SESIÓN
+        if (isChangingOwnPassword) {
+            showNotification('Contraseña actualizada. Tu sesión se cerrará por seguridad.', 'success');
+            
+            // Cerrar modal primero
+            const addUserModal = document.getElementById('addUserModal');
+            if (addUserModal) addUserModal.classList.remove('active');
+            
+            // Pequeña pausa y luego cerrar sesión
+            setTimeout(() => {
+                handleLogout();
+            }, 2000);
+        } else {
+            showNotification('Usuario actualizado correctamente', 'success');
+            
+            // Cerrar modal
+            const addUserModal = document.getElementById('addUserModal');
+            if (addUserModal) addUserModal.classList.remove('active');
+        }
+        
+        // Recargar tabla
+        updateUsersTable();
+        
+    } catch (error) {
+        console.error('Error al actualizar usuario:', error);
+        showNotification('Error al actualizar el usuario: ' + error.message, 'danger');
+    }
+}
         // ==================== FUNCIONES RESTANTES ====================
         function loadUserData() {
             loadData();
@@ -4096,7 +4098,7 @@ if (report.imageUrl && report.imageUrl !== 'null' && report.imageUrl !== '' && (
                     year: 'numeric',
                     month: 'long',
                     day: 'numeric'
-                });
+                });3
             }
         }
 
