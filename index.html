@@ -999,7 +999,7 @@
             font-size: 1.1rem;
         }
 
-        /* Nuevos estilos para notificaciones de reportes */
+        /* Nuevos estilos para notificaciones */
         .notification-badge {
             background: var(--danger);
             color: white;
@@ -1016,12 +1016,10 @@
         }
 
         .notification-item {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            padding: 10px;
+            padding: 12px 15px;
             border-bottom: 1px solid #eee;
             cursor: pointer;
+            transition: var(--transition);
         }
 
         .notification-item:hover {
@@ -1030,6 +1028,7 @@
 
         .notification-item.unread {
             background: #f0f7ff;
+            border-left: 3px solid var(--primary);
         }
 
         .notification-list {
@@ -1041,7 +1040,7 @@
             position: absolute;
             top: 100%;
             right: 0;
-            width: 350px;
+            width: 380px;
             background: white;
             border-radius: var(--border-radius);
             box-shadow: var(--shadow);
@@ -1198,7 +1197,7 @@
             }
 
             .notification-dropdown {
-                width: 300px;
+                width: 320px;
                 right: -50px;
             }
         }
@@ -1256,7 +1255,7 @@
             }
 
             .notification-dropdown {
-                width: 280px;
+                width: 300px;
                 right: -80px;
             }
         }
@@ -1308,7 +1307,7 @@
             }
 
             .notification-dropdown {
-                width: 250px;
+                width: 280px;
                 right: -100px;
             }
         }
@@ -2177,17 +2176,6 @@
             console.error('Error inicializando Firebase:', error);
             document.getElementById('loginError').style.display = 'block';
         }
-async function verifyFirebaseConnection() {
-    try {
-        const testDoc = await db.collection('tasks').limit(1).get();
-        console.log('✅ Conexión a Firebase verificada correctamente');
-        return true;
-    } catch (error) {
-        console.error('❌ Error de conexión a Firebase:', error);
-        showNotification('Error de conexión con la base de datos', 'danger');
-        return false;
-    }
-}
 
         // ==================== VARIABLES GLOBALES ====================
         let currentUser = null;
@@ -2197,6 +2185,231 @@ async function verifyFirebaseConnection() {
         let inventory = [];
         let notifications = [];
         let currentPage = "dashboard";
+
+        // ==================== SISTEMA DE NOTIFICACIONES ====================
+
+        // Función para crear notificación
+        function createNotification(title, message, type = 'info', relatedId = null) {
+            const newNotification = {
+                id: generateId(),
+                title: title,
+                message: message,
+                type: type,
+                relatedId: relatedId,
+                read: false,
+                createdAt: new Date().toISOString()
+            };
+            
+            notifications.unshift(newNotification); // Agregar al inicio
+            updateNotificationBadge();
+            saveNotifications();
+            
+            // Mostrar notificación toast
+            showNotification(message, type);
+        }
+
+        // Actualizar badge de notificaciones
+        function updateNotificationBadge() {
+            const notificationCount = document.getElementById('notificationCount');
+            const unreadCount = notifications.filter(n => !n.read).length;
+            
+            if (notificationCount) {
+                if (unreadCount > 0) {
+                    notificationCount.textContent = unreadCount > 99 ? '99+' : unreadCount;
+                    notificationCount.style.display = 'flex';
+                } else {
+                    notificationCount.style.display = 'none';
+                }
+            }
+        }
+
+        // Cargar notificaciones en el dropdown
+        function loadNotificationDropdown() {
+            const notificationList = document.getElementById('notificationList');
+            if (!notificationList) return;
+            
+            if (notifications.length === 0) {
+                notificationList.innerHTML = '<div style="text-align: center; padding: 2rem; color: var(--gray);">No hay notificaciones</div>';
+                return;
+            }
+            
+            notificationList.innerHTML = '';
+            
+            notifications.slice(0, 20).forEach(notification => {
+                const notificationItem = document.createElement('div');
+                notificationItem.className = `notification-item ${notification.read ? '' : 'unread'}`;
+                notificationItem.setAttribute('data-notification-id', notification.id);
+                
+                const icon = getNotificationIcon(notification.type);
+                const timeAgo = getTimeAgo(notification.createdAt);
+                
+                notificationItem.innerHTML = `
+                    <div style="display: flex; align-items: flex-start; gap: 10px; width: 100%;">
+                        <div style="color: ${getNotificationColor(notification.type)}; font-size: 1.2rem;">
+                            <i class="${icon}"></i>
+                        </div>
+                        <div style="flex: 1;">
+                            <div style="font-weight: 600; margin-bottom: 2px;">${sanitizeInput(notification.title)}</div>
+                            <div style="color: var(--gray); font-size: 0.85rem;">${sanitizeInput(notification.message)}</div>
+                            <div style="color: var(--gray); font-size: 0.75rem; margin-top: 3px;">${timeAgo}</div>
+                        </div>
+                        ${!notification.read ? '<div style="width: 8px; height: 8px; background: var(--primary); border-radius: 50%; flex-shrink: 0; margin-top: 5px;"></div>' : ''}
+                    </div>
+                `;
+                
+                notificationList.appendChild(notificationItem);
+                
+                // Event listener para marcar como leída al hacer clic
+                notificationItem.addEventListener('click', function() {
+                    markNotificationAsRead(notification.id);
+                    // Aquí podrías redirigir a la página relevante según el tipo de notificación
+                });
+            });
+        }
+
+        // Funciones auxiliares para notificaciones
+        function getNotificationIcon(type) {
+            const icons = {
+                'success': 'fas fa-check-circle',
+                'warning': 'fas fa-exclamation-triangle',
+                'danger': 'fas fa-times-circle',
+                'info': 'fas fa-info-circle',
+                'task': 'fas fa-tasks',
+                'report': 'fas fa-flag',
+                'material': 'fas fa-boxes'
+            };
+            return icons[type] || 'fas fa-bell';
+        }
+
+        function getNotificationColor(type) {
+            const colors = {
+                'success': 'var(--success)',
+                'warning': 'var(--warning)',
+                'danger': 'var(--danger)',
+                'info': 'var(--primary)',
+                'task': '#4361ee',
+                'report': '#f72585',
+                'material': '#06d6a0'
+            };
+            return colors[type] || 'var(--gray)';
+        }
+
+        function getTimeAgo(dateString) {
+            const date = new Date(dateString);
+            const now = new Date();
+            const diffMs = now - date;
+            const diffMins = Math.floor(diffMs / 60000);
+            const diffHours = Math.floor(diffMs / 3600000);
+            const diffDays = Math.floor(diffMs / 86400000);
+            
+            if (diffMins < 1) return 'Ahora mismo';
+            if (diffMins < 60) return `Hace ${diffMins} minuto${diffMins > 1 ? 's' : ''}`;
+            if (diffHours < 24) return `Hace ${diffHours} hora${diffHours > 1 ? 's' : ''}`;
+            if (diffDays < 7) return `Hace ${diffDays} día${diffDays > 1 ? 's' : ''}`;
+            return date.toLocaleDateString('es-ES');
+        }
+
+        // Marcar notificación como leída
+        function markNotificationAsRead(notificationId) {
+            const notificationIndex = notifications.findIndex(n => n.id === notificationId);
+            if (notificationIndex !== -1) {
+                notifications[notificationIndex].read = true;
+                updateNotificationBadge();
+                saveNotifications();
+                loadNotificationDropdown();
+            }
+        }
+
+        // Marcar todas como leídas
+        function markAllNotificationsAsRead() {
+            notifications.forEach(notification => {
+                notification.read = true;
+            });
+            updateNotificationBadge();
+            saveNotifications();
+            loadNotificationDropdown();
+            showNotification('Todas las notificaciones marcadas como leídas', 'success');
+        }
+
+        // Guardar notificaciones en localStorage
+        function saveNotifications() {
+            if (currentUser) {
+                localStorage.setItem(`notifications_${currentUser.username}`, JSON.stringify(notifications));
+            }
+        }
+
+        // Cargar notificaciones desde localStorage
+        function loadNotifications() {
+            if (currentUser) {
+                const savedNotifications = localStorage.getItem(`notifications_${currentUser.username}`);
+                if (savedNotifications) {
+                    notifications = JSON.parse(savedNotifications);
+                }
+            }
+            updateNotificationBadge();
+        }
+
+        // ==================== NOTIFICACIONES AUTOMÁTICAS ====================
+
+        // Notificación cuando se completa una tarea
+        function notifyTaskCompleted(task) {
+            if (currentUser.role === 'admin') {
+                const assignee = users.find(u => u.username === task.assignee);
+                createNotification(
+                    'Tarea Completada ✅',
+                    `La tarea "${task.name}" ha sido completada por ${assignee?.name || task.assignee}`,
+                    'success',
+                    task.id
+                );
+            }
+        }
+
+        // Notificación cuando se crea un reporte
+        function notifyNewReport(report) {
+            if (currentUser.role === 'admin') {
+                const reporter = users.find(u => u.username === report.reporter);
+                createNotification(
+                    'Nuevo Reporte 🚩',
+                    `${reporter?.name || report.reporter} ha reportado: ${report.title}`,
+                    'warning',
+                    report.id
+                );
+            }
+        }
+
+        // Notificación cuando se resuelve un reporte
+        function notifyReportResolved(report) {
+            const reporter = users.find(u => u.username === report.reporter);
+            createNotification(
+                'Reporte Resuelto ✅',
+                `Tu reporte "${report.title}" ha sido resuelto`,
+                'success',
+                report.id
+            );
+        }
+
+        // Notificación de stock bajo
+        function notifyLowStock(material) {
+            createNotification(
+                'Stock Bajo ⚠️',
+                `El material "${material.name}" tiene stock bajo: ${material.quantity} ${material.unit}`,
+                'danger',
+                material.id
+            );
+        }
+
+        // Notificación cuando se asigna una tarea
+        function notifyTaskAssigned(task, assigneeUsername) {
+            if (currentUser.username !== assigneeUsername) {
+                const assignee = users.find(u => u.username === assigneeUsername);
+                createNotification(
+                    'Tarea Asignada 📋',
+                    `Se te ha asignado la tarea: "${task.name}"`,
+                    'task',
+                    task.id
+                );
+            }
+        }
 
         // ==================== FUNCIONES DE UTILIDAD ====================
         function generateId() {
@@ -2654,6 +2867,9 @@ async function verifyFirebaseConnection() {
             }, (error) => {
                 console.error('Error en monitoreo de sesión:', error);
             });
+
+            // Iniciar monitoreo de stock bajo
+            startLowStockMonitoring();
         }
 
         // ==================== CERRAR SESIÓN EN TODOS LOS DISPOSITIVOS ====================
@@ -2773,6 +2989,26 @@ async function verifyFirebaseConnection() {
                 }
             }
             return false;
+        }
+
+        // ==================== VERIFICACIÓN DE STOCK BAJO AUTOMÁTICA ====================
+        function startLowStockMonitoring() {
+            setInterval(() => {
+                inventory.forEach(material => {
+                    if (material.quantity <= material.minStock) {
+                        // Verificar si ya notificamos recientemente (últimas 2 horas)
+                        const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000);
+                        const recentNotification = notifications.find(n => 
+                            n.relatedId === material.id && 
+                            new Date(n.createdAt) > twoHoursAgo
+                        );
+                        
+                        if (!recentNotification) {
+                            notifyLowStock(material);
+                        }
+                    }
+                });
+            }, 5 * 60 * 1000); // 5 minutos
         }
 
         // ==================== NAVEGACIÓN ====================
@@ -3042,10 +3278,16 @@ async function verifyFirebaseConnection() {
         async function updateTaskStatus(taskId, newStatus) {
             const taskIndex = tasks.findIndex(t => t.id === taskId);
             if (taskIndex !== -1) {
+                const oldStatus = tasks[taskIndex].status;
                 tasks[taskIndex].status = newStatus;
                 tasks[taskIndex].updatedAt = new Date().toISOString();
                 
                 await saveTasks();
+                
+                // ✅ NOTIFICACIÓN CUANDO SE COMPLETA UNA TAREA
+                if (newStatus === 'completed' && oldStatus !== 'completed') {
+                    notifyTaskCompleted(tasks[taskIndex]);
+                }
                 
                 showNotification(`Estado actualizado a: ${getStatusText(newStatus)}`, 'success');
                 
@@ -3273,7 +3515,7 @@ async function verifyFirebaseConnection() {
 
             const material = inventory.find(m => m.id === materialId);
             if (!material) {
-                showNotification('Material no encontrado', 'danger');
+                showNotification('Material no encontrada', 'danger');
                 return;
             }
 
@@ -3595,6 +3837,9 @@ async function verifyFirebaseConnection() {
             reports.push(newReport);
             await saveReports();
             
+            // ✅ NOTIFICACIÓN DE NUEVO REPORTE
+            notifyNewReport(newReport);
+            
             hideLoading();
             showNotification('Reporte enviado correctamente', 'success');
             const reportForm = document.getElementById('reportForm');
@@ -3748,41 +3993,45 @@ async function verifyFirebaseConnection() {
                 
                 await saveReports();
                 
+                // ✅ NOTIFICACIÓN DE REPORTE RESUELTO
+                notifyReportResolved(reports[reportIndex]);
+                
                 showNotification('Reporte marcado como resuelto', 'success');
                 loadReports();
                 updateDashboard();
             }
         }
 
-      async function deleteReport(reportId) {
-    if (confirm('¿Estás seguro de que quieres eliminar este reporte?')) {
-        showLoading();
-        
-        try {
-            console.log('🗑️ Intentando eliminar reporte:', reportId);
-            
-            // ✅ 1. ELIMINAR DE FIREBASE PRIMERO
-            await db.collection('reports').doc(reportId).delete();
-            console.log('✅ Reporte eliminado de Firebase');
-            
-            // ✅ 2. ELIMINAR DE LOS DATOS LOCALES
-            reports = reports.filter(r => r.id !== reportId);
-            
-            // ✅ 3. MOSTRAR NOTIFICACIÓN
-            showNotification('Reporte eliminado correctamente', 'success');
-            
-            // ✅ 4. RECARGAR VISTAS
-            loadReports();
-            updateDashboard();
-            
-        } catch (error) {
-            console.error('❌ Error eliminando reporte:', error);
-            showNotification('Error al eliminar el reporte: ' + error.message, 'danger');
-        } finally {
-            hideLoading();
+        async function deleteReport(reportId) {
+            if (confirm('¿Estás seguro de que quieres eliminar este reporte?')) {
+                showLoading();
+                
+                try {
+                    console.log('🗑️ Intentando eliminar reporte:', reportId);
+                    
+                    // ✅ 1. ELIMINAR DE FIREBASE PRIMERO
+                    await db.collection('reports').doc(reportId).delete();
+                    console.log('✅ Reporte eliminado de Firebase');
+                    
+                    // ✅ 2. ELIMINAR DE LOS DATOS LOCALES
+                    reports = reports.filter(r => r.id !== reportId);
+                    
+                    // ✅ 3. MOSTRAR NOTIFICACIÓN
+                    showNotification('Reporte eliminado correctamente', 'success');
+                    
+                    // ✅ 4. RECARGAR VISTAS
+                    loadReports();
+                    updateDashboard();
+                    
+                } catch (error) {
+                    console.error('❌ Error eliminando reporte:', error);
+                    showNotification('Error al eliminar el reporte: ' + error.message, 'danger');
+                } finally {
+                    hideLoading();
+                }
+            }
         }
-    }
-}
+
         // ==================== GESTIÓN DE USUARIOS ====================
         function updateUsersTable() {
             const tbody = document.getElementById('usersTable');
@@ -4201,6 +4450,7 @@ async function verifyFirebaseConnection() {
         function loadUserData() {
             loadData();
             updateDashboard();
+            loadNotifications(); // ✅ CARGAR NOTIFICACIONES
             
             // Mostrar fecha actual
             const now = new Date();
@@ -4363,6 +4613,9 @@ async function verifyFirebaseConnection() {
             tasks.push(newTask);
             await saveTasks();
             
+            // ✅ NOTIFICACIÓN DE TAREA ASIGNADA
+            notifyTaskAssigned(newTask, newTask.assignee);
+            
             hideLoading();
             showNotification('Tarea creada correctamente', 'success');
             const addTaskModal = document.getElementById('addTaskModal');
@@ -4375,43 +4628,93 @@ async function verifyFirebaseConnection() {
         }
 
         async function createNewMaterial() {
-            const materialName = document.getElementById('materialNameModal').value;
+            const materialName = document.getElementById('materialNameModal').value.trim();
             const materialCategory = document.getElementById('materialCategory').value;
             const materialQuantity = parseInt(document.getElementById('materialQuantityModal').value);
-            const materialUnit = document.getElementById('materialUnit').value;
+            const materialUnit = document.getElementById('materialUnit').value.trim();
             const materialMinStock = parseInt(document.getElementById('materialMinStock').value);
-            const materialSupplier = document.getElementById('materialSupplier').value;
+            const materialSupplier = document.getElementById('materialSupplier').value.trim();
             const materialCost = parseFloat(document.getElementById('materialCost').value) || 0;
-            const materialLocation = document.getElementById('materialLocation').value;
-            const materialDescription = document.getElementById('materialDescription').value;
+            const materialLocation = document.getElementById('materialLocation').value.trim();
+            const materialDescription = document.getElementById('materialDescription').value.trim();
             
+            // Validaciones rápidas
             if (!materialName || !materialCategory || isNaN(materialQuantity) || !materialUnit || isNaN(materialMinStock)) {
                 showNotification('Completa todos los campos obligatorios', 'warning');
                 return;
             }
             
-            // Crear nuevo material
-            const newMaterial = {
-                id: generateId(),
-                name: materialName,
-                category: materialCategory,
-                quantity: materialQuantity,
-                unit: materialUnit,
-                minStock: materialMinStock,
-                supplier: materialSupplier,
-                cost: materialCost,
-                location: materialLocation,
-                description: materialDescription
-            };
+            if (materialQuantity < 0) {
+                showNotification('La cantidad no puede ser negativa', 'warning');
+                return;
+            }
             
-            inventory.push(newMaterial);
-            await saveInventory();
+            // ✅ VERIFICAR SI EL MATERIAL YA EXISTE (búsqueda case insensitive)
+            const existingMaterial = inventory.find(m => 
+                m.name.toLowerCase() === materialName.toLowerCase()
+            );
             
-            showNotification('Material creado correctamente', 'success');
-            const addMaterialModal = document.getElementById('addMaterialModal');
-            if (addMaterialModal) addMaterialModal.classList.remove('active');
-            loadInventory();
-            updateDashboard();
+            if (existingMaterial) {
+                showNotification(`El material "${materialName}" ya existe en el inventario`, 'danger');
+                
+                // Resaltar el campo en rojo
+                const nameInput = document.getElementById('materialNameModal');
+                nameInput.style.borderColor = 'var(--danger)';
+                nameInput.focus();
+                
+                return;
+            }
+            
+            showLoading();
+            
+            try {
+                // Crear nuevo material
+                const newMaterial = {
+                    id: generateId(),
+                    name: materialName,
+                    category: materialCategory,
+                    quantity: materialQuantity,
+                    unit: materialUnit,
+                    minStock: materialMinStock,
+                    supplier: materialSupplier,
+                    cost: materialCost,
+                    location: materialLocation,
+                    description: materialDescription,
+                    createdAt: new Date().toISOString()
+                };
+                
+                console.log('🆕 Agregando nuevo material:', newMaterial.name);
+                
+                // ✅ GUARDAR EN FIREBASE PRIMERO
+                await db.collection('inventory').doc(newMaterial.id).set(newMaterial);
+                console.log('✅ Material guardado en Firebase');
+                
+                // ✅ ACTUALIZAR DATOS LOCALES
+                inventory.push(newMaterial);
+                
+                // ✅ NOTIFICACIÓN DE ÉXITO
+                createNotification(
+                    'Material Agregado 📦',
+                    `"${newMaterial.name}" ha sido agregado al inventario`,
+                    'success',
+                    newMaterial.id
+                );
+                
+                showNotification('Material agregado correctamente', 'success');
+                
+                // Cerrar modal y recargar
+                const addMaterialModal = document.getElementById('addMaterialModal');
+                if (addMaterialModal) addMaterialModal.classList.remove('active');
+                
+                loadInventory();
+                updateDashboard();
+                
+            } catch (error) {
+                console.error('❌ Error agregando material:', error);
+                showNotification('Error al agregar el material: ' + error.message, 'danger');
+            } finally {
+                hideLoading();
+            }
         }
 
         // ==================== FUNCIONES FALTANTES ====================
@@ -4598,39 +4901,40 @@ async function verifyFirebaseConnection() {
             updateDashboard();
         }
 
-       async function deleteTask(taskId) {
-    if (confirm('¿Estás seguro de que quieres eliminar esta tarea?')) {
-        showLoading();
-        
-        try {
-            console.log('🗑️ Intentando eliminar tarea:', taskId);
-            
-            // ✅ 1. ELIMINAR DE FIREBASE PRIMERO
-            await db.collection('tasks').doc(taskId).delete();
-            console.log('✅ Tarea eliminada de Firebase');
-            
-            // ✅ 2. ELIMINAR DE LOS DATOS LOCALES
-            tasks = tasks.filter(t => t.id !== taskId);
-            
-            // ✅ 3. MOSTRAR NOTIFICACIÓN
-            showNotification('Tarea eliminada correctamente', 'success');
-            
-            // ✅ 4. RECARGAR VISTAS
-            if (currentPage === 'manage-tasks') {
-                loadAllTasks();
-            } else if (currentPage === 'tasks') {
-                loadMyTasks();
+        async function deleteTask(taskId) {
+            if (confirm('¿Estás seguro de que quieres eliminar esta tarea?')) {
+                showLoading();
+                
+                try {
+                    console.log('🗑️ Intentando eliminar tarea:', taskId);
+                    
+                    // ✅ 1. ELIMINAR DE FIREBASE PRIMERO
+                    await db.collection('tasks').doc(taskId).delete();
+                    console.log('✅ Tarea eliminada de Firebase');
+                    
+                    // ✅ 2. ELIMINAR DE LOS DATOS LOCALES
+                    tasks = tasks.filter(t => t.id !== taskId);
+                    
+                    // ✅ 3. MOSTRAR NOTIFICACIÓN
+                    showNotification('Tarea eliminada correctamente', 'success');
+                    
+                    // ✅ 4. RECARGAR VISTAS
+                    if (currentPage === 'manage-tasks') {
+                        loadAllTasks();
+                    } else if (currentPage === 'tasks') {
+                        loadMyTasks();
+                    }
+                    updateDashboard();
+                    
+                } catch (error) {
+                    console.error('❌ Error eliminando tarea:', error);
+                    showNotification('Error al eliminar la tarea: ' + error.message, 'danger');
+                } finally {
+                    hideLoading();
+                }
             }
-            updateDashboard();
-            
-        } catch (error) {
-            console.error('❌ Error eliminando tarea:', error);
-            showNotification('Error al eliminar la tarea: ' + error.message, 'danger');
-        } finally {
-            hideLoading();
         }
-    }
-}
+
         function openEditMaterialModal(materialId) {
             const material = inventory.find(m => m.id === materialId);
             if (!material) return;
@@ -4701,46 +5005,47 @@ async function verifyFirebaseConnection() {
             updateDashboard();
         }
 
-async function deleteMaterial(materialId) {
-    if (confirm('¿Estás seguro de que quieres eliminar este material?')) {
-        showLoading();
-        
-        try {
-            // Verificar si el material está siendo usado en alguna tarea
-            const isUsedInTasks = tasks.some(task => 
-                task.materials && task.materials.some(m => m.materialId === materialId)
-            );
-            
-            if (isUsedInTasks) {
-                showNotification('No se puede eliminar el material porque está siendo usado en una tarea', 'danger');
-                hideLoading();
-                return;
+        async function deleteMaterial(materialId) {
+            if (confirm('¿Estás seguro de que quieres eliminar este material?')) {
+                showLoading();
+                
+                try {
+                    // Verificar si el material está siendo usado en alguna tarea
+                    const isUsedInTasks = tasks.some(task => 
+                        task.materials && task.materials.some(m => m.materialId === materialId)
+                    );
+                    
+                    if (isUsedInTasks) {
+                        showNotification('No se puede eliminar el material porque está siendo usado en una tarea', 'danger');
+                        hideLoading();
+                        return;
+                    }
+                    
+                    console.log('🗑️ Intentando eliminar material:', materialId);
+                    
+                    // ✅ 1. ELIMINAR DE FIREBASE PRIMERO
+                    await db.collection('inventory').doc(materialId).delete();
+                    console.log('✅ Material eliminado de Firebase');
+                    
+                    // ✅ 2. ELIMINAR DE LOS DATOS LOCALES
+                    inventory = inventory.filter(m => m.id !== materialId);
+                    
+                    // ✅ 3. MOSTRAR NOTIFICACIÓN
+                    showNotification('Material eliminado correctamente', 'success');
+                    
+                    // ✅ 4. RECARGAR VISTAS
+                    loadInventory();
+                    updateDashboard();
+                    
+                } catch (error) {
+                    console.error('❌ Error eliminando material:', error);
+                    showNotification('Error al eliminar el material: ' + error.message, 'danger');
+                } finally {
+                    hideLoading();
+                }
             }
-            
-            console.log('🗑️ Intentando eliminar material:', materialId);
-            
-            // ✅ 1. ELIMINAR DE FIREBASE PRIMERO
-            await db.collection('inventory').doc(materialId).delete();
-            console.log('✅ Material eliminado de Firebase');
-            
-            // ✅ 2. ELIMINAR DE LOS DATOS LOCALES
-            inventory = inventory.filter(m => m.id !== materialId);
-            
-            // ✅ 3. MOSTRAR NOTIFICACIÓN
-            showNotification('Material eliminado correctamente', 'success');
-            
-            // ✅ 4. RECARGAR VISTAS
-            loadInventory();
-            updateDashboard();
-            
-        } catch (error) {
-            console.error('❌ Error eliminando material:', error);
-            showNotification('Error al eliminar el material: ' + error.message, 'danger');
-        } finally {
-            hideLoading();
         }
-    }
-}
+
         // ==================== FUNCIONES DE EXPORTACIÓN ====================
         function getTasksExportData(filteredTasks = tasks) {
             return filteredTasks.map(task => {
@@ -5553,8 +5858,47 @@ async function deleteMaterial(materialId) {
                     if (userFormError) userFormError.style.display = 'none';
                 });
             }
+
+            // ==================== CONFIGURACIÓN DE NOTIFICACIONES ====================
+
+            // Botón de notificaciones
+            const notificationBtn = document.getElementById('notificationBtn');
+            if (notificationBtn) {
+                notificationBtn.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    const dropdown = document.getElementById('notificationDropdown');
+                    if (dropdown) {
+                        dropdown.classList.toggle('active');
+                        loadNotificationDropdown();
+                    }
+                });
+            }
+
+            // Marcar todas como leídas
+            const markAllReadBtn = document.getElementById('markAllReadBtn');
+            if (markAllReadBtn) {
+                markAllReadBtn.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    markAllNotificationsAsRead();
+                });
+            }
+
+            // Cerrar dropdown al hacer clic fuera
+            document.addEventListener('click', function() {
+                const dropdown = document.getElementById('notificationDropdown');
+                if (dropdown) {
+                    dropdown.classList.remove('active');
+                }
+            });
+
+            // Prevenir que el dropdown se cierre al hacer clic dentro
+            const notificationDropdown = document.getElementById('notificationDropdown');
+            if (notificationDropdown) {
+                notificationDropdown.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                });
+            }
         });
     </script>
 </body>
 </html>
-
