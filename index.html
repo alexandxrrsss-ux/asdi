@@ -2177,6 +2177,17 @@
             console.error('Error inicializando Firebase:', error);
             document.getElementById('loginError').style.display = 'block';
         }
+async function verifyFirebaseConnection() {
+    try {
+        const testDoc = await db.collection('tasks').limit(1).get();
+        console.log('✅ Conexión a Firebase verificada correctamente');
+        return true;
+    } catch (error) {
+        console.error('❌ Error de conexión a Firebase:', error);
+        showNotification('Error de conexión con la base de datos', 'danger');
+        return false;
+    }
+}
 
         // ==================== VARIABLES GLOBALES ====================
         let currentUser = null;
@@ -3743,18 +3754,35 @@
             }
         }
 
-        async function deleteReport(reportId) {
-            if (confirm('¿Estás seguro de que quieres eliminar este reporte?')) {
-                reports = reports.filter(r => r.id !== reportId);
-                
-                await saveReports();
-                
-                showNotification('Reporte eliminado correctamente', 'success');
-                loadReports();
-                updateDashboard();
-            }
+      async function deleteReport(reportId) {
+    if (confirm('¿Estás seguro de que quieres eliminar este reporte?')) {
+        showLoading();
+        
+        try {
+            console.log('🗑️ Intentando eliminar reporte:', reportId);
+            
+            // ✅ 1. ELIMINAR DE FIREBASE PRIMERO
+            await db.collection('reports').doc(reportId).delete();
+            console.log('✅ Reporte eliminado de Firebase');
+            
+            // ✅ 2. ELIMINAR DE LOS DATOS LOCALES
+            reports = reports.filter(r => r.id !== reportId);
+            
+            // ✅ 3. MOSTRAR NOTIFICACIÓN
+            showNotification('Reporte eliminado correctamente', 'success');
+            
+            // ✅ 4. RECARGAR VISTAS
+            loadReports();
+            updateDashboard();
+            
+        } catch (error) {
+            console.error('❌ Error eliminando reporte:', error);
+            showNotification('Error al eliminar el reporte: ' + error.message, 'danger');
+        } finally {
+            hideLoading();
         }
-
+    }
+}
         // ==================== GESTIÓN DE USUARIOS ====================
         function updateUsersTable() {
             const tbody = document.getElementById('usersTable');
@@ -4570,21 +4598,39 @@
             updateDashboard();
         }
 
-        async function deleteTask(taskId) {
-            if (confirm('¿Estás seguro de que quieres eliminar esta tarea?')) {
-                tasks = tasks.filter(t => t.id !== taskId);
-                
-                await saveTasks();
-                
-                showNotification('Tarea eliminada correctamente', 'success');
-                
-                if (currentPage === 'manage-tasks') {
-                    loadAllTasks();
-                }
-                updateDashboard();
+       async function deleteTask(taskId) {
+    if (confirm('¿Estás seguro de que quieres eliminar esta tarea?')) {
+        showLoading();
+        
+        try {
+            console.log('🗑️ Intentando eliminar tarea:', taskId);
+            
+            // ✅ 1. ELIMINAR DE FIREBASE PRIMERO
+            await db.collection('tasks').doc(taskId).delete();
+            console.log('✅ Tarea eliminada de Firebase');
+            
+            // ✅ 2. ELIMINAR DE LOS DATOS LOCALES
+            tasks = tasks.filter(t => t.id !== taskId);
+            
+            // ✅ 3. MOSTRAR NOTIFICACIÓN
+            showNotification('Tarea eliminada correctamente', 'success');
+            
+            // ✅ 4. RECARGAR VISTAS
+            if (currentPage === 'manage-tasks') {
+                loadAllTasks();
+            } else if (currentPage === 'tasks') {
+                loadMyTasks();
             }
+            updateDashboard();
+            
+        } catch (error) {
+            console.error('❌ Error eliminando tarea:', error);
+            showNotification('Error al eliminar la tarea: ' + error.message, 'danger');
+        } finally {
+            hideLoading();
         }
-
+    }
+}
         function openEditMaterialModal(materialId) {
             const material = inventory.find(m => m.id === materialId);
             if (!material) return;
@@ -4655,38 +4701,46 @@
             updateDashboard();
         }
 
-        async function deleteMaterial(materialId) {
-            if (confirm('¿Estás seguro de que quieres eliminar este material?')) {
-                try {
-                    // Verificar si el material está siendo usado en alguna tarea
-                    const isUsedInTasks = tasks.some(task => 
-                        task.materials && task.materials.some(m => m.materialId === materialId)
-                    );
-                    
-                    if (isUsedInTasks) {
-                        showNotification('No se puede eliminar el material porque está siendo usado en una tarea', 'danger');
-                        return;
-                    }
-                    
-                    // ✅ ELIMINAR DE FIREBASE
-                    await db.collection('inventory').doc(materialId).delete();
-                    
-                    // ✅ ELIMINAR DE LOS DATOS LOCALES
-                    inventory = inventory.filter(m => m.id !== materialId);
-                    
-                    showNotification('Material eliminado correctamente', 'success');
-                    
-                    // ✅ RECARGAR LA VISTA
-                    loadInventory();
-                    updateDashboard();
-                    
-                } catch (error) {
-                    console.error('Error eliminando material:', error);
-                    showNotification('Error al eliminar el material: ' + error.message, 'danger');
-                }
+async function deleteMaterial(materialId) {
+    if (confirm('¿Estás seguro de que quieres eliminar este material?')) {
+        showLoading();
+        
+        try {
+            // Verificar si el material está siendo usado en alguna tarea
+            const isUsedInTasks = tasks.some(task => 
+                task.materials && task.materials.some(m => m.materialId === materialId)
+            );
+            
+            if (isUsedInTasks) {
+                showNotification('No se puede eliminar el material porque está siendo usado en una tarea', 'danger');
+                hideLoading();
+                return;
             }
+            
+            console.log('🗑️ Intentando eliminar material:', materialId);
+            
+            // ✅ 1. ELIMINAR DE FIREBASE PRIMERO
+            await db.collection('inventory').doc(materialId).delete();
+            console.log('✅ Material eliminado de Firebase');
+            
+            // ✅ 2. ELIMINAR DE LOS DATOS LOCALES
+            inventory = inventory.filter(m => m.id !== materialId);
+            
+            // ✅ 3. MOSTRAR NOTIFICACIÓN
+            showNotification('Material eliminado correctamente', 'success');
+            
+            // ✅ 4. RECARGAR VISTAS
+            loadInventory();
+            updateDashboard();
+            
+        } catch (error) {
+            console.error('❌ Error eliminando material:', error);
+            showNotification('Error al eliminar el material: ' + error.message, 'danger');
+        } finally {
+            hideLoading();
         }
-
+    }
+}
         // ==================== FUNCIONES DE EXPORTACIÓN ====================
         function getTasksExportData(filteredTasks = tasks) {
             return filteredTasks.map(task => {
@@ -5503,3 +5557,4 @@
     </script>
 </body>
 </html>
+
