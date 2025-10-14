@@ -4241,9 +4241,7 @@ function debugImages() {
 }
 
 // Para probar, puedes llamar: debugImages();
-
-        // ==================== INICIALIZACIÓN ====================
-        // ==================== INICIALIZACIÓN ====================
+ // ==================== INICIALIZACIÓN ====================
 document.addEventListener('DOMContentLoaded', function() {
     // Intentar cargar sesión (esto ahora carga los datos también)
     loadSession().then(sessionLoaded => {
@@ -4269,8 +4267,7 @@ document.addEventListener('DOMContentLoaded', function() {
         loadData();
     });
     
-    // EL RESTO DE TUS EVENT LISTENERS SE MANTIENE IGUAL AQUÍ
-    // Event listeners
+    // Event listeners (SOLO UNA VEZ)
     const loginForm = document.getElementById('loginForm');
     if (loginForm) loginForm.addEventListener('submit', handleLogin);
     
@@ -4284,22 +4281,6 @@ document.addEventListener('DOMContentLoaded', function() {
             if (sidebar) sidebar.classList.toggle('active');
         });
     }
-    
-    // ... Y TODOS LOS DEMÁS EVENT LISTENERS QUE YA TIENES            
-            // Event listeners
-            const loginForm = document.getElementById('loginForm');
-            if (loginForm) loginForm.addEventListener('submit', handleLogin);
-            
-            const logoutBtn = document.getElementById('logoutBtn');
-            if (logoutBtn) logoutBtn.addEventListener('click', handleLogout);
-            
-            const menuToggle = document.getElementById('menuToggle');
-            if (menuToggle) {
-                menuToggle.addEventListener('click', function() {
-                    const sidebar = document.getElementById('sidebar');
-                    if (sidebar) sidebar.classList.toggle('active');
-                });
-            }
             
             // Navegación
             document.querySelectorAll('.nav-item').forEach(item => {
