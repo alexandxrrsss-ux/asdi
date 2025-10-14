@@ -2604,7 +2604,7 @@ function compressImageForMobile(file, maxWidth = 800, quality = 0.7) {
 }
 
         // ==================== LOGIN ====================
-        function handleLogin(e) {
+        async function handleLogin(e){
             e.preventDefault();
             
             const usernameInput = document.getElementById('username');
