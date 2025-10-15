@@ -3560,116 +3560,131 @@
             }, 100);
         }
 
-        // ✅ FUNCIÓN ACTUALIZADA PARA USAR saveSingleTask
-        async function addMaterialToTaskAssignment(taskId) {
-            const materialId = document.getElementById('assignMaterialSelect').value;
-            const quantity = parseInt(document.getElementById('assignMaterialQuantity').value);
+async function addMaterialToTaskAssignment(taskId) {
+    const materialId = document.getElementById('assignMaterialSelect').value;
+    const quantity = parseInt(document.getElementById('assignMaterialQuantity').value);
 
-            if (!materialId || !quantity || quantity <= 0) {
-                showNotification('Selecciona un material y una cantidad válida', 'warning');
-                return;
-            }
+    if (!materialId || !quantity || quantity <= 0) {
+        showNotification('Selecciona un material y una cantidad válida', 'warning');
+        return;
+    }
 
-            const material = inventory.find(m => m.id === materialId);
-            if (!material) {
-                showNotification('Material no encontrada', 'danger');
-                return;
-            }
+    const material = inventory.find(m => m.id === materialId);
+    if (!material) {
+        showNotification('Material no encontrado', 'danger');
+        return;
+    }
 
-            // Buscar la tarea
-            const taskIndex = tasks.findIndex(t => t.id === taskId);
-            if (taskIndex === -1) {
-                showNotification('Tarea no encontrada', 'danger');
-                return;
-            }
+    const taskIndex = tasks.findIndex(t => t.id === taskId);
+    if (taskIndex === -1) {
+        showNotification('Tarea no encontrada', 'danger');
+        return;
+    }
 
-            // Verificar si ya está asignado (en los datos reales)
-            const alreadyAssigned = tasks[taskIndex].materials?.find(m => m.materialId === materialId);
-            if (alreadyAssigned) {
-                showNotification('Este material ya está asignado a la tarea', 'warning');
-                return;
-            }
+    // Verificar si ya está asignado
+    const alreadyAssigned = tasks[taskIndex].materials?.find(m => m.materialId === materialId);
+    if (alreadyAssigned) {
+        showNotification('Este material ya está asignado a la tarea', 'warning');
+        return;
+    }
 
-            // Verificar stock disponible
-            if (quantity > material.quantity) {
-                showNotification(`No hay suficiente stock. Disponible: ${material.quantity} ${material.unit}`, 'danger');
-                return;
-            }
+    // Verificar stock
+    if (quantity > material.quantity) {
+        showNotification(`No hay suficiente stock. Disponible: ${material.quantity} ${material.unit}`, 'danger');
+        return;
+    }
 
-            // ✅ AGREGAR A LOS DATOS REALES
-            if (!tasks[taskIndex].materials) {
-                tasks[taskIndex].materials = [];
-            }
-            
-            tasks[taskIndex].materials.push({
-                materialId: materialId,
-                quantity: quantity,
-                delivered: false
-            });
+    // ✅ 1. ACTUALIZAR INTERFAZ INMEDIATAMENTE (PRIMERO)
+    showNotification('Agregando material...', 'info');
+    
+    // ✅ 2. AGREGAR A DATOS LOCALES INMEDIATAMENTE
+    if (!tasks[taskIndex].materials) {
+        tasks[taskIndex].materials = [];
+    }
+    
+    tasks[taskIndex].materials.push({
+        materialId: materialId,
+        quantity: quantity,
+        delivered: false
+    });
 
-            // ✅ DESCONTAR DEL INVENTARIO
+    // ✅ 3. ACTUALIZAR INVENTARIO LOCAL INMEDIATAMENTE
+    const materialIndex = inventory.findIndex(m => m.id === materialId);
+    if (materialIndex !== -1) {
+        inventory[materialIndex].quantity -= quantity;
+    }
+
+    // ✅ 4. RECARGAR MODAL INMEDIATAMENTE (sin esperar Firebase)
+    openAssignMaterialsModal(taskId);
+
+    // ✅ 5. LIMPIAR FORMULARIO INMEDIATAMENTE
+    document.getElementById('assignMaterialSelect').value = '';
+    document.getElementById('assignMaterialQuantity').value = '1';
+    
+    // ✅ 6. MOSTRAR CONFIRMACIÓN INMEDIATA
+    showNotification('Material agregado correctamente', 'success');
+
+    // ✅ 7. GUARDAR EN FIREBASE EN SEGUNDO PLANO (DESPUÉS) - CORREGIDO
+    Promise.all([
+        saveInventory(), // ✅ CORREGIDO - FUNCIÓN QUE SÍ EXISTE
+        saveSingleTask(taskId) // ✅ CORREGIDO - FUNCIÓN QUE SÍ EXISTE
+    ]).catch(error => {
+        console.error('Error guardando en Firebase:', error);
+        showNotification('Error al guardar cambios en el servidor', 'danger');
+    });
+}
+async function removeAssignedMaterial(taskId, materialId) {
+    try {
+        const taskIndex = tasks.findIndex(t => t.id === taskId);
+        if (taskIndex === -1) {
+            showNotification('Error: Tarea no encontrada', 'danger');
+            return;
+        }
+
+        // ✅ 1. ACTUALIZAR INTERFAZ INMEDIATAMENTE (PRIMERO)
+        showNotification('Eliminando material...', 'info');
+
+        // ✅ 2. ENCONTRAR MATERIAL PARA RESTAURAR STOCK
+        const materialToRemove = tasks[taskIndex].materials.find(m => m.materialId === materialId);
+        let needToRestoreStock = false;
+        let restoreQuantity = 0;
+
+        if (materialToRemove) {
             const materialIndex = inventory.findIndex(m => m.id === materialId);
-            if (materialIndex !== -1) {
-                inventory[materialIndex].quantity -= quantity;
-                await saveInventory();
-            }
-
-            // ✅ ACTUALIZAR VISTA INMEDIATAMENTE
-            openAssignMaterialsModal(taskId);
-
-            // ✅ GUARDAR SOLO LA TAREA ESPECÍFICA EN SEGUNDO PLANO
-            saveSingleTask(taskId).catch(error => {
-                console.error('Error guardando tarea en Firebase:', error);
-                showNotification('Error al guardar cambios', 'danger');
-            });
-            
-            // Limpiar formulario
-            document.getElementById('assignMaterialSelect').value = '';
-            document.getElementById('assignMaterialQuantity').value = '1';
-            
-            showNotification('Material agregado correctamente', 'success');
-        }
-
-        // ✅ FUNCIÓN ACTUALIZADA PARA USAR saveSingleTask
-        async function removeAssignedMaterial(taskId, materialId) {
-            try {
-                const taskIndex = tasks.findIndex(t => t.id === taskId);
-                if (taskIndex === -1) {
-                    showNotification('Error: Tarea no encontrada', 'danger');
-                    return;
-                }
-
-                // Encontrar el material para restaurar stock
-                const materialToRemove = tasks[taskIndex].materials.find(m => m.materialId === materialId);
-                if (materialToRemove) {
-                    const materialIndex = inventory.findIndex(m => m.id === materialId);
-                    if (materialIndex !== -1 && !materialToRemove.delivered) {
-                        // Restaurar stock si no estaba entregado
-                        inventory[materialIndex].quantity += materialToRemove.quantity;
-                        await saveInventory();
-                    }
-                }
-
-                // Remover de la tarea
-                tasks[taskIndex].materials = tasks[taskIndex].materials.filter(m => m.materialId !== materialId);
-                
-                // ✅ ACTUALIZAR VISTA INMEDIATAMENTE
-                openAssignMaterialsModal(taskId);
-
-                // ✅ GUARDAR SOLO LA TAREA ESPECÍFICA EN SEGUNDO PLANO
-                saveSingleTask(taskId).catch(error => {
-                    console.error('Error guardando tarea en Firebase:', error);
-                    showNotification('Error al guardar cambios', 'danger');
-                });
-                
-                showNotification('Material eliminado correctamente', 'success');
-                
-            } catch (error) {
-                console.error('Error eliminando material:', error);
-                showNotification('Error al eliminar el material', 'danger');
+            if (materialIndex !== -1 && !materialToRemove.delivered) {
+                needToRestoreStock = true;
+                restoreQuantity = materialToRemove.quantity;
+                // ✅ 3. ACTUALIZAR INVENTARIO LOCAL INMEDIATAMENTE
+                inventory[materialIndex].quantity += restoreQuantity;
             }
         }
 
+        // ✅ 4. REMOVER DE LA TAREA INMEDIATAMENTE
+        tasks[taskIndex].materials = tasks[taskIndex].materials.filter(m => m.materialId !== materialId);
+        
+        // ✅ 5. RECARGAR MODAL INMEDIATAMENTE (sin esperar Firebase)
+        openAssignMaterialsModal(taskId);
+
+        // ✅ 6. MOSTRAR CONFIRMACIÓN INMEDIATA
+        showNotification('Material eliminado correctamente', 'success');
+
+        // ✅ 7. GUARDAR EN FIREBASE EN SEGUNDO PLANO (DESPUÉS) - CORREGIDO
+        const savePromises = [saveSingleTask(taskId)]; // ✅ CORREGIDO - FUNCIÓN QUE SÍ EXISTE
+        
+        if (needToRestoreStock) {
+            savePromises.push(saveInventory()); // ✅ CORREGIDO - FUNCIÓN QUE SÍ EXISTE
+        }
+
+        Promise.all(savePromises).catch(error => {
+            console.error('Error guardando en Firebase:', error);
+            showNotification('Error al guardar cambios en el servidor', 'danger');
+        });
+        
+    } catch (error) {
+        console.error('Error eliminando material:', error);
+        showNotification('Error al eliminar el material', 'danger');
+    }
+}
         async function saveMaterialsAssignment(taskId) {
             // ✅ FORZAR GUARDADO FINAL ANTES DE CERRAR
             await saveSingleTask(taskId);            
@@ -5970,3 +5985,4 @@
     </script>
 </body>
 </html>
+
