@@ -1072,10 +1072,19 @@
             margin-top: 10px;
             box-shadow: 0 3px 10px rgba(0,0,0,0.1);
             display: none;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            border: 2px solid transparent;
         }
 
         .image-preview.active {
             display: block;
+        }
+
+        .image-preview:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
+            border-color: var(--primary);
         }
 
         .image-container {
@@ -1093,6 +1102,171 @@
             justify-content: center;
             color: var(--gray);
             border: 2px dashed #ddd;
+        }
+
+        /* ========== MEJORAS PARA CARGA DE IMÁGENES ========== */
+        /* Overlay para progreso de carga */
+        .upload-progress-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.8);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 3000;
+        }
+
+        .upload-progress-content {
+            background: white;
+            padding: 2rem;
+            border-radius: 12px;
+            text-align: center;
+            max-width: 300px;
+            width: 90%;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+        }
+
+        /* Información del archivo */
+        .file-info {
+            background: #f8f9fa;
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            border-left: 4px solid var(--primary);
+            font-size: 0.9rem;
+        }
+
+        /* Barra de progreso */
+        .upload-progress {
+            margin: 15px 0;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            background: #e0e0e0;
+            border-radius: 4px;
+            overflow: hidden;
+            margin-bottom: 8px;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            width: 0%;
+            transition: width 0.3s ease;
+            animation: progressAnimation 1.5s infinite;
+        }
+
+        @keyframes progressAnimation {
+            0% { width: 0%; }
+            50% { width: 60%; }
+            100% { width: 100%; }
+        }
+
+        .progress-text {
+            font-size: 0.8rem;
+            color: var(--gray);
+            display: block;
+            text-align: center;
+        }
+
+        /* Modal para vista ampliada de imágenes */
+        .image-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.95);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 4000;
+            padding: 20px;
+        }
+
+        .image-modal.active {
+            display: flex;
+        }
+
+        .image-modal-content {
+            max-width: 95%;
+            max-height: 95%;
+            position: relative;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .image-modal-img {
+            max-width: 100%;
+            max-height: 95vh;
+            border-radius: 8px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+        }
+
+        .image-modal-close {
+            position: absolute;
+            top: -50px;
+            right: 0;
+            background: none;
+            border: none;
+            color: white;
+            font-size: 2.5rem;
+            cursor: pointer;
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: transform 0.3s ease;
+        }
+
+        .image-modal-close:hover {
+            transform: scale(1.1);
+        }
+
+        /* Estados de carga */
+        .loading-image {
+            opacity: 0.7;
+            filter: blur(3px);
+            transition: all 0.3s ease;
+        }
+
+        .loading-image.loaded {
+            opacity: 1;
+            filter: blur(0);
+        }
+
+        /* Mejoras para imágenes en móviles */
+        @media (max-width: 768px) {
+            .image-preview {
+                max-height: 250px;
+            }
+            
+            .upload-progress-content {
+                margin: 20px;
+                padding: 1.5rem;
+            }
+            
+            .file-info {
+                padding: 10px;
+                font-size: 0.85rem;
+            }
+            
+            .image-modal {
+                padding: 10px;
+            }
+            
+            .image-modal-close {
+                top: -40px;
+                right: -10px;
+                font-size: 2rem;
+            }
         }
 
         /* CORRECCIÓN: Mejorar la posición del menú en móviles */
@@ -2172,6 +2346,14 @@
                 <button class="btn btn-outline" id="cancelAssignBtn">Cancelar</button>
                 <button class="btn btn-primary" id="saveAssignBtn">Asignar Materiales</button>
             </div>
+        </div>
+    </div>
+
+    <!-- Modal para vista ampliada de imágenes -->
+    <div class="image-modal" id="imageModal">
+        <div class="image-modal-content">
+            <button class="image-modal-close">&times;</button>
+            <img class="image-modal-img" src="" alt="Vista ampliada">
         </div>
     </div>
 
@@ -3263,7 +3445,7 @@
                             <p style="font-weight: 600; margin-bottom: 0.5rem; color: var(--primary);">
                                 <i class="fas fa-image"></i> Imagen de la tarea:
                             </p>
-                            <img src="${task.imageUrl}" alt="Imagen de la tarea" 
+                            <img src="${task.imageUrl}" alt="Imagen de la tarea" class="image-preview active"
                                  style="max-width: 100%; max-height: 200px; border-radius: 8px; border: 2px solid #eee; box-shadow: 0 3px 10px rgba(0,0,0,0.1);">
                         </div>
                     `;
@@ -3560,131 +3742,133 @@
             }, 100);
         }
 
-async function addMaterialToTaskAssignment(taskId) {
-    const materialId = document.getElementById('assignMaterialSelect').value;
-    const quantity = parseInt(document.getElementById('assignMaterialQuantity').value);
+        async function addMaterialToTaskAssignment(taskId) {
+            const materialId = document.getElementById('assignMaterialSelect').value;
+            const quantity = parseInt(document.getElementById('assignMaterialQuantity').value);
 
-    if (!materialId || !quantity || quantity <= 0) {
-        showNotification('Selecciona un material y una cantidad válida', 'warning');
-        return;
-    }
+            if (!materialId || !quantity || quantity <= 0) {
+                showNotification('Selecciona un material y una cantidad válida', 'warning');
+                return;
+            }
 
-    const material = inventory.find(m => m.id === materialId);
-    if (!material) {
-        showNotification('Material no encontrado', 'danger');
-        return;
-    }
+            const material = inventory.find(m => m.id === materialId);
+            if (!material) {
+                showNotification('Material no encontrado', 'danger');
+                return;
+            }
 
-    const taskIndex = tasks.findIndex(t => t.id === taskId);
-    if (taskIndex === -1) {
-        showNotification('Tarea no encontrada', 'danger');
-        return;
-    }
+            const taskIndex = tasks.findIndex(t => t.id === taskId);
+            if (taskIndex === -1) {
+                showNotification('Tarea no encontrada', 'danger');
+                return;
+            }
 
-    // Verificar si ya está asignado
-    const alreadyAssigned = tasks[taskIndex].materials?.find(m => m.materialId === materialId);
-    if (alreadyAssigned) {
-        showNotification('Este material ya está asignado a la tarea', 'warning');
-        return;
-    }
+            // Verificar si ya está asignado
+            const alreadyAssigned = tasks[taskIndex].materials?.find(m => m.materialId === materialId);
+            if (alreadyAssigned) {
+                showNotification('Este material ya está asignado a la tarea', 'warning');
+                return;
+            }
 
-    // Verificar stock
-    if (quantity > material.quantity) {
-        showNotification(`No hay suficiente stock. Disponible: ${material.quantity} ${material.unit}`, 'danger');
-        return;
-    }
+            // Verificar stock
+            if (quantity > material.quantity) {
+                showNotification(`No hay suficiente stock. Disponible: ${material.quantity} ${material.unit}`, 'danger');
+                return;
+            }
 
-    // ✅ 1. ACTUALIZAR INTERFAZ INMEDIATAMENTE (PRIMERO)
-    showNotification('Agregando material...', 'info');
-    
-    // ✅ 2. AGREGAR A DATOS LOCALES INMEDIATAMENTE
-    if (!tasks[taskIndex].materials) {
-        tasks[taskIndex].materials = [];
-    }
-    
-    tasks[taskIndex].materials.push({
-        materialId: materialId,
-        quantity: quantity,
-        delivered: false
-    });
+            // ✅ 1. ACTUALIZAR INTERFAZ INMEDIATAMENTE (PRIMERO)
+            showNotification('Agregando material...', 'info');
+            
+            // ✅ 2. AGREGAR A DATOS LOCALES INMEDIATAMENTE
+            if (!tasks[taskIndex].materials) {
+                tasks[taskIndex].materials = [];
+            }
+            
+            tasks[taskIndex].materials.push({
+                materialId: materialId,
+                quantity: quantity,
+                delivered: false
+            });
 
-    // ✅ 3. ACTUALIZAR INVENTARIO LOCAL INMEDIATAMENTE
-    const materialIndex = inventory.findIndex(m => m.id === materialId);
-    if (materialIndex !== -1) {
-        inventory[materialIndex].quantity -= quantity;
-    }
+            // ✅ 3. ACTUALIZAR INVENTARIO LOCAL INMEDIATAMENTE
+            const materialIndex = inventory.findIndex(m => m.id === materialId);
+            if (materialIndex !== -1) {
+                inventory[materialIndex].quantity -= quantity;
+            }
 
-    // ✅ 4. RECARGAR MODAL INMEDIATAMENTE (sin esperar Firebase)
-    openAssignMaterialsModal(taskId);
+            // ✅ 4. RECARGAR MODAL INMEDIATAMENTE (sin esperar Firebase)
+            openAssignMaterialsModal(taskId);
 
-    // ✅ 5. LIMPIAR FORMULARIO INMEDIATAMENTE
-    document.getElementById('assignMaterialSelect').value = '';
-    document.getElementById('assignMaterialQuantity').value = '1';
-    
-    // ✅ 6. MOSTRAR CONFIRMACIÓN INMEDIATA
-    showNotification('Material agregado correctamente', 'success');
+            // ✅ 5. LIMPIAR FORMULARIO INMEDIATAMENTE
+            document.getElementById('assignMaterialSelect').value = '';
+            document.getElementById('assignMaterialQuantity').value = '1';
+            
+            // ✅ 6. MOSTRAR CONFIRMACIÓN INMEDIATA
+            showNotification('Material agregado correctamente', 'success');
 
-    // ✅ 7. GUARDAR EN FIREBASE EN SEGUNDO PLANO (DESPUÉS) - CORREGIDO
-    Promise.all([
-        saveInventory(), // ✅ CORREGIDO - FUNCIÓN QUE SÍ EXISTE
-        saveSingleTask(taskId) // ✅ CORREGIDO - FUNCIÓN QUE SÍ EXISTE
-    ]).catch(error => {
-        console.error('Error guardando en Firebase:', error);
-        showNotification('Error al guardar cambios en el servidor', 'danger');
-    });
-}
-async function removeAssignedMaterial(taskId, materialId) {
-    try {
-        const taskIndex = tasks.findIndex(t => t.id === taskId);
-        if (taskIndex === -1) {
-            showNotification('Error: Tarea no encontrada', 'danger');
-            return;
+            // ✅ 7. GUARDAR EN FIREBASE EN SEGUNDO PLANO (DESPUÉS) - CORREGIDO
+            Promise.all([
+                saveInventory(), // ✅ CORREGIDO - FUNCIÓN QUE SÍ EXISTE
+                saveSingleTask(taskId) // ✅ CORREGIDO - FUNCIÓN QUE SÍ EXISTE
+            ]).catch(error => {
+                console.error('Error guardando en Firebase:', error);
+                showNotification('Error al guardar cambios en el servidor', 'danger');
+            });
         }
 
-        // ✅ 1. ACTUALIZAR INTERFAZ INMEDIATAMENTE (PRIMERO)
-        showNotification('Eliminando material...', 'info');
+        async function removeAssignedMaterial(taskId, materialId) {
+            try {
+                const taskIndex = tasks.findIndex(t => t.id === taskId);
+                if (taskIndex === -1) {
+                    showNotification('Error: Tarea no encontrada', 'danger');
+                    return;
+                }
 
-        // ✅ 2. ENCONTRAR MATERIAL PARA RESTAURAR STOCK
-        const materialToRemove = tasks[taskIndex].materials.find(m => m.materialId === materialId);
-        let needToRestoreStock = false;
-        let restoreQuantity = 0;
+                // ✅ 1. ACTUALIZAR INTERFAZ INMEDIATAMENTE (PRIMERO)
+                showNotification('Eliminando material...', 'info');
 
-        if (materialToRemove) {
-            const materialIndex = inventory.findIndex(m => m.id === materialId);
-            if (materialIndex !== -1 && !materialToRemove.delivered) {
-                needToRestoreStock = true;
-                restoreQuantity = materialToRemove.quantity;
-                // ✅ 3. ACTUALIZAR INVENTARIO LOCAL INMEDIATAMENTE
-                inventory[materialIndex].quantity += restoreQuantity;
+                // ✅ 2. ENCONTRAR MATERIAL PARA RESTAURAR STOCK
+                const materialToRemove = tasks[taskIndex].materials.find(m => m.materialId === materialId);
+                let needToRestoreStock = false;
+                let restoreQuantity = 0;
+
+                if (materialToRemove) {
+                    const materialIndex = inventory.findIndex(m => m.id === materialId);
+                    if (materialIndex !== -1 && !materialToRemove.delivered) {
+                        needToRestoreStock = true;
+                        restoreQuantity = materialToRemove.quantity;
+                        // ✅ 3. ACTUALIZAR INVENTARIO LOCAL INMEDIATAMENTE
+                        inventory[materialIndex].quantity += restoreQuantity;
+                    }
+                }
+
+                // ✅ 4. REMOVER DE LA TAREA INMEDIATAMENTE
+                tasks[taskIndex].materials = tasks[taskIndex].materials.filter(m => m.materialId !== materialId);
+                
+                // ✅ 5. RECARGAR MODAL INMEDIATAMENTE (sin esperar Firebase)
+                openAssignMaterialsModal(taskId);
+
+                // ✅ 6. MOSTRAR CONFIRMACIÓN INMEDIATA
+                showNotification('Material eliminado correctamente', 'success');
+
+                // ✅ 7. GUARDAR EN FIREBASE EN SEGUNDO PLANO (DESPUÉS) - CORREGIDO
+                const savePromises = [saveSingleTask(taskId)]; // ✅ CORREGIDO - FUNCIÓN QUE SÍ EXISTE
+                
+                if (needToRestoreStock) {
+                    savePromises.push(saveInventory()); // ✅ CORREGIDO - FUNCIÓN QUE SÍ EXISTE
+                }
+
+                Promise.all(savePromises).catch(error => {
+                    console.error('Error guardando en Firebase:', error);
+                    showNotification('Error al guardar cambios en el servidor', 'danger');
+                });
+                
+            } catch (error) {
+                console.error('Error eliminando material:', error);
+                showNotification('Error al eliminar el material', 'danger');
             }
         }
 
-        // ✅ 4. REMOVER DE LA TAREA INMEDIATAMENTE
-        tasks[taskIndex].materials = tasks[taskIndex].materials.filter(m => m.materialId !== materialId);
-        
-        // ✅ 5. RECARGAR MODAL INMEDIATAMENTE (sin esperar Firebase)
-        openAssignMaterialsModal(taskId);
-
-        // ✅ 6. MOSTRAR CONFIRMACIÓN INMEDIATA
-        showNotification('Material eliminado correctamente', 'success');
-
-        // ✅ 7. GUARDAR EN FIREBASE EN SEGUNDO PLANO (DESPUÉS) - CORREGIDO
-        const savePromises = [saveSingleTask(taskId)]; // ✅ CORREGIDO - FUNCIÓN QUE SÍ EXISTE
-        
-        if (needToRestoreStock) {
-            savePromises.push(saveInventory()); // ✅ CORREGIDO - FUNCIÓN QUE SÍ EXISTE
-        }
-
-        Promise.all(savePromises).catch(error => {
-            console.error('Error guardando en Firebase:', error);
-            showNotification('Error al guardar cambios en el servidor', 'danger');
-        });
-        
-    } catch (error) {
-        console.error('Error eliminando material:', error);
-        showNotification('Error al eliminar el material', 'danger');
-    }
-}
         async function saveMaterialsAssignment(taskId) {
             // ✅ FORZAR GUARDADO FINAL ANTES DE CERRAR
             await saveSingleTask(taskId);            
@@ -4593,7 +4777,50 @@ async function removeAssignedMaterial(taskId, materialId) {
             }
         }
 
-        // ==================== FUNCIONES DE SUBIDA DE IMÁGENES ====================
+        // ==================== SISTEMA DE CARGA Y VISUALIZACIÓN DE IMÁGENES ====================
+
+        // ✅ NUEVA FUNCIÓN: Compresión de imágenes
+        function compressImage(dataUrl, quality = 0.7) {
+            return new Promise((resolve, reject) => {
+                const img = new Image();
+                img.src = dataUrl;
+                
+                img.onload = function() {
+                    const canvas = document.createElement('canvas');
+                    const ctx = canvas.getContext('2d');
+                    
+                    // ✅ Redimensionar si es muy grande (máximo 1200px en el lado más largo)
+                    let width = img.width;
+                    let height = img.height;
+                    const maxDimension = 1200;
+                    
+                    if (width > height && width > maxDimension) {
+                        height = (height * maxDimension) / width;
+                        width = maxDimension;
+                    } else if (height > maxDimension) {
+                        width = (width * maxDimension) / height;
+                        height = maxDimension;
+                    }
+                    
+                    canvas.width = width;
+                    canvas.height = height;
+                    
+                    ctx.drawImage(img, 0, 0, width, height);
+                    
+                    try {
+                        // ✅ Comprimir con calidad ajustable
+                        const compressedDataUrl = canvas.toDataURL('image/jpeg', quality);
+                        resolve(compressedDataUrl);
+                    } catch (error) {
+                        reject(error);
+                    }
+                };
+                
+                img.onerror = reject;
+            });
+        }
+
+        // ✅ NUEVA FUNCIÓN: Subir imagen optimizada
         async function uploadImage(file, folder) {
             return new Promise((resolve, reject) => {
                 if (!file) {
@@ -4601,19 +4828,302 @@ async function removeAssignedMaterial(taskId, materialId) {
                     return;
                 }
                 
+                // ✅ Validar tipo de archivo
+                const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
+                if (!validTypes.includes(file.type)) {
+                    reject(new Error('Tipo de archivo no válido. Use JPEG, PNG, GIF o WebP.'));
+                    return;
+                }
+                
+                // ✅ Limitar tamaño (5MB máximo)
+                const maxSize = 5 * 1024 * 1024; // 5MB
+                if (file.size > maxSize) {
+                    reject(new Error('La imagen es muy grande. Máximo 5MB.'));
+                    return;
+                }
+                
                 const reader = new FileReader();
+                
                 reader.onload = function(e) {
-                    resolve(e.target.result);
+                    // ✅ Comprimir imagen antes de guardar
+                    compressImage(e.target.result, 0.7) // 70% de calidad
+                        .then(compressedImage => {
+                            resolve(compressedImage);
+                        })
+                        .catch(error => {
+                            console.warn('Error en compresión, usando imagen original:', error);
+                            resolve(e.target.result); // Fallback a imagen original
+                        });
                 };
+                
                 reader.onerror = function(error) {
                     console.error('Error leyendo imagen:', error);
                     reject(error);
                 };
+                
                 reader.readAsDataURL(file);
             });
         }
 
-        // ==================== FUNCIONES DE CREACIÓN ====================
+        // ✅ NUEVA FUNCIÓN: Mostrar progreso de carga
+        function showImageUploadProgress(show) {
+            let progressOverlay = document.getElementById('imageUploadProgress');
+            
+            if (!progressOverlay && show) {
+                progressOverlay = document.createElement('div');
+                progressOverlay.id = 'imageUploadProgress';
+                progressOverlay.className = 'upload-progress-overlay';
+                progressOverlay.innerHTML = `
+                    <div class="upload-progress-content">
+                        <div class="spinner"></div>
+                        <p>Procesando imagen...</p>
+                        <p style="font-size: 0.9rem; color: var(--gray); margin-top: 10px;">
+                            Esto puede tomar unos segundos
+                        </p>
+                    </div>
+                `;
+                document.body.appendChild(progressOverlay);
+            }
+            
+            if (progressOverlay) {
+                progressOverlay.style.display = show ? 'flex' : 'none';
+            }
+        }
+
+        // ✅ NUEVA FUNCIÓN: Configurar handlers de carga de imágenes
+        function setupImageUploadHandlers() {
+            console.log('📸 Configurando handlers de carga de imágenes...');
+            
+            // Configurar todos los inputs de imagen
+            const imageInputs = [
+                { 
+                    input: 'taskImage', 
+                    preview: 'taskImagePreview', 
+                    placeholder: 'taskImagePlaceholder' 
+                },
+                { 
+                    input: 'reportImage', 
+                    preview: 'reportImagePreview', 
+                    placeholder: 'reportImagePlaceholder' 
+                }
+            ];
+            
+            imageInputs.forEach(config => {
+                const input = document.getElementById(config.input);
+                const preview = document.getElementById(config.preview);
+                const placeholder = document.getElementById(config.placeholder);
+                
+                if (input && preview && placeholder) {
+                    console.log(`✅ Configurando input: ${config.input}`);
+                    
+                    input.addEventListener('change', function(e) {
+                        const file = e.target.files[0];
+                        if (!file) {
+                            console.log('❌ No se seleccionó archivo');
+                            return;
+                        }
+                        
+                        console.log(`📁 Archivo seleccionado: ${file.name} (${(file.size / 1024 / 1024).toFixed(2)} MB)`);
+                        
+                        // Validar tipo de archivo
+                        const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
+                        if (!validTypes.includes(file.type)) {
+                            showNotification('Tipo de archivo no válido. Use JPEG, PNG, GIF o WebP.', 'danger');
+                            e.target.value = ''; // Limpiar input
+                            return;
+                        }
+                        
+                        // Validar tamaño (5MB máximo)
+                        const maxSize = 5 * 1024 * 1024;
+                        if (file.size > maxSize) {
+                            showNotification('La imagen es muy grande. Máximo 5MB.', 'danger');
+                            e.target.value = ''; // Limpiar input
+                            return;
+                        }
+                        
+                        // Mostrar información del archivo
+                        showFileInfo(file, placeholder, preview);
+                        
+                    });
+                } else {
+                    console.warn(`⚠️ No se encontraron elementos para: ${config.input}`);
+                }
+            });
+            
+            console.log('✅ Todos los handlers de imagen configurados');
+        }
+
+        // ✅ NUEVA FUNCIÓN: Mostrar información del archivo
+        function showFileInfo(file, placeholder, preview) {
+            // Ocultar placeholder
+            placeholder.style.display = 'none';
+            
+            // Crear contenedor de información
+            const fileInfo = document.createElement('div');
+            fileInfo.className = 'file-info';
+            fileInfo.innerHTML = `
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                    <span style="font-size: 0.9rem; color: var(--dark);">
+                        <i class="fas fa-file-image"></i> ${file.name}
+                    </span>
+                    <span style="font-size: 0.8rem; color: var(--gray);">
+                        ${(file.size / 1024 / 1024).toFixed(2)} MB
+                    </span>
+                </div>
+                <div class="upload-progress">
+                    <div class="progress-bar">
+                        <div class="progress-fill"></div>
+                    </div>
+                    <span class="progress-text">Procesando imagen...</span>
+                </div>
+            `;
+            
+            // Insertar antes del placeholder
+            placeholder.parentNode.insertBefore(fileInfo, placeholder);
+            
+            // Mostrar progreso
+            showImageUploadProgress(true);
+            
+            const reader = new FileReader();
+            
+            reader.onloadstart = function() {
+                console.log('🔄 Iniciando lectura del archivo...');
+            };
+            
+            reader.onload = function(e) {
+                console.log('✅ Archivo leído, comprimiendo...');
+                
+                // Comprimir imagen
+                compressImage(e.target.result, 0.7)
+                    .then(compressedImage => {
+                        console.log('✅ Imagen comprimida, mostrando vista previa...');
+                        
+                        // Mostrar vista previa
+                        preview.src = compressedImage;
+                        preview.classList.add('active');
+                        
+                        // Ocultar progreso después de un momento
+                        setTimeout(() => {
+                            fileInfo.remove();
+                            showImageUploadProgress(false);
+                            console.log('🎉 Imagen procesada correctamente');
+                        }, 1000);
+                        
+                    })
+                    .catch(error => {
+                        console.error('❌ Error en compresión:', error);
+                        
+                        // Usar imagen original como fallback
+                        preview.src = e.target.result;
+                        preview.classList.add('active');
+                        
+                        fileInfo.remove();
+                        showImageUploadProgress(false);
+                        showNotification('Imagen cargada (sin compresión)', 'warning');
+                    });
+            };
+            
+            reader.onerror = function(error) {
+                console.error('❌ Error leyendo archivo:', error);
+                fileInfo.remove();
+                showImageUploadProgress(false);
+                showNotification('Error al cargar la imagen', 'danger');
+                placeholder.style.display = 'flex';
+            };
+            
+            reader.readAsDataURL(file);
+        }
+
+        // ✅ NUEVA FUNCIÓN: Sistema de vista ampliada para imágenes
+        function setupImageModal() {
+            console.log('🖼️ Configurando modal de imágenes...');
+            
+            // Verificar si el modal ya existe
+            let imageModal = document.getElementById('imageModal');
+            
+            if (!imageModal) {
+                // Crear modal para vista ampliada
+                imageModal = document.createElement('div');
+                imageModal.id = 'imageModal';
+                imageModal.className = 'image-modal';
+                imageModal.innerHTML = `
+                    <div class="image-modal-content">
+                        <button class="image-modal-close">&times;</button>
+                        <img class="image-modal-img" src="" alt="Vista ampliada">
+                    </div>
+                `;
+                document.body.appendChild(imageModal);
+                console.log('✅ Modal de imágenes creado');
+            }
+            
+            // Event listeners para vistas previas
+            document.addEventListener('click', function(e) {
+                if (e.target.classList.contains('image-preview') && e.target.src) {
+                    console.log('📸 Abriendo imagen en modal...');
+                    openImageModal(e.target.src);
+                }
+            });
+            
+            // Cerrar modal con botón
+            const closeBtn = imageModal.querySelector('.image-modal-close');
+            if (closeBtn) {
+                closeBtn.addEventListener('click', function() {
+                    closeImageModal();
+                });
+            }
+            
+            // Cerrar modal al hacer clic fuera
+            imageModal.addEventListener('click', function(e) {
+                if (e.target === imageModal) {
+                    closeImageModal();
+                }
+            });
+            
+            // Cerrar modal con tecla ESC
+            document.addEventListener('keydown', function(e) {
+                if (e.key === 'Escape' && imageModal.classList.contains('active')) {
+                    closeImageModal();
+                }
+            });
+        }
+
+        function openImageModal(imageSrc) {
+            const imageModal = document.getElementById('imageModal');
+            const modalImg = imageModal.querySelector('.image-modal-img');
+            
+            if (imageModal && modalImg) {
+                // Mostrar loading
+                modalImg.src = '';
+                modalImg.alt = 'Cargando imagen...';
+                
+                // Cargar imagen
+                const img = new Image();
+                img.onload = function() {
+                    modalImg.src = imageSrc;
+                    modalImg.alt = 'Vista ampliada de la imagen';
+                    imageModal.classList.add('active');
+                    console.log('✅ Imagen cargada en modal');
+                };
+                
+                img.onerror = function() {
+                    console.error('❌ Error cargando imagen para modal');
+                    showNotification('Error al cargar la imagen ampliada', 'danger');
+                };
+                
+                img.src = imageSrc;
+            }
+        }
+
+        function closeImageModal() {
+            const imageModal = document.getElementById('imageModal');
+            if (imageModal) {
+                imageModal.classList.remove('active');
+                console.log('🔒 Modal de imágenes cerrado');
+            }
+        }
+
+        // ==================== FUNCIONES DE CREACIÓN DE TAREAS Y MATERIALES ====================
+
         async function createNewTask() {
             const taskName = document.getElementById('taskName').value;
             const taskDescription = document.getElementById('taskDescription').value;
@@ -4630,22 +5140,43 @@ async function removeAssignedMaterial(taskId, materialId) {
             
             showLoading();
             
-            // Subir imagen si existe
+            // ✅ NUEVO SISTEMA OPTIMIZADO PARA IMÁGENES
             let imageUrl = null;
             if (taskImage && taskImage.size > 0) {
                 try {
-                    console.log('Subiendo imagen...', taskImage.name);
+                    console.log('📸 Procesando imagen para tarea...', taskImage.name, `(${(taskImage.size / 1024 / 1024).toFixed(2)} MB)`);
+                    
+                    // Mostrar progreso específico para imágenes
+                    showImageUploadProgress(true);
+                    
+                    // Usar la nueva función optimizada de uploadImage
                     imageUrl = await uploadImage(taskImage, 'tasks');
-                    console.log('✅ Imagen subida correctamente:', imageUrl);
+                    console.log('✅ Imagen procesada y comprimida correctamente');
+                    
                 } catch (error) {
-                    console.error('❌ Error subiendo imagen:', error);
-                    showNotification('Error al subir la imagen, pero la tarea se creará sin imagen', 'warning');
+                    console.error('❌ Error procesando imagen:', error);
+                    
+                    // Preguntar al usuario si quiere continuar sin imagen
+                    const continueWithoutImage = confirm(
+                        `Error al procesar la imagen: ${error.message}\n\n¿Deseas continuar creando la tarea sin la imagen?`
+                    );
+                    
+                    if (!continueWithoutImage) {
+                        hideLoading();
+                        showImageUploadProgress(false);
+                        return; // El usuario decidió no continuar
+                    }
+                    
+                    showNotification('Tarea se creará sin imagen debido a errores en el procesamiento', 'warning');
+                } finally {
+                    // Ocultar progreso sin importar el resultado
+                    showImageUploadProgress(false);
                 }
             } else {
-                console.log('No hay imagen para subir o imagen vacía');
-            }            
+                console.log('ℹ️ No hay imagen para subir');
+            }
             
-            // Recopilar materiales
+            // Recopilar materiales (código existente)
             const materials = [];
             const materialsList = document.getElementById('taskMaterialsList');
             if (materialsList) {
@@ -4688,21 +5219,56 @@ async function removeAssignedMaterial(taskId, materialId) {
                 updatedAt: new Date().toISOString()
             };
             
-            tasks.push(newTask);
-            await saveTasks();
-            
-            // ✅ NOTIFICACIÓN DE TAREA ASIGNADA
-            notifyTaskAssigned(newTask, newTask.assignee);
-            
-            hideLoading();
-            showNotification('Tarea creada correctamente', 'success');
-            const addTaskModal = document.getElementById('addTaskModal');
-            if (addTaskModal) addTaskModal.classList.remove('active');
-            
-            if (currentPage === 'manage-tasks') {
-                loadAllTasks();
+            try {
+                // Guardar en Firebase
+                await saveTasks();
+                
+                // ✅ NOTIFICACIÓN DE TAREA ASIGNADA
+                notifyTaskAssigned(newTask, newTask.assignee);
+                
+                hideLoading();
+                
+                // Mensaje de éxito personalizado según si tiene imagen o no
+                const successMessage = imageUrl ? 
+                    'Tarea creada correctamente con imagen 📸' : 
+                    'Tarea creada correctamente ✅';
+                
+                showNotification(successMessage, 'success');
+                
+                // Cerrar modal
+                const addTaskModal = document.getElementById('addTaskModal');
+                if (addTaskModal) addTaskModal.classList.remove('active');
+                
+                // Limpiar formulario
+                const taskForm = document.getElementById('taskForm');
+                if (taskForm) taskForm.reset();
+                
+                // Limpiar vista previa de imagen
+                const taskImagePreview = document.getElementById('taskImagePreview');
+                const taskImagePlaceholder = document.getElementById('taskImagePlaceholder');
+                if (taskImagePreview) {
+                    taskImagePreview.src = '';
+                    taskImagePreview.classList.remove('active');
+                }
+                if (taskImagePlaceholder) {
+                    taskImagePlaceholder.style.display = 'flex';
+                }
+                
+                // Limpiar lista de materiales
+                const taskMaterialsList = document.getElementById('taskMaterialsList');
+                if (taskMaterialsList) taskMaterialsList.innerHTML = '';
+                
+                // Recargar vistas
+                if (currentPage === 'manage-tasks') {
+                    loadAllTasks();
+                }
+                updateDashboard();
+                
+            } catch (error) {
+                console.error('❌ Error guardando tarea en Firebase:', error);
+                hideLoading();
+                showNotification('Error al crear la tarea: ' + error.message, 'danger');
             }
-            updateDashboard();
         }
 
         async function createNewMaterial() {
@@ -5527,6 +6093,11 @@ async function removeAssignedMaterial(taskId, materialId) {
                 loadData();
             });
             
+            // ✅ INICIALIZAR NUEVAS FUNCIONALIDADES DE IMÁGENES
+            setupImageUploadHandlers();
+            setupImageModal();
+            console.log('✅ Todas las mejoras de imágenes inicializadas');
+            
             // Event listeners
             const loginForm = document.getElementById('loginForm');
             if (loginForm) loginForm.addEventListener('submit', handleLogin);
@@ -5705,51 +6276,6 @@ async function removeAssignedMaterial(taskId, materialId) {
                     } else {
                         if (materialSection) materialSection.style.display = 'none';
                         if (equipmentSection) equipmentSection.style.display = 'none';
-                    }
-                });
-            }
-            
-            // Vista previa de imágenes
-            const taskImageInput = document.getElementById('taskImage');
-            if (taskImageInput) {
-                taskImageInput.addEventListener('change', function() {
-                    const file = this.files[0];
-                    if (file) {
-                        const reader = new FileReader();
-                        reader.onload = function(e) {
-                            const preview = document.getElementById('taskImagePreview');
-                            const placeholder = document.getElementById('taskImagePlaceholder');
-                            if (preview) {
-                                preview.src = e.target.result;
-                                preview.classList.add('active');
-                            }
-                            if (placeholder) {
-                                placeholder.style.display = 'none';
-                            }
-                        };
-                        reader.readAsDataURL(file);
-                    }
-                });
-            }
-            
-            const reportImageInput = document.getElementById('reportImage');
-            if (reportImageInput) {
-                reportImageInput.addEventListener('change', function() {
-                    const file = this.files[0];
-                    if (file) {
-                        const reader = new FileReader();
-                        reader.onload = function(e) {
-                            const preview = document.getElementById('reportImagePreview');
-                            const placeholder = document.getElementById('reportImagePlaceholder');
-                            if (preview) {
-                                preview.src = e.target.result;
-                                preview.classList.add('active');
-                            }
-                            if (placeholder) {
-                                placeholder.style.display = 'none';
-                            }
-                        };
-                        reader.readAsDataURL(file);
                     }
                 });
             }
@@ -5985,4 +6511,3 @@ async function removeAssignedMaterial(taskId, materialId) {
     </script>
 </body>
 </html>
-
