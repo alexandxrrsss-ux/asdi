@@ -2607,7 +2607,7 @@
 
         // ==================== FUNCIONES FALTANTES CORREGIDAS ====================
 
-        // Función toggleMaterialDelivery que faltaba
+        // ✅ FUNCIÓN ÚNICA toggleMaterialDelivery CORREGIDA
         async function toggleMaterialDelivery(taskId, materialId) {
             const taskIndex = tasks.findIndex(t => t.id === taskId);
             if (taskIndex === -1) return;
@@ -2619,10 +2619,14 @@
             tasks[taskIndex].materials[materialIndex].delivered = 
                 !tasks[taskIndex].materials[materialIndex].delivered;
 
-            await saveTasks();
-            
-            // Recargar el modal para mostrar cambios
+            // ✅ ACTUALIZAR VISTA INMEDIATAMENTE (sin guardar en Firebase aún)
             openAssignMaterialsModal(taskId);
+
+            // ✅ GUARDAR EN FIREBASE EN SEGUNDO PLANO (sin esperar)
+            saveSingleTask(taskId).catch(error => {
+                console.error('Error guardando en Firebase:', error);
+                showNotification('Error al guardar cambios', 'danger');
+            });
             
             showNotification(`Material ${tasks[taskIndex].materials[materialIndex].delivered ? 'marcado como entregado' : 'marcado como pendiente'}`, 'success');
         }
@@ -2688,6 +2692,31 @@
                 }
             } catch (error) {
                 console.error('Error guardando tareas en Firebase:', error);
+                throw error;
+            }
+        }
+
+        // ✅ FUNCIÓN OPTIMIZADA PARA GUARDAR SOLO UNA TAREA ESPECÍFICA
+        async function saveSingleTask(taskId) {
+            try {
+                const task = tasks.find(t => t.id === taskId);
+                if (!task) return;
+                
+                await db.collection('tasks').doc(taskId).set({
+                    name: task.name,
+                    description: task.description,
+                    assignee: task.assignee,
+                    startDate: task.startDate,
+                    dueDate: task.dueDate,
+                    urgency: task.urgency,
+                    status: task.status,
+                    materials: task.materials || [],
+                    imageUrl: task.imageUrl || null,
+                    createdAt: task.createdAt,
+                    updatedAt: task.updatedAt
+                });
+            } catch (error) {
+                console.error('Error guardando tarea individual:', error);
                 throw error;
             }
         }
@@ -3309,7 +3338,7 @@
                 tasks[taskIndex].status = newStatus;
                 tasks[taskIndex].updatedAt = new Date().toISOString();
                 
-                await saveTasks();
+                await saveSingleTask(taskId);
                 
                 // ✅ NOTIFICACIÓN CUANDO SE COMPLETA UNA TAREA
                 if (newStatus === 'completed' && oldStatus !== 'completed') {
@@ -3531,6 +3560,7 @@
             }, 100);
         }
 
+        // ✅ FUNCIÓN ACTUALIZADA PARA USAR saveSingleTask
         async function addMaterialToTaskAssignment(taskId) {
             const materialId = document.getElementById('assignMaterialSelect').value;
             const quantity = parseInt(document.getElementById('assignMaterialQuantity').value);
@@ -3584,19 +3614,23 @@
                 await saveInventory();
             }
 
-            // ✅ GUARDAR TAREA EN FIREBASE
-            await saveTasks();
-
-            // ✅ ACTUALIZAR VISTA
+            // ✅ ACTUALIZAR VISTA INMEDIATAMENTE
             openAssignMaterialsModal(taskId);
+
+            // ✅ GUARDAR SOLO LA TAREA ESPECÍFICA EN SEGUNDO PLANO
+            saveSingleTask(taskId).catch(error => {
+                console.error('Error guardando tarea en Firebase:', error);
+                showNotification('Error al guardar cambios', 'danger');
+            });
             
             // Limpiar formulario
             document.getElementById('assignMaterialSelect').value = '';
             document.getElementById('assignMaterialQuantity').value = '1';
             
-            showNotification('Material agregado y guardado correctamente', 'success');
+            showNotification('Material agregado correctamente', 'success');
         }
 
+        // ✅ FUNCIÓN ACTUALIZADA PARA USAR saveSingleTask
         async function removeAssignedMaterial(taskId, materialId) {
             try {
                 const taskIndex = tasks.findIndex(t => t.id === taskId);
@@ -3619,13 +3653,16 @@
                 // Remover de la tarea
                 tasks[taskIndex].materials = tasks[taskIndex].materials.filter(m => m.materialId !== materialId);
                 
-                // ✅ GUARDAR EN FIREBASE INMEDIATAMENTE
-                await saveTasks();
-
-                // Recargar el modal para mostrar cambios
+                // ✅ ACTUALIZAR VISTA INMEDIATAMENTE
                 openAssignMaterialsModal(taskId);
+
+                // ✅ GUARDAR SOLO LA TAREA ESPECÍFICA EN SEGUNDO PLANO
+                saveSingleTask(taskId).catch(error => {
+                    console.error('Error guardando tarea en Firebase:', error);
+                    showNotification('Error al guardar cambios', 'danger');
+                });
                 
-                showNotification('Material eliminado y cambios guardados', 'success');
+                showNotification('Material eliminado correctamente', 'success');
                 
             } catch (error) {
                 console.error('Error eliminando material:', error);
@@ -3634,9 +3671,8 @@
         }
 
         async function saveMaterialsAssignment(taskId) {
-            // Los cambios YA están guardados automáticamente al agregar/eliminar
-            // Esta función solo cierra el modal
-            
+            // ✅ FORZAR GUARDADO FINAL ANTES DE CERRAR
+            await saveSingleTask(taskId);            
             const assignModal = document.getElementById('assignMaterialsModal');
             if (assignModal) assignModal.classList.remove('active');
             
@@ -4915,7 +4951,7 @@
                 updatedAt: new Date().toISOString()
             };
             
-            await saveTasks();
+            await saveSingleTask(taskId);
             
             hideLoading();
             showNotification('Tarea actualizada correctamente', 'success');
