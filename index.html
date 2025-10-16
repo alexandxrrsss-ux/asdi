@@ -1737,8 +1737,8 @@
                         </div>
                     </div>
 
-                    <!-- Materiales con stock bajo -->
-                    <div class="card" id="lowStockAlert" style="display: none;">
+                    <!-- Materiales con stock bajo - SOLO PARA ADMIN -->
+                    <div class="card admin-only" id="lowStockAlert" style="display: none;">
                         <div class="card-header">
                             <div class="card-title" style="color: var(--danger);">
                                 <i class="fas fa-exclamation-triangle"></i> Materiales con Stock Bajo
@@ -2395,231 +2395,6 @@
         let notifications = [];
         let currentPage = "dashboard";
 
-        // ==================== SISTEMA DE NOTIFICACIONES ====================
-
-        // Función para crear notificación
-        function createNotification(title, message, type = 'info', relatedId = null) {
-            const newNotification = {
-                id: generateId(),
-                title: title,
-                message: message,
-                type: type,
-                relatedId: relatedId,
-                read: false,
-                createdAt: new Date().toISOString()
-            };
-            
-            notifications.unshift(newNotification); // Agregar al inicio
-            updateNotificationBadge();
-            saveNotifications();
-            
-            // Mostrar notificación toast
-            showNotification(message, type);
-        }
-
-        // Actualizar badge de notificaciones
-        function updateNotificationBadge() {
-            const notificationCount = document.getElementById('notificationCount');
-            const unreadCount = notifications.filter(n => !n.read).length;
-            
-            if (notificationCount) {
-                if (unreadCount > 0) {
-                    notificationCount.textContent = unreadCount > 99 ? '99+' : unreadCount;
-                    notificationCount.style.display = 'flex';
-                } else {
-                    notificationCount.style.display = 'none';
-                }
-            }
-        }
-
-        // Cargar notificaciones en el dropdown
-        function loadNotificationDropdown() {
-            const notificationList = document.getElementById('notificationList');
-            if (!notificationList) return;
-            
-            if (notifications.length === 0) {
-                notificationList.innerHTML = '<div style="text-align: center; padding: 2rem; color: var(--gray);">No hay notificaciones</div>';
-                return;
-            }
-            
-            notificationList.innerHTML = '';
-            
-            notifications.slice(0, 20).forEach(notification => {
-                const notificationItem = document.createElement('div');
-                notificationItem.className = `notification-item ${notification.read ? '' : 'unread'}`;
-                notificationItem.setAttribute('data-notification-id', notification.id);
-                
-                const icon = getNotificationIcon(notification.type);
-                const timeAgo = getTimeAgo(notification.createdAt);
-                
-                notificationItem.innerHTML = `
-                    <div style="display: flex; align-items: flex-start; gap: 10px; width: 100%;">
-                        <div style="color: ${getNotificationColor(notification.type)}; font-size: 1.2rem;">
-                            <i class="${icon}"></i>
-                        </div>
-                        <div style="flex: 1;">
-                            <div style="font-weight: 600; margin-bottom: 2px;">${sanitizeInput(notification.title)}</div>
-                            <div style="color: var(--gray); font-size: 0.85rem;">${sanitizeInput(notification.message)}</div>
-                            <div style="color: var(--gray); font-size: 0.75rem; margin-top: 3px;">${timeAgo}</div>
-                        </div>
-                        ${!notification.read ? '<div style="width: 8px; height: 8px; background: var(--primary); border-radius: 50%; flex-shrink: 0; margin-top: 5px;"></div>' : ''}
-                    </div>
-                `;
-                
-                notificationList.appendChild(notificationItem);
-                
-                // Event listener para marcar como leída al hacer clic
-                notificationItem.addEventListener('click', function() {
-                    markNotificationAsRead(notification.id);
-                    // Aquí podrías redirigir a la página relevante según el tipo de notificación
-                });
-            });
-        }
-
-        // Funciones auxiliares para notificaciones
-        function getNotificationIcon(type) {
-            const icons = {
-                'success': 'fas fa-check-circle',
-                'warning': 'fas fa-exclamation-triangle',
-                'danger': 'fas fa-times-circle',
-                'info': 'fas fa-info-circle',
-                'task': 'fas fa-tasks',
-                'report': 'fas fa-flag',
-                'material': 'fas fa-boxes'
-            };
-            return icons[type] || 'fas fa-bell';
-        }
-
-        function getNotificationColor(type) {
-            const colors = {
-                'success': 'var(--success)',
-                'warning': 'var(--warning)',
-                'danger': 'var(--danger)',
-                'info': 'var(--primary)',
-                'task': '#4361ee',
-                'report': '#f72585',
-                'material': '#06d6a0'
-            };
-            return colors[type] || 'var(--gray)';
-        }
-
-        function getTimeAgo(dateString) {
-            const date = new Date(dateString);
-            const now = new Date();
-            const diffMs = now - date;
-            const diffMins = Math.floor(diffMs / 60000);
-            const diffHours = Math.floor(diffMs / 3600000);
-            const diffDays = Math.floor(diffMs / 86400000);
-            
-            if (diffMins < 1) return 'Ahora mismo';
-            if (diffMins < 60) return `Hace ${diffMins} minuto${diffMins > 1 ? 's' : ''}`;
-            if (diffHours < 24) return `Hace ${diffHours} hora${diffHours > 1 ? 's' : ''}`;
-            if (diffDays < 7) return `Hace ${diffDays} día${diffDays > 1 ? 's' : ''}`;
-            return date.toLocaleDateString('es-ES');
-        }
-
-        // Marcar notificación como leída
-        function markNotificationAsRead(notificationId) {
-            const notificationIndex = notifications.findIndex(n => n.id === notificationId);
-            if (notificationIndex !== -1) {
-                notifications[notificationIndex].read = true;
-                updateNotificationBadge();
-                saveNotifications();
-                loadNotificationDropdown();
-            }
-        }
-
-        // Marcar todas como leídas
-        function markAllNotificationsAsRead() {
-            notifications.forEach(notification => {
-                notification.read = true;
-            });
-            updateNotificationBadge();
-            saveNotifications();
-            loadNotificationDropdown();
-            showNotification('Todas las notificaciones marcadas como leídas', 'success');
-        }
-
-        // Guardar notificaciones en localStorage
-        function saveNotifications() {
-            if (currentUser) {
-                localStorage.setItem(`notifications_${currentUser.username}`, JSON.stringify(notifications));
-            }
-        }
-
-        // Cargar notificaciones desde localStorage
-        function loadNotifications() {
-            if (currentUser) {
-                const savedNotifications = localStorage.getItem(`notifications_${currentUser.username}`);
-                if (savedNotifications) {
-                    notifications = JSON.parse(savedNotifications);
-                }
-            }
-            updateNotificationBadge();
-        }
-
-        // ==================== NOTIFICACIONES AUTOMÁTICAS ====================
-
-        // Notificación cuando se completa una tarea
-        function notifyTaskCompleted(task) {
-            if (currentUser.role === 'admin') {
-                const assignee = users.find(u => u.username === task.assignee);
-                createNotification(
-                    'Tarea Completada ✅',
-                    `La tarea "${task.name}" ha sido completada por ${assignee?.name || task.assignee}`,
-                    'success',
-                    task.id
-                );
-            }
-        }
-
-        // Notificación cuando se crea un reporte
-        function notifyNewReport(report) {
-            if (currentUser.role === 'admin') {
-                const reporter = users.find(u => u.username === report.reporter);
-                createNotification(
-                    'Nuevo Reporte 🚩',
-                    `${reporter?.name || report.reporter} ha reportado: ${report.title}`,
-                    'warning',
-                    report.id
-                );
-            }
-        }
-
-        // Notificación cuando se resuelve un reporte
-        function notifyReportResolved(report) {
-            const reporter = users.find(u => u.username === report.reporter);
-            createNotification(
-                'Reporte Resuelto ✅',
-                `Tu reporte "${report.title}" ha sido resuelto`,
-                'success',
-                report.id
-            );
-        }
-
-        // Notificación de stock bajo
-        function notifyLowStock(material) {
-            createNotification(
-                'Stock Bajo ⚠️',
-                `El material "${material.name}" tiene stock bajo: ${material.quantity} ${material.unit}`,
-                'danger',
-                material.id
-            );
-        }
-
-        // Notificación cuando se asigna una tarea
-        function notifyTaskAssigned(task, assigneeUsername) {
-            if (currentUser.username !== assigneeUsername) {
-                const assignee = users.find(u => u.username === assigneeUsername);
-                createNotification(
-                    'Tarea Asignada 📋',
-                    `Se te ha asignado la tarea: "${task.name}"`,
-                    'task',
-                    task.id
-                );
-            }
-        }
-
         // ==================== FUNCIONES DE UTILIDAD ====================
         function generateId() {
             return Date.now() + '-' + Math.random().toString(36).substr(2, 9);
@@ -3013,6 +2788,16 @@
                     el.style.display = user.role === 'admin' ? 'flex' : 'none';
                 });
                 
+                // ✅ CORRECCIÓN: Para trabajadores, mostrar solo el menú de tareas
+                if (user.role === 'worker') {
+                    document.querySelectorAll('.nav-item').forEach(item => {
+                        const page = item.getAttribute('data-page');
+                        if (page !== 'tasks' && page !== 'reports' && page !== 'change-password' && page !== 'dashboard') {
+                            item.style.display = 'none';
+                        }
+                    });
+                }
+                
                 loadUserData();
                 showNotification(`Bienvenido ${user.name}`, 'success');
             } else {
@@ -3212,6 +2997,16 @@
                             el.style.display = currentUser.role === 'admin' ? 'flex' : 'none';
                         });
                         
+                        // ✅ CORRECCIÓN: Para trabajadores, mostrar solo el menú de tareas
+                        if (currentUser.role === 'worker') {
+                            document.querySelectorAll('.nav-item').forEach(item => {
+                                const page = item.getAttribute('data-page');
+                                if (page !== 'tasks' && page !== 'reports' && page !== 'change-password' && page !== 'dashboard') {
+                                    item.style.display = 'none';
+                                }
+                            });
+                        }
+                        
                         // Configurar escuchas en tiempo real
                         await setupRealTimeListeners();
                         updateDashboard();
@@ -3242,7 +3037,7 @@
                         );
                         
                         if (!recentNotification) {
-                            notifyLowStock(material);
+                            // notifyLowStock(material);
                         }
                     }
                 });
@@ -3302,8 +3097,10 @@
             if (totalReportsEl) totalReportsEl.textContent = reports.filter(r => r.status === 'pending').length;
             if (totalMaterialsEl) totalMaterialsEl.textContent = inventory.length;
 
-            // Actualizar alertas de stock bajo
-            updateLowStockAlerts();
+            // Actualizar alertas de stock bajo - SOLO PARA ADMIN
+            if (currentUser.role === 'admin') {
+                updateLowStockAlerts();
+            }
 
             const recentTasks = userTasks.slice(-5).reverse();
             const tbody = document.getElementById('recentTasksTable');
@@ -3521,11 +3318,6 @@
                 tasks[taskIndex].updatedAt = new Date().toISOString();
                 
                 await saveSingleTask(taskId);
-                
-                // ✅ NOTIFICACIÓN CUANDO SE COMPLETA UNA TAREA
-                if (newStatus === 'completed' && oldStatus !== 'completed') {
-                    notifyTaskCompleted(tasks[taskIndex]);
-                }
                 
                 showNotification(`Estado actualizado a: ${getStatusText(newStatus)}`, 'success');
                 
@@ -3966,7 +3758,12 @@
                 container.appendChild(card);
             });
 
-            // Event listeners para botones de cantidad
+            // ✅ CORRECCIÓN: Event listeners optimizados para mejor rendimiento
+            setupInventoryEventListeners();
+        }
+
+        function setupInventoryEventListeners() {
+            // Event listeners para botones de cantidad - OPTIMIZADO
             document.querySelectorAll('.decrease-btn').forEach(btn => {
                 btn.addEventListener('click', function() {
                     const materialId = this.getAttribute('data-material-id');
@@ -3996,17 +3793,32 @@
             });
         }
 
+        // ✅ CORRECCIÓN: Función optimizada para actualizar cantidad de materiales
         async function updateMaterialQuantity(materialId, change) {
             const materialIndex = inventory.findIndex(m => m.id === materialId);
             if (materialIndex !== -1) {
                 const newQuantity = inventory[materialIndex].quantity + change;
                 if (newQuantity >= 0) {
-                    inventory[materialIndex].quantity = newQuantity;
-                    await saveInventory();
+                    // ✅ ACTUALIZACIÓN INMEDIATA EN LA INTERFAZ
+                    const quantityDisplay = document.querySelector(`[data-material-id="${materialId}"]`).closest('.inventory-card').querySelector('.quantity-display');
+                    if (quantityDisplay) {
+                        quantityDisplay.textContent = newQuantity;
+                    }
                     
-                    loadInventory();
+                    // ✅ ACTUALIZAR DATOS LOCALES
+                    inventory[materialIndex].quantity = newQuantity;
+                    
+                    // ✅ GUARDAR EN FIREBASE EN SEGUNDO PLANO
+                    saveInventory().then(() => {
+                        showNotification(`Cantidad actualizada: ${newQuantity}`, 'success');
+                    }).catch(error => {
+                        console.error('Error guardando inventario:', error);
+                        showNotification('Error al guardar cambios', 'danger');
+                    });
+                    
+                    // ✅ ACTUALIZAR ESTADÍSTICAS
+                    updateInventoryStats();
                     updateDashboard();
-                    showNotification(`Cantidad actualizada: ${newQuantity}`, 'success');
                 } else {
                     showNotification('La cantidad no puede ser menor a 0', 'warning');
                 }
@@ -4098,9 +3910,6 @@
             
             reports.push(newReport);
             await saveReports();
-            
-            // ✅ NOTIFICACIÓN DE NUEVO REPORTE
-            notifyNewReport(newReport);
             
             hideLoading();
             showNotification('Reporte enviado correctamente', 'success');
@@ -4254,9 +4063,6 @@
                 reports[reportIndex].resolvedAt = new Date().toISOString();
                 
                 await saveReports();
-                
-                // ✅ NOTIFICACIÓN DE REPORTE RESUELTO
-                notifyReportResolved(reports[reportIndex]);
                 
                 showNotification('Reporte marcado como resuelto', 'success');
                 loadReports();
@@ -4712,7 +4518,6 @@
         function loadUserData() {
             loadData();
             updateDashboard();
-            loadNotifications(); // ✅ CARGAR NOTIFICACIONES
             
             // Mostrar fecha actual
             const now = new Date();
@@ -5223,9 +5028,6 @@
                 // Guardar en Firebase
                 await saveTasks();
                 
-                // ✅ NOTIFICACIÓN DE TAREA ASIGNADA
-                notifyTaskAssigned(newTask, newTask.assignee);
-                
                 hideLoading();
                 
                 // Mensaje de éxito personalizado según si tiene imagen o no
@@ -5335,14 +5137,6 @@
                 
                 // ✅ ACTUALIZAR DATOS LOCALES
                 inventory.push(newMaterial);
-                
-                // ✅ NOTIFICACIÓN DE ÉXITO
-                createNotification(
-                    'Material Agregado 📦',
-                    `"${newMaterial.name}" ha sido agregado al inventario`,
-                    'success',
-                    newMaterial.id
-                );
                 
                 showNotification('Material agregado correctamente', 'success');
                 
@@ -6069,30 +5863,6 @@
 
         // ==================== INICIALIZACIÓN ====================
         document.addEventListener('DOMContentLoaded', function() {
-            // Intentar cargar sesión
-            loadSession().then(sessionLoaded => {
-                if (!sessionLoaded) {
-                    const loginScreen = document.getElementById('loginScreen');
-                    const app = document.getElementById('app');
-                    if (loginScreen && app) {
-                        loginScreen.style.display = 'flex';
-                        app.style.display = 'none';
-                    }
-                    
-                    // Cargar datos iniciales para el login
-                    loadData();
-                }
-            }).catch(error => {
-                console.error('Error en inicialización:', error);
-                const loginScreen = document.getElementById('loginScreen');
-                const app = document.getElementById('app');
-                if (loginScreen && app) {
-                    loginScreen.style.display = 'flex';
-                    app.style.display = 'none';
-                }
-                loadData();
-            });
-            
             // ✅ INICIALIZAR NUEVAS FUNCIONALIDADES DE IMÁGENES
             setupImageUploadHandlers();
             setupImageModal();
@@ -6468,45 +6238,29 @@
                 });
             }
 
-            // ==================== CONFIGURACIÓN DE NOTIFICACIONES ====================
-
-            // Botón de notificaciones
-            const notificationBtn = document.getElementById('notificationBtn');
-            if (notificationBtn) {
-                notificationBtn.addEventListener('click', function(e) {
-                    e.stopPropagation();
-                    const dropdown = document.getElementById('notificationDropdown');
-                    if (dropdown) {
-                        dropdown.classList.toggle('active');
-                        loadNotificationDropdown();
+            // Intentar cargar sesión
+            loadSession().then(sessionLoaded => {
+                if (!sessionLoaded) {
+                    const loginScreen = document.getElementById('loginScreen');
+                    const app = document.getElementById('app');
+                    if (loginScreen && app) {
+                        loginScreen.style.display = 'flex';
+                        app.style.display = 'none';
                     }
-                });
-            }
-
-            // Marcar todas como leídas
-            const markAllReadBtn = document.getElementById('markAllReadBtn');
-            if (markAllReadBtn) {
-                markAllReadBtn.addEventListener('click', function(e) {
-                    e.stopPropagation();
-                    markAllNotificationsAsRead();
-                });
-            }
-
-            // Cerrar dropdown al hacer clic fuera
-            document.addEventListener('click', function() {
-                const dropdown = document.getElementById('notificationDropdown');
-                if (dropdown) {
-                    dropdown.classList.remove('active');
+                    
+                    // Cargar datos iniciales para el login
+                    loadData();
                 }
+            }).catch(error => {
+                console.error('Error en inicialización:', error);
+                const loginScreen = document.getElementById('loginScreen');
+                const app = document.getElementById('app');
+                if (loginScreen && app) {
+                    loginScreen.style.display = 'flex';
+                    app.style.display = 'none';
+                }
+                loadData();
             });
-
-            // Prevenir que el dropdown se cierre al hacer clic dentro
-            const notificationDropdown = document.getElementById('notificationDropdown');
-            if (notificationDropdown) {
-                notificationDropdown.addEventListener('click', function(e) {
-                    e.stopPropagation();
-                });
-            }
         });
     </script>
 </body>
