@@ -2630,36 +2630,14 @@
             }
         }
 
-        async function saveTasks() {
+     async function saveTasks() {
+    try {
+        console.log('💾 Guardando todas las tareas en Firebase...');
+        console.log('Total de tareas a guardar:', tasks.length);
+        
+        const savePromises = tasks.map(async (task) => {
             try {
-                for (const task of tasks) {
-                    await db.collection('tasks').doc(task.id).set({
-                        name: task.name,
-                        description: task.description,
-                        assignee: task.assignee,
-                        startDate: task.startDate,
-                        dueDate: task.dueDate,
-                        urgency: task.urgency,
-                        status: task.status,
-                        materials: task.materials || [],
-                        imageUrl: task.imageUrl || null,
-                        createdAt: task.createdAt,
-                        updatedAt: task.updatedAt
-                    });
-                }
-            } catch (error) {
-                console.error('Error guardando tareas en Firebase:', error);
-                throw error;
-            }
-        }
-
-        // ✅ FUNCIÓN OPTIMIZADA PARA GUARDAR SOLO UNA TAREA ESPECÍFICA
-        async function saveSingleTask(taskId) {
-            try {
-                const task = tasks.find(t => t.id === taskId);
-                if (!task) return;
-                
-                await db.collection('tasks').doc(taskId).set({
+                await db.collection('tasks').doc(task.id).set({
                     name: task.name,
                     description: task.description,
                     assignee: task.assignee,
@@ -2672,11 +2650,54 @@
                     createdAt: task.createdAt,
                     updatedAt: task.updatedAt
                 });
+                console.log(`✅ Tarea "${task.name}" guardada en Firebase (ID: ${task.id})`);
+                return true;
             } catch (error) {
-                console.error('Error guardando tarea individual:', error);
+                console.error(`❌ Error guardando tarea "${task.name}":`, error);
                 throw error;
             }
+        });
+        
+        await Promise.all(savePromises);
+        console.log('✅ Todas las tareas guardadas correctamente en Firebase');
+        
+    } catch (error) {
+        console.error('❌ Error guardando tareas en Firebase:', error);
+        throw error;
+    }
+}
+
+       async function saveSingleTask(taskId) {
+    try {
+        const task = tasks.find(t => t.id === taskId);
+        if (!task) {
+            console.error('❌ Tarea no encontrada para guardar:', taskId);
+            return;
         }
+        
+        console.log('💾 Guardando tarea individual:', task.name);
+        
+        await db.collection('tasks').doc(taskId).set({
+            name: task.name,
+            description: task.description,
+            assignee: task.assignee,
+            startDate: task.startDate,
+            dueDate: task.dueDate,
+            urgency: task.urgency,
+            status: task.status,
+            materials: task.materials || [],
+            imageUrl: task.imageUrl || null,
+            createdAt: task.createdAt,
+            updatedAt: task.updatedAt
+        });
+        
+        console.log('✅ Tarea individual guardada en Firebase:', task.name);
+        
+    } catch (error) {
+        console.error('❌ Error guardando tarea individual:', error);
+        throw error;
+    }
+}
 
         async function saveReports() {
             try {
@@ -3332,86 +3353,104 @@
             }
         }
 
-        // ==================== GESTIÓN COMPLETA DE TAREAS ====================
-        function loadAllTasks() {
-            const tbody = document.getElementById('allTasksTable');
-            if (!tbody) return;
-            
-            tbody.innerHTML = '';
+  function loadAllTasks() {
+    console.log('📋 Cargando todas las tareas...');
+    console.log('Total de tareas en array local:', tasks.length);
+    console.log('Tareas disponibles:', tasks);
+    
+    const tbody = document.getElementById('allTasksTable');
+    if (!tbody) {
+        console.error('❌ No se encontró el elemento allTasksTable');
+        return;
+    }
+    
+    tbody.innerHTML = '';
 
-            if (tasks.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 2rem; color: var(--gray);">No hay tareas registradas</td></tr>';
-                return;
-            }
+    if (tasks.length === 0) {
+        console.log('ℹ️ No hay tareas registradas');
+        tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 2rem; color: var(--gray);">No hay tareas registradas</td></tr>';
+        return;
+    }
 
-            tasks.forEach(task => {
-                const assignee = users.find(u => u.username === task.assignee);
-                
-                // Obtener información de materiales
-                const materialsText = task.materials && task.materials.length > 0 
-                    ? task.materials.map(m => {
-                        const material = inventory.find(mat => mat.id === m.materialId);
-                        return material ? `${material.name} (${m.quantity} ${material.unit})` : '';
-                    }).filter(Boolean).join(', ')
-                    : 'Ninguno';
+    console.log('🎯 Mostrando', tasks.length, 'tareas en la tabla');
 
-                const row = document.createElement('tr');
-                row.innerHTML = `
-                    <td>
-                        <div><strong>${sanitizeInput(task.name)}</strong></div>
-                        <div style="font-size: 0.9rem; color: var(--gray);">${sanitizeInput(task.description).substring(0, 50)}...</div>
-                    </td>
-                    <td>${assignee?.name || task.assignee}</td>
-                    <td>${formatDate(task.dueDate)}</td>
-                    <td><span class="badge badge-${task.status}">${getStatusText(task.status)}</span></td>
-                    <td><span class="badge badge-${task.urgency}">${getUrgencyText(task.urgency)}</span></td>
-                    <td>${materialsText}</td>
-                    <td style="white-space: nowrap;">
-                        <button class="btn btn-outline edit-task-btn" data-task-id="${task.id}" style="margin-bottom: 5px;">
-                            <i class="fas fa-edit"></i> Editar
-                        </button>
-                        ${currentUser.role === 'admin' ? `
-                        <button class="btn btn-outline assign-materials-btn" data-task-id="${task.id}" style="margin-bottom: 5px;">
-                            <i class="fas fa-boxes"></i> Materiales
-                        </button>
-                        <button class="btn btn-danger delete-task-btn" data-task-id="${task.id}">
-                            <i class="fas fa-trash"></i> Eliminar
-                        </button>
-                        ` : ''}
-                    </td>
-                `;
-                tbody.appendChild(row);
-            });
+    tasks.forEach(task => {
+        const assignee = users.find(u => u.username === task.assignee);
+        
+        // Obtener información de materiales
+        const materialsText = task.materials && task.materials.length > 0 
+            ? task.materials.map(m => {
+                const material = inventory.find(mat => mat.id === m.materialId);
+                return material ? `${material.name} (${m.quantity} ${material.unit})` : '';
+            }).filter(Boolean).join(', ')
+            : 'Ninguno';
 
-            // Agregar event listeners
-            addTaskTableEventListeners();
-        }
+        const row = document.createElement('tr');
+        row.innerHTML = `
+            <td>
+                <div><strong>${sanitizeInput(task.name)}</strong></div>
+                <div style="font-size: 0.9rem; color: var(--gray);">${sanitizeInput(task.description).substring(0, 50)}...</div>
+            </td>
+            <td>${assignee?.name || task.assignee}</td>
+            <td>${formatDate(task.dueDate)}</td>
+            <td><span class="badge badge-${task.status}">${getStatusText(task.status)}</span></td>
+            <td><span class="badge badge-${task.urgency}">${getUrgencyText(task.urgency)}</span></td>
+            <td>${materialsText}</td>
+            <td style="white-space: nowrap;">
+                <button class="btn btn-outline edit-task-btn" data-task-id="${task.id}" style="margin-bottom: 5px;">
+                    <i class="fas fa-edit"></i> Editar
+                </button>
+                ${currentUser.role === 'admin' ? `
+                <button class="btn btn-outline assign-materials-btn" data-task-id="${task.id}" style="margin-bottom: 5px;">
+                    <i class="fas fa-boxes"></i> Materiales
+                </button>
+                <button class="btn btn-danger delete-task-btn" data-task-id="${task.id}">
+                    <i class="fas fa-trash"></i> Eliminar
+                </button>
+                ` : ''}
+            </td>
+        `;
+        tbody.appendChild(row);
+    });
+
+    console.log('✅ Tabla de tareas actualizada correctamente');
+
+    // Agregar event listeners
+    addTaskTableEventListeners();
+}
 
         function addTaskTableEventListeners() {
-            // Limpiar event listeners anteriores
-            document.querySelectorAll('.edit-task-btn').forEach(btn => {
-                btn.addEventListener('click', function() {
-                    const taskId = this.getAttribute('data-task-id');
-                    openEditTaskModal(taskId);
-                });
-            });
+    console.log('🎯 Agregando event listeners a la tabla de tareas');
+    
+    // Limpiar event listeners anteriores
+    document.querySelectorAll('.edit-task-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const taskId = this.getAttribute('data-task-id');
+            console.log('✏️ Editando tarea:', taskId);
+            openEditTaskModal(taskId);
+        });
+    });
 
-            document.querySelectorAll('.assign-materials-btn').forEach(btn => {
-                btn.addEventListener('click', function() {
-                    const taskId = this.getAttribute('data-task-id');
-                    openAssignMaterialsModal(taskId);
-                });
-            });
+    document.querySelectorAll('.assign-materials-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const taskId = this.getAttribute('data-task-id');
+            console.log('📦 Asignando materiales a tarea:', taskId);
+            openAssignMaterialsModal(taskId);
+        });
+    });
 
-            if (currentUser.role === 'admin') {
-                document.querySelectorAll('.delete-task-btn').forEach(btn => {
-                    btn.addEventListener('click', function() {
-                        const taskId = this.getAttribute('data-task-id');
-                        deleteTask(taskId);
-                    });
-                });
-            }
-        }
+    if (currentUser.role === 'admin') {
+        document.querySelectorAll('.delete-task-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                const taskId = this.getAttribute('data-task-id');
+                console.log('🗑️ Eliminando tarea:', taskId);
+                deleteTask(taskId);
+            });
+        });
+    }
+    
+    console.log('✅ Event listeners agregados correctamente');
+}
 
         // ==================== FUNCIÓN PARA ABRIR MODAL DE ASIGNACIÓN DE MATERIALES ====================
         function openAssignMaterialsModal(taskId) {
@@ -4929,149 +4968,159 @@
 
         // ==================== FUNCIONES DE CREACIÓN DE TAREAS Y MATERIALES ====================
 
-        async function createNewTask() {
-            const taskName = document.getElementById('taskName').value;
-            const taskDescription = document.getElementById('taskDescription').value;
-            const taskAssignee = document.getElementById('taskAssignee').value;
-            const taskStartDate = document.getElementById('taskStartDate').value;
-            const taskDueDate = document.getElementById('taskDueDate').value;
-            const taskUrgency = document.getElementById('taskUrgency').value;
-            const taskImage = document.getElementById('taskImage').files[0];
+        
+    async function createNewTask() {
+    const taskName = document.getElementById('taskName').value;
+    const taskDescription = document.getElementById('taskDescription').value;
+    const taskAssignee = document.getElementById('taskAssignee').value;
+    const taskStartDate = document.getElementById('taskStartDate').value;
+    const taskDueDate = document.getElementById('taskDueDate').value;
+    const taskUrgency = document.getElementById('taskUrgency').value;
+    const taskImage = document.getElementById('taskImage').files[0];
+    
+    if (!taskName || !taskDescription || !taskAssignee || !taskStartDate || !taskDueDate) {
+        showNotification('Completa todos los campos obligatorios', 'warning');
+        return;
+    }
+    
+    showLoading();
+    
+    // ✅ NUEVO SISTEMA OPTIMIZADO PARA IMÁGENES
+    let imageUrl = null;
+    if (taskImage && taskImage.size > 0) {
+        try {
+            console.log('📸 Procesando imagen para tarea...', taskImage.name, `(${(taskImage.size / 1024 / 1024).toFixed(2)} MB)`);
             
-            if (!taskName || !taskDescription || !taskAssignee || !taskStartDate || !taskDueDate) {
-                showNotification('Completa todos los campos obligatorios', 'warning');
-                return;
-            }
+            // Mostrar progreso específico para imágenes
+            showImageUploadProgress(true);
             
-            showLoading();
+            // Usar la nueva función optimizada de uploadImage
+            imageUrl = await uploadImage(taskImage, 'tasks');
+            console.log('✅ Imagen procesada y comprimida correctamente');
             
-            // ✅ NUEVO SISTEMA OPTIMIZADO PARA IMÁGENES
-            let imageUrl = null;
-            if (taskImage && taskImage.size > 0) {
-                try {
-                    console.log('📸 Procesando imagen para tarea...', taskImage.name, `(${(taskImage.size / 1024 / 1024).toFixed(2)} MB)`);
-                    
-                    // Mostrar progreso específico para imágenes
-                    showImageUploadProgress(true);
-                    
-                    // Usar la nueva función optimizada de uploadImage
-                    imageUrl = await uploadImage(taskImage, 'tasks');
-                    console.log('✅ Imagen procesada y comprimida correctamente');
-                    
-                } catch (error) {
-                    console.error('❌ Error procesando imagen:', error);
-                    
-                    // Preguntar al usuario si quiere continuar sin imagen
-                    const continueWithoutImage = confirm(
-                        `Error al procesar la imagen: ${error.message}\n\n¿Deseas continuar creando la tarea sin la imagen?`
-                    );
-                    
-                    if (!continueWithoutImage) {
-                        hideLoading();
-                        showImageUploadProgress(false);
-                        return; // El usuario decidió no continuar
-                    }
-                    
-                    showNotification('Tarea se creará sin imagen debido a errores en el procesamiento', 'warning');
-                } finally {
-                    // Ocultar progreso sin importar el resultado
-                    showImageUploadProgress(false);
-                }
-            } else {
-                console.log('ℹ️ No hay imagen para subir');
-            }
+        } catch (error) {
+            console.error('❌ Error procesando imagen:', error);
             
-            // Recopilar materiales (código existente)
-            const materials = [];
-            const materialsList = document.getElementById('taskMaterialsList');
-            if (materialsList) {
-                materialsList.querySelectorAll('.assignment-item').forEach(item => {
-                    const text = item.textContent.trim();
-                    const match = text.match(/(.+) - (\d+) (.+)/);
-                    if (match) {
-                        const materialName = match[1];
-                        const quantity = parseInt(match[2]);
-                        const unit = match[3];
-                        
-                        const material = inventory.find(m => m.name === materialName);
-                        if (material) {
-                            materials.push({
-                                materialId: material.id,
-                                quantity: quantity,
-                                delivered: false
-                            });
-                            
-                            // Descontar del inventario
-                            updateMaterialQuantity(material.id, -quantity);
-                        }
-                    }
-                });
-            }
+            // Preguntar al usuario si quiere continuar sin imagen
+            const continueWithoutImage = confirm(
+                `Error al procesar la imagen: ${error.message}\n\n¿Deseas continuar creando la tarea sin la imagen?`
+            );
             
-            // Crear nueva tarea
-            const newTask = {
-                id: generateId(),
-                name: taskName,
-                description: taskDescription,
-                assignee: taskAssignee,
-                startDate: taskStartDate,
-                dueDate: taskDueDate,
-                urgency: taskUrgency,
-                status: 'pending',
-                materials: materials,
-                imageUrl: imageUrl,
-                createdAt: new Date().toISOString(),
-                updatedAt: new Date().toISOString()
-            };
-            
-            try {
-                // Guardar en Firebase
-                await saveTasks();
-                
+            if (!continueWithoutImage) {
                 hideLoading();
-                
-                // Mensaje de éxito personalizado según si tiene imagen o no
-                const successMessage = imageUrl ? 
-                    'Tarea creada correctamente con imagen 📸' : 
-                    'Tarea creada correctamente ✅';
-                
-                showNotification(successMessage, 'success');
-                
-                // Cerrar modal
-                const addTaskModal = document.getElementById('addTaskModal');
-                if (addTaskModal) addTaskModal.classList.remove('active');
-                
-                // Limpiar formulario
-                const taskForm = document.getElementById('taskForm');
-                if (taskForm) taskForm.reset();
-                
-                // Limpiar vista previa de imagen
-                const taskImagePreview = document.getElementById('taskImagePreview');
-                const taskImagePlaceholder = document.getElementById('taskImagePlaceholder');
-                if (taskImagePreview) {
-                    taskImagePreview.src = '';
-                    taskImagePreview.classList.remove('active');
-                }
-                if (taskImagePlaceholder) {
-                    taskImagePlaceholder.style.display = 'flex';
-                }
-                
-                // Limpiar lista de materiales
-                const taskMaterialsList = document.getElementById('taskMaterialsList');
-                if (taskMaterialsList) taskMaterialsList.innerHTML = '';
-                
-                // Recargar vistas
-                if (currentPage === 'manage-tasks') {
-                    loadAllTasks();
-                }
-                updateDashboard();
-                
-            } catch (error) {
-                console.error('❌ Error guardando tarea en Firebase:', error);
-                hideLoading();
-                showNotification('Error al crear la tarea: ' + error.message, 'danger');
+                showImageUploadProgress(false);
+                return; // El usuario decidió no continuar
             }
+            
+            showNotification('Tarea se creará sin imagen debido a errores en el procesamiento', 'warning');
+        } finally {
+            // Ocultar progreso sin importar el resultado
+            showImageUploadProgress(false);
         }
+    } else {
+        console.log('ℹ️ No hay imagen para subir');
+    }
+    
+    // Recopilar materiales (código existente)
+    const materials = [];
+    const materialsList = document.getElementById('taskMaterialsList');
+    if (materialsList) {
+        materialsList.querySelectorAll('.assignment-item').forEach(item => {
+            const text = item.textContent.trim();
+            const match = text.match(/(.+) - (\d+) (.+)/);
+            if (match) {
+                const materialName = match[1];
+                const quantity = parseInt(match[2]);
+                const unit = match[3];
+                
+                const material = inventory.find(m => m.name === materialName);
+                if (material) {
+                    materials.push({
+                        materialId: material.id,
+                        quantity: quantity,
+                        delivered: false
+                    });
+                    
+                    // Descontar del inventario
+                    updateMaterialQuantity(material.id, -quantity);
+                }
+            }
+        });
+    }
+    
+    // Crear nueva tarea
+    const newTask = {
+        id: generateId(),
+        name: taskName,
+        description: taskDescription,
+        assignee: taskAssignee,
+        startDate: taskStartDate,
+        dueDate: taskDueDate,
+        urgency: taskUrgency,
+        status: 'pending',
+        materials: materials,
+        imageUrl: imageUrl,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+    };
+    
+    try {
+        // ✅ CORRECCIÓN: AGREGAR AL ARRAY LOCAL PRIMERO
+        tasks.push(newTask);
+        console.log('✅ Tarea agregada al array local. Total de tareas:', tasks.length);
+        
+        // ✅ GUARDAR EN FIREBASE
+        await saveTasks();
+        console.log('✅ Tarea guardada en Firebase');
+        
+        hideLoading();
+        
+        // Mensaje de éxito personalizado según si tiene imagen o no
+        const successMessage = imageUrl ? 
+            'Tarea creada correctamente con imagen 📸' : 
+            'Tarea creada correctamente ✅';
+        
+        showNotification(successMessage, 'success');
+        
+        // Cerrar modal
+        const addTaskModal = document.getElementById('addTaskModal');
+        if (addTaskModal) addTaskModal.classList.remove('active');
+        
+        // Limpiar formulario
+        const taskForm = document.getElementById('taskForm');
+        if (taskForm) taskForm.reset();
+        
+        // Limpiar vista previa de imagen
+        const taskImagePreview = document.getElementById('taskImagePreview');
+        const taskImagePlaceholder = document.getElementById('taskImagePlaceholder');
+        if (taskImagePreview) {
+            taskImagePreview.src = '';
+            taskImagePreview.classList.remove('active');
+        }
+        if (taskImagePlaceholder) {
+            taskImagePlaceholder.style.display = 'flex';
+        }
+        
+        // Limpiar lista de materiales
+        const taskMaterialsList = document.getElementById('taskMaterialsList');
+        if (taskMaterialsList) taskMaterialsList.innerHTML = '';
+        
+        // Recargar vistas
+        if (currentPage === 'manage-tasks') {
+            loadAllTasks();
+        }
+        updateDashboard();
+        
+    } catch (error) {
+        console.error('❌ Error guardando tarea en Firebase:', error);
+        hideLoading();
+        showNotification('Error al crear la tarea: ' + error.message, 'danger');
+        
+        // ✅ CORRECCIÓN: REMOVER DEL ARRAY LOCAL SI HAY ERROR
+        tasks = tasks.filter(t => t.id !== newTask.id);
+        console.log('❌ Tarea removida del array local debido a error');
+    }
+}
 
         async function createNewMaterial() {
             const materialName = document.getElementById('materialNameModal').value.trim();
@@ -5340,38 +5389,42 @@
         }
 
         async function deleteTask(taskId) {
-            if (confirm('¿Estás seguro de que quieres eliminar esta tarea?')) {
-                showLoading();
-                
-                try {
-                    console.log('🗑️ Intentando eliminar tarea:', taskId);
-                    
-                    // ✅ 1. ELIMINAR DE FIREBASE PRIMERO
-                    await db.collection('tasks').doc(taskId).delete();
-                    console.log('✅ Tarea eliminada de Firebase');
-                    
-                    // ✅ 2. ELIMINAR DE LOS DATOS LOCALES
-                    tasks = tasks.filter(t => t.id !== taskId);
-                    
-                    // ✅ 3. MOSTRAR NOTIFICACIÓN
-                    showNotification('Tarea eliminada correctamente', 'success');
-                    
-                    // ✅ 4. RECARGAR VISTAS
-                    if (currentPage === 'manage-tasks') {
-                        loadAllTasks();
-                    } else if (currentPage === 'tasks') {
-                        loadMyTasks();
-                    }
-                    updateDashboard();
-                    
-                } catch (error) {
-                    console.error('❌ Error eliminando tarea:', error);
-                    showNotification('Error al eliminar la tarea: ' + error.message, 'danger');
-                } finally {
-                    hideLoading();
-                }
+    if (confirm('¿Estás seguro de que quieres eliminar esta tarea?')) {
+        showLoading();
+        
+        try {
+            console.log('🗑️ Intentando eliminar tarea:', taskId);
+            
+            // ✅ 1. ELIMINAR DE FIREBASE PRIMERO
+            await db.collection('tasks').doc(taskId).delete();
+            console.log('✅ Tarea eliminada de Firebase');
+            
+            // ✅ 2. ELIMINAR DE LOS DATOS LOCALES
+            const taskIndex = tasks.findIndex(t => t.id === taskId);
+            if (taskIndex !== -1) {
+                tasks.splice(taskIndex, 1);
+                console.log('✅ Tarea eliminada del array local');
             }
+            
+            // ✅ 3. MOSTRAR NOTIFICACIÓN
+            showNotification('Tarea eliminada correctamente', 'success');
+            
+            // ✅ 4. RECARGAR VISTAS
+            if (currentPage === 'manage-tasks') {
+                loadAllTasks();
+            } else if (currentPage === 'tasks') {
+                loadMyTasks();
+            }
+            updateDashboard();
+            
+        } catch (error) {
+            console.error('❌ Error eliminando tarea:', error);
+            showNotification('Error al eliminar la tarea: ' + error.message, 'danger');
+        } finally {
+            hideLoading();
         }
+    }
+}
 
         function openEditMaterialModal(materialId) {
             const material = inventory.find(m => m.id === materialId);
@@ -6265,3 +6318,4 @@
     </script>
 </body>
 </html>
+
