@@ -3248,7 +3248,11 @@
             }
 
             // Buscar usuario
-            const user = users.find(u => u.username === username && u.password === password);
+            // Busca la línea dentro de handleLogin y cámbiala por esta:
+const user = users.find(u => 
+    u.username.toLowerCase() === username.toLowerCase() && 
+    u.password === password
+);
             
             if (user) {
                 currentUser = user;
