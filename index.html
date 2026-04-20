@@ -7620,37 +7620,41 @@ async function sendNotification(title, msg) {
         read: false
     });
 }
+// 1. Función para borrar avances (Solo Admin)
+            window.deleteTracking = async function(trackingId, taskId) {
+                if (confirm('¿Seguro que quieres borrar este avance?')) {
+                    try {
+                        await db.collection('trackings').doc(trackingId).delete();
+                        showNotification('Avance borrado', 'success');
+                        loadTrackings(taskId); 
+                    } catch (error) {
+                        console.error("Error al borrar:", error);
+                        showNotification('No se pudo borrar', 'danger');
+                    }
+                }
+            };
 
-            // Intentar cargar sesión
-          // --- REEMPLAZA DESDE AQUÍ HASTA EL FINAL ---
+            // 2. Intentar cargar sesión e inicializar
             loadSession().then(sessionLoaded => {
                 const loginScreen = document.getElementById('loginScreen');
                 const app = document.getElementById('app');
 
                 if (sessionLoaded) {
-                    // ✅ SI HAY SESIÓN: Ocultar login, mostrar app y ACTIVAR campana
                     if (loginScreen) loginScreen.style.display = 'none';
                     if (app) app.style.display = 'flex';
-                    
-                    // IMPORTANTE: Esto activa la campana y el conteo
-                    listenNotifications(); 
+                    listenNotifications(); // 🔥 Esto activa la campana
                 } else {
-                    // ❌ NO HAY SESIÓN: Mostrar login
                     if (loginScreen) loginScreen.style.display = 'flex';
                     if (app) app.style.display = 'none';
                     loadData();
                 }
             }).catch(error => {
                 console.error('❌ Error en inicialización:', error);
-                const loginScreen = document.getElementById('loginScreen');
-                const app = document.getElementById('app');
-                if (loginScreen) loginScreen.style.display = 'flex';
-                if (app) app.style.display = 'none';
                 loadData();
             });
             
-            console.log('✅ Sistema TaskMaster PRO Plus completamente inicializado y listo para usar 🚀');
-        });
+            console.log('✅ Sistema TaskMaster PRO Plus listo 🚀');
+        }); // Cierre de DOMContentLoaded
     </script>
 </body>
 </html>
