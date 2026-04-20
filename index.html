@@ -16,22 +16,6 @@
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-storage-compat.js"></script>
     
     <style>
-        .notification-badge {
-    position: absolute;
-    top: -5px;
-    right: -5px;
-    background: #ff4757;
-    color: white;
-    border-radius: 50%;
-    width: 18px;
-    height: 18px;
-    font-size: 11px;
-    display: flex; /* Esto centra el número */
-    align-items: center;
-    justify-content: center;
-    border: 2px solid var(--primary-dark);
-    font-weight: bold;
-}
         :root {
             --primary: #4361ee;
             --secondary: #3a0ca3;
@@ -1818,6 +1802,42 @@
             border-radius: 8px;
             color: var(--danger);
         }
+
+        /* ========== CAMPANA DE NOTIFICACIONES: ANIMACIÓN ========== */
+        @keyframes bellShake {
+            0%  { transform: rotate(0deg); }
+            15% { transform: rotate(15deg); }
+            30% { transform: rotate(-12deg); }
+            45% { transform: rotate(10deg); }
+            60% { transform: rotate(-8deg); }
+            75% { transform: rotate(5deg); }
+            90% { transform: rotate(-3deg); }
+            100%{ transform: rotate(0deg); }
+        }
+        .bell-shake {
+            animation: bellShake 0.7s ease;
+        }
+
+        /* ========== BOTÓN ELIMINAR AVANCE (solo admin) ========== */
+        .btn-delete-tracking {
+            background: linear-gradient(135deg, var(--danger), #d00000);
+            color: white;
+            border: none;
+            border-radius: 50px;
+            padding: 0.5rem 1rem;
+            cursor: pointer;
+            font-size: 0.85rem;
+            font-weight: 600;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            transition: var(--transition);
+            box-shadow: 0 3px 6px rgba(230,57,70,0.3);
+        }
+        .btn-delete-tracking:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 12px rgba(230,57,70,0.4);
+        }
         
         .firebase-success {
             background: #efe;
@@ -3036,13 +3056,37 @@
                     });
 
                     // Escuchar cambios en SEGUIMIENTO DE AVANCES
+                    let isFirstTrackingLoad = true;
                     db.collection('trackings').onSnapshot((snapshot) => {
                         console.log('🔄 Cambios detectados en seguimientos');
+
+                        const prevIds = new Set(trackings.map(t => t.id));
                         trackings = [];
                         snapshot.forEach(doc => {
                             trackings.push({ id: doc.id, ...doc.data() });
                         });
-                        
+
+                        // 🔔 Notificar al admin sobre nuevos avances (no en la carga inicial)
+                        if (!isFirstTrackingLoad && currentUser && currentUser.role === 'admin') {
+                            trackings.forEach(t => {
+                                if (!prevIds.has(t.id)) {
+                                    const submitter = users.find(u => u.username === t.userId);
+                                    const task = tasks.find(tk => tk.id === t.taskId);
+                                    const workerName = submitter ? submitter.name : t.userId;
+                                    const taskName = task ? task.name : 'una tarea';
+                                    addAdminBellNotification({
+                                        id: 'track-' + t.id,
+                                        title: '📸 Nuevo avance registrado',
+                                        message: `${workerName} subió un avance (${t.percentage}%) en "${taskName}"`,
+                                        createdAt: t.createdAt,
+                                        read: false,
+                                        trackingId: t.id
+                                    });
+                                }
+                            });
+                        }
+                        isFirstTrackingLoad = false;
+
                         if (currentPage === 'tracking') {
                             loadTrackings();
                         }
@@ -3541,7 +3585,10 @@ const user = users.find(u =>
                         // Configurar escuchas en tiempo real
                         await setupRealTimeListeners();
                         updateDashboard();
-                        
+                        // Cargar notificaciones de campana (solo admin)
+                        if (currentUser && currentUser.role === 'admin') {
+                            loadBellNotifications();
+                        }
                         return true;
                     } else {
                         // Sesión expirada
@@ -3573,6 +3620,83 @@ const user = users.find(u =>
                     }
                 });
             }, 5 * 60 * 1000); // 5 minutos
+        }
+
+        // ==================== 🔔 CAMPANA DE NOTIFICACIONES PARA ADMIN ====================
+        let bellNotifications = [];
+
+        function addAdminBellNotification(notif) {
+            // Evitar duplicados
+            if (bellNotifications.find(n => n.id === notif.id)) return;
+            bellNotifications.unshift(notif);
+            // Guardar en localStorage para persistencia en sesión
+            try { localStorage.setItem('bell_notifs_' + (currentUser ? currentUser.username : ''), JSON.stringify(bellNotifications)); } catch(e) {}
+            renderBellDropdown();
+            // Sacudir la campana
+            const btn = document.getElementById('notificationBtn');
+            if (btn) {
+                const icon = btn.querySelector('i');
+                if (icon) {
+                    icon.classList.remove('bell-shake');
+                    void icon.offsetWidth; // reflow
+                    icon.classList.add('bell-shake');
+                    setTimeout(() => icon.classList.remove('bell-shake'), 800);
+                }
+            }
+        }
+
+        function loadBellNotifications() {
+            if (!currentUser) return;
+            try {
+                const saved = localStorage.getItem('bell_notifs_' + currentUser.username);
+                if (saved) bellNotifications = JSON.parse(saved);
+            } catch(e) { bellNotifications = []; }
+            renderBellDropdown();
+        }
+
+        function renderBellDropdown() {
+            const list = document.getElementById('notificationList');
+            const badge = document.getElementById('notificationCount');
+            if (!list || !badge) return;
+
+            const unread = bellNotifications.filter(n => !n.read);
+            if (unread.length > 0) {
+                badge.style.display = 'flex';
+                badge.textContent = unread.length > 99 ? '99+' : unread.length;
+            } else {
+                badge.style.display = 'none';
+                badge.textContent = '0';
+            }
+
+            if (bellNotifications.length === 0) {
+                list.innerHTML = '<div style="text-align: center; padding: 2rem; color: var(--gray);">No hay notificaciones</div>';
+                return;
+            }
+
+            list.innerHTML = '';
+            bellNotifications.slice(0, 30).forEach(n => {
+                const item = document.createElement('div');
+                item.className = 'notification-item' + (n.read ? '' : ' unread');
+                item.innerHTML = `
+                    <div style="font-weight:600; font-size:0.95rem;">${n.title}</div>
+                    <div style="color:var(--gray); font-size:0.85rem; margin-top:3px;">${n.message}</div>
+                    <div style="color:var(--gray); font-size:0.75rem; margin-top:4px;">${formatDateTime(n.createdAt)}</div>
+                `;
+                item.addEventListener('click', () => {
+                    n.read = true;
+                    try { localStorage.setItem('bell_notifs_' + currentUser.username, JSON.stringify(bellNotifications)); } catch(e) {}
+                    renderBellDropdown();
+                    // Ir a tracking si tiene trackingId
+                    if (n.trackingId) switchPage('tracking');
+                });
+                list.appendChild(item);
+            });
+        }
+
+        function markAllBellRead() {
+            bellNotifications.forEach(n => n.read = true);
+            try { localStorage.setItem('bell_notifs_' + (currentUser ? currentUser.username : ''), JSON.stringify(bellNotifications)); } catch(e) {}
+            renderBellDropdown();
         }
 
         // ==================== NAVEGACIÓN ====================
@@ -4705,87 +4829,60 @@ const user = users.find(u =>
         }
 
         // ==================== NUEVO: SEGUIMIENTO DE AVANCES ====================
-   async function loadTrackings(taskId) {
-    const list = document.getElementById('trackingList');
-    if (!list) return;
-    
-    list.innerHTML = '<div style="text-align: center; padding: 2rem;"><i class="fas fa-spinner fa-spin"></i> Cargando historial...</div>';
-    
-    try {
-        // Consulta simple (esta no falla)
-        let query = db.collection('trackings').where('taskId', '==', taskId);
-        
-        const snapshot = await query.get();
-        let trackings = [];
-        
-        snapshot.forEach(doc => {
-            trackings.push({ id: doc.id, ...doc.data() });
-        });
+        function loadTrackings() {
+            // 🔒 Privacidad: trabajadores solo ven sus propios avances
+            const isAdmin = currentUser && currentUser.role === 'admin';
 
-        // 1. Filtrar por usuario si no es admin
-        if (currentUser.role !== 'admin') {
-            trackings = trackings.filter(t => t.userName === currentUser.name);
-        }
+            // Llenar filtros
+            const userFilter = document.getElementById('filterUser');
+            const taskFilter = document.getElementById('filterTask');
 
-        // 2. Ordenar por fecha (el más nuevo primero)
-        trackings.sort((a, b) => new Date(b.date) - new Date(a.date));
+            // Mostrar/ocultar filtro de usuario según rol
+            if (userFilter) {
+                const userFilterGroup = userFilter.closest('.form-group');
+                if (userFilterGroup) userFilterGroup.style.display = isAdmin ? '' : 'none';
 
-        list.innerHTML = '';
-        
-        if (trackings.length === 0) {
-            list.innerHTML = '<div style="text-align: center; padding: 2rem; color: var(--gray);">No hay avances registrados.</div>';
-            return;
-        }
-        
-        trackings.forEach(data => {
-            const trackingItem = document.createElement('div');
-            trackingItem.className = 'tracking-item';
-            trackingItem.style.cssText = "padding: 15px; border-bottom: 1px solid #eee; position: relative;";
+                if (isAdmin) {
+                    userFilter.innerHTML = '<option value="">Todos los usuarios</option>';
+                    users.forEach(user => {
+                        const option = document.createElement('option');
+                        option.value = user.username;
+                        option.textContent = user.name;
+                        userFilter.appendChild(option);
+                    });
+                }
+            }
             
-            const deleteBtn = currentUser.role === 'admin' ? 
-                `<button onclick="deleteTracking('${data.id}', '${taskId}')" style="position: absolute; top: 10px; right: 10px; background: none; border: none; color: #ff4757; cursor: pointer;">
-                    <i class="fas fa-trash"></i>
-                </button>` : '';
-
-            trackingItem.innerHTML = `
-                <div style="padding-right: 25px;">
-                    <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
-                        <span style="font-weight: bold; color: var(--primary);">${data.userName}</span>
-                        <small style="color: var(--gray);">${new Date(data.date).toLocaleString()}</small>
-                    </div>
-                    <p style="margin: 0; font-size: 0.9rem;">${data.notes}</p>
-                    ${data.imageUrl ? `<br><a href="${data.imageUrl}" target="_blank" style="color: var(--secondary); font-size: 0.8rem;"><i class="fas fa-image"></i> Ver evidencia</a>` : ''}
-                </div>
-                ${deleteBtn}
-            `;
-            list.appendChild(trackingItem);
-        });
-    } catch (error) {
-        console.error("Error detallado:", error);
-        list.innerHTML = '<div class="alert alert-danger">Error al cargar datos.</div>';
-    }
-}
-// NUEVA FUNCIÓN: Para eliminar avances (Admin)
-async function deleteTracking(trackingId, taskId) {
-    if (confirm('¿Estás seguro de que deseas eliminar este avance? Esta acción no se puede deshacer.')) {
-        try {
-            await db.collection('trackings').doc(trackingId).delete();
-            showNotification('Avance eliminado correctamente', 'success');
-            loadTrackings(taskId); // Recargar la lista automáticamente
-        } catch (error) {
-            console.error("Error al eliminar:", error);
-            showNotification('Error al eliminar el avance', 'danger');
+            if (taskFilter) {
+                taskFilter.innerHTML = '<option value="">Todas las tareas</option>';
+                // Para trabajadores: solo mostrar sus tareas asignadas
+                const visibleTasks = isAdmin
+                    ? tasks
+                    : tasks.filter(t => t.assignees && t.assignees.includes(currentUser.username));
+                visibleTasks.forEach(task => {
+                    const option = document.createElement('option');
+                    option.value = task.id;
+                    option.textContent = task.name;
+                    taskFilter.appendChild(option);
+                });
+            }
+            
+            applyTrackingFilters();
         }
-    }
-}
 
         function applyTrackingFilters() {
+            const isAdmin = currentUser && currentUser.role === 'admin';
             const dateFilter = document.getElementById('filterDate')?.value;
             const userFilter = document.getElementById('filterUser')?.value;
             const taskFilter = document.getElementById('filterTask')?.value;
             const searchFilter = document.getElementById('searchTracking')?.value.toLowerCase() || '';
             
             let filteredTrackings = trackings;
+
+            // 🔒 PRIVACIDAD: trabajadores solo ven sus propios avances
+            if (!isAdmin) {
+                filteredTrackings = filteredTrackings.filter(t => t.userId === currentUser.username);
+            }
             
             // Filtrar por fecha
             if (dateFilter) {
@@ -4796,8 +4893,8 @@ async function deleteTracking(trackingId, taskId) {
                 });
             }
             
-            // Filtrar por usuario
-            if (userFilter) {
+            // Filtrar por usuario (solo admin puede usar este filtro)
+            if (isAdmin && userFilter) {
                 filteredTrackings = filteredTrackings.filter(t => t.userId === userFilter);
             }
             
@@ -4850,6 +4947,12 @@ async function deleteTracking(trackingId, taskId) {
                     `;
                 }
                 
+                // 🗑️ Botón eliminar solo para admin
+                const deleteBtn = (currentUser && currentUser.role === 'admin') ? `
+                    <button class="btn-delete-tracking" onclick="deleteTracking('${tracking.id}')">
+                        <i class="fas fa-trash"></i> Eliminar
+                    </button>` : '';
+
                 card.innerHTML = `
                     <div class="card-header">
                         <div>
@@ -4858,8 +4961,11 @@ async function deleteTracking(trackingId, taskId) {
                                 Registrado por: ${user ? user.name : tracking.userId} • ${formatDateTime(tracking.createdAt)}
                             </div>
                         </div>
-                        <div class="badge" style="background: ${getProgressColor(tracking.percentage)}; color: white;">
-                            ${tracking.percentage}%
+                        <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+                            <div class="badge" style="background: ${getProgressColor(tracking.percentage)}; color: white;">
+                                ${tracking.percentage}%
+                            </div>
+                            ${deleteBtn}
                         </div>
                     </div>
                     <div class="task-description">
@@ -4875,6 +4981,28 @@ async function deleteTracking(trackingId, taskId) {
                 
                 container.appendChild(card);
             });
+        }
+
+        // 🗑️ Eliminar avance (solo admin)
+        async function deleteTracking(trackingId) {
+            if (!currentUser || currentUser.role !== 'admin') {
+                showNotification('Sin permisos para eliminar avances', 'danger');
+                return;
+            }
+            if (!confirm('¿Estás seguro de que quieres eliminar este avance?')) return;
+
+            showLoading();
+            try {
+                await db.collection('trackings').doc(trackingId).delete();
+                trackings = trackings.filter(t => t.id !== trackingId);
+                showNotification('Avance eliminado correctamente', 'success');
+                applyTrackingFilters();
+            } catch (error) {
+                console.error('❌ Error eliminando avance:', error);
+                showNotification('Error al eliminar el avance: ' + error.message, 'danger');
+            } finally {
+                hideLoading();
+            }
         }
 
         function getProgressColor(percentage) {
@@ -4990,8 +5118,7 @@ async function deleteTracking(trackingId, taskId) {
                 
                 // Guardar en Firebase
                 await db.collection('trackings').doc(newTracking.id).set(newTracking);
-                // Esto avisará al admin en cuanto el trabajador guarde el avance
-await sendNotification('Nuevo Avance 🚀', `${currentUser.name} actualizó una tarea.`);
+                
                 // Actualizar estado de la tarea si llega al 100%
                 if (percentage === '100') {
                     const taskIndex = tasks.findIndex(t => t.id === taskId);
@@ -5577,6 +5704,10 @@ await sendNotification('Nuevo Avance 🚀', `${currentUser.name} actualizó una 
         function loadUserData() {
             loadData();
             updateDashboard();
+            // Cargar notificaciones de campana (solo admin)
+            if (currentUser && currentUser.role === 'admin') {
+                loadBellNotifications();
+            }
             
             // Mostrar fecha actual
             const now = new Date();
@@ -7095,6 +7226,26 @@ await sendNotification('Nuevo Avance 🚀', `${currentUser.name} actualizó una 
             
             const logoutBtn = document.getElementById('logoutBtn');
             if (logoutBtn) logoutBtn.addEventListener('click', handleLogout);
+
+            // 🔔 Campana de notificaciones
+            const notificationBtn = document.getElementById('notificationBtn');
+            const notificationDropdown = document.getElementById('notificationDropdown');
+            if (notificationBtn && notificationDropdown) {
+                notificationBtn.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    notificationDropdown.classList.toggle('active');
+                });
+                document.addEventListener('click', function(e) {
+                    if (!notificationDropdown.contains(e.target) && e.target !== notificationBtn) {
+                        notificationDropdown.classList.remove('active');
+                    }
+                });
+            }
+            const markAllReadBtn = document.getElementById('markAllReadBtn');
+            if (markAllReadBtn) markAllReadBtn.addEventListener('click', function(e) {
+                e.stopPropagation();
+                markAllBellRead();
+            });
             
             const menuToggle = document.getElementById('menuToggle');
             if (menuToggle) {
@@ -7298,38 +7449,6 @@ await sendNotification('Nuevo Avance 🚀', `${currentUser.name} actualizó una 
             }
             
             // ✅ NUEVO: Botón para guardar seguimiento
-            // --- ACTIVACIÓN DE NOTIFICACIONES ---
-// Abrir/Cerrar menú
-const notificationBtn = document.getElementById('notificationBtn');
-if (notificationBtn) {
-    notificationBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        document.getElementById('notificationDropdown').classList.toggle('active');
-        // ✅ LO NUEVO: Si hay notificaciones sin leer, las marcamos como leídas al abrir
-    const badge = document.getElementById('notificationCount');
-    if (badge && badge.style.display !== 'none') {
-        markAllRead(); // Esta es la función que ya tenemos creada
-    }
-
-    });
-}
-
-// Cerrar al hacer clic fuera
-document.addEventListener('click', () => {
-    const drop = document.getElementById('notificationDropdown');
-    if (drop) drop.classList.remove('active');
-});
-
-// Marcar como leídas
-const markBtn = document.getElementById('markAllReadBtn');
-if (markBtn) {
-    markBtn.addEventListener('click', async () => {
-        const batch = db.batch();
-        const unread = await db.collection('notifications').where('read', '==', false).get();
-        unread.forEach(doc => batch.update(doc.ref, { read: true }));
-        await batch.commit();
-    });
-}
             const saveTrackingBtn = document.getElementById('saveTrackingBtn');
             if (saveTrackingBtn) {
                 saveTrackingBtn.addEventListener('click', function() {
@@ -7565,103 +7684,33 @@ if (markBtn) {
                     if (userFormError) userFormError.style.display = 'none';
                 });
             }
-            async function deleteTracking(trackingId, taskId) {
-    if (confirm('¿Seguro que quieres borrar este avance?')) {
-        try {
-            await db.collection('trackings').doc(trackingId).delete();
-            showNotification('Avance borrado', 'success');
-            loadTrackings(taskId); // Esto recarga la lista para que desaparezca el avance
-        } catch (error) {
-            console.error("Error al borrar:", error);
-            showNotification('No se pudo borrar', 'danger');
-        }
-    }
-}
-            // Función para que el Admin reciba avisos en tiempo real
-function listenNotifications() {
-    if (!currentUser || currentUser.role !== 'admin') return;
 
-    db.collection('notifications')
-        .orderBy('date', 'desc')
-        .limit(10)
-        .onSnapshot(snapshot => {
-            const list = document.getElementById('notificationList');
-            const badge = document.getElementById('notificationCount');
-            let unread = 0;
-            
-            list.innerHTML = '';
-            snapshot.forEach(doc => {
-                const n = doc.data();
-                if (!n.read) unread++;
-                const item = document.createElement('div');
-                item.className = `notification-item ${n.read ? '' : 'unread'}`;
-                item.innerHTML = `
-                    <div style="font-weight: bold;">${n.title}</div>
-                    <div>${n.message}</div>
-                    <div style="font-size: 0.7rem; color: var(--gray);">${new Date(n.date).toLocaleTimeString()}</div>
-                `;
-                list.appendChild(item);
-            });
-            badge.innerText = unread;
-            badge.style.display = unread > 0 ? 'flex' : 'none';
-        });
-}
-async function deleteTracking(trackingId, taskId) {
-    if (confirm('¿Estás seguro de que deseas eliminar este avance? Esta acción no se puede deshacer.')) {
-        try {
-            await db.collection('trackings').doc(trackingId).delete();
-            showNotification('Avance eliminado correctamente', 'success');
-            loadTrackings(taskId); // Recarga la lista para que desaparezca el avance borrado
-        } catch (error) {
-            console.error("Error al eliminar:", error);
-            showNotification('Error al eliminar el avance', 'danger');
-        }
-    }
-}
-// Función para crear la notificación (se usa cuando alguien sube algo)
-async function sendNotification(title, msg) {
-    await db.collection('notifications').add({
-        title: title,
-        message: msg,
-        date: new Date().toISOString(),
-        read: false
-    });
-}
-// 1. Función para borrar avances (Solo Admin)
-            window.deleteTracking = async function(trackingId, taskId) {
-                if (confirm('¿Seguro que quieres borrar este avance?')) {
-                    try {
-                        await db.collection('trackings').doc(trackingId).delete();
-                        showNotification('Avance borrado', 'success');
-                        loadTrackings(taskId); 
-                    } catch (error) {
-                        console.error("Error al borrar:", error);
-                        showNotification('No se pudo borrar', 'danger');
-                    }
-                }
-            };
-
-            // 2. Intentar cargar sesión e inicializar
+            // Intentar cargar sesión
             loadSession().then(sessionLoaded => {
-                const loginScreen = document.getElementById('loginScreen');
-                const app = document.getElementById('app');
-
-                if (sessionLoaded) {
-                    if (loginScreen) loginScreen.style.display = 'none';
-                    if (app) app.style.display = 'flex';
-                    listenNotifications(); // 🔥 Esto activa la campana
-                } else {
-                    if (loginScreen) loginScreen.style.display = 'flex';
-                    if (app) app.style.display = 'none';
+                if (!sessionLoaded) {
+                    const loginScreen = document.getElementById('loginScreen');
+                    const app = document.getElementById('app');
+                    if (loginScreen && app) {
+                        loginScreen.style.display = 'flex';
+                        app.style.display = 'none';
+                    }
+                    
+                    // Cargar datos iniciales para el login
                     loadData();
                 }
             }).catch(error => {
                 console.error('❌ Error en inicialización:', error);
+                const loginScreen = document.getElementById('loginScreen');
+                const app = document.getElementById('app');
+                if (loginScreen && app) {
+                    loginScreen.style.display = 'flex';
+                    app.style.display = 'none';
+                }
                 loadData();
             });
             
-            console.log('✅ Sistema TaskMaster PRO Plus listo 🚀');
-        }); // Cierre de DOMContentLoaded
+            console.log('✅ Sistema TaskMaster PRO Plus completamente inicializado y listo para usar 🚀');
+        });
     </script>
 </body>
 </html>
