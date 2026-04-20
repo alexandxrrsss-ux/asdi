@@ -4929,7 +4929,8 @@ const user = users.find(u =>
                 
                 // Guardar en Firebase
                 await db.collection('trackings').doc(newTracking.id).set(newTracking);
-                
+                // Esto avisará al admin en cuanto el trabajador guarde el avance
+await sendNotification('Nuevo Avance 🚀', `${currentUser.name} actualizó una tarea.`);
                 // Actualizar estado de la tarea si llega al 100%
                 if (percentage === '100') {
                     const taskIndex = tasks.findIndex(t => t.id === taskId);
@@ -7236,6 +7237,32 @@ const user = users.find(u =>
             }
             
             // ✅ NUEVO: Botón para guardar seguimiento
+            // --- ACTIVACIÓN DE NOTIFICACIONES ---
+// Abrir/Cerrar menú
+const notificationBtn = document.getElementById('notificationBtn');
+if (notificationBtn) {
+    notificationBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        document.getElementById('notificationDropdown').classList.toggle('active');
+    });
+}
+
+// Cerrar al hacer clic fuera
+document.addEventListener('click', () => {
+    const drop = document.getElementById('notificationDropdown');
+    if (drop) drop.classList.remove('active');
+});
+
+// Marcar como leídas
+const markBtn = document.getElementById('markAllReadBtn');
+if (markBtn) {
+    markBtn.addEventListener('click', async () => {
+        const batch = db.batch();
+        const unread = await db.collection('notifications').where('read', '==', false).get();
+        unread.forEach(doc => batch.update(doc.ref, { read: true }));
+        await batch.commit();
+    });
+}
             const saveTrackingBtn = document.getElementById('saveTrackingBtn');
             if (saveTrackingBtn) {
                 saveTrackingBtn.addEventListener('click', function() {
@@ -7471,6 +7498,45 @@ const user = users.find(u =>
                     if (userFormError) userFormError.style.display = 'none';
                 });
             }
+            // Función para que el Admin reciba avisos en tiempo real
+function listenNotifications() {
+    if (!currentUser || currentUser.role !== 'admin') return;
+
+    db.collection('notifications')
+        .orderBy('date', 'desc')
+        .limit(10)
+        .onSnapshot(snapshot => {
+            const list = document.getElementById('notificationList');
+            const badge = document.getElementById('notificationCount');
+            let unread = 0;
+            
+            list.innerHTML = '';
+            snapshot.forEach(doc => {
+                const n = doc.data();
+                if (!n.read) unread++;
+                const item = document.createElement('div');
+                item.className = `notification-item ${n.read ? '' : 'unread'}`;
+                item.innerHTML = `
+                    <div style="font-weight: bold;">${n.title}</div>
+                    <div>${n.message}</div>
+                    <div style="font-size: 0.7rem; color: var(--gray);">${new Date(n.date).toLocaleTimeString()}</div>
+                `;
+                list.appendChild(item);
+            });
+            badge.innerText = unread;
+            badge.style.display = unread > 0 ? 'flex' : 'none';
+        });
+}
+
+// Función para crear la notificación (se usa cuando alguien sube algo)
+async function sendNotification(title, msg) {
+    await db.collection('notifications').add({
+        title: title,
+        message: msg,
+        date: new Date().toISOString(),
+        read: false
+    });
+}
 
             // Intentar cargar sesión
             loadSession().then(sessionLoaded => {
@@ -7480,7 +7546,11 @@ const user = users.find(u =>
                     if (loginScreen && app) {
                         loginScreen.style.display = 'flex';
                         app.style.display = 'none';
+                        if (sessionLoaded) {
+    listenNotifications(); // Iniciar escucha de avisos
+}
                     }
+
                     
                     // Cargar datos iniciales para el login
                     loadData();
