@@ -4689,34 +4689,72 @@ const user = users.find(u =>
         }
 
         // ==================== NUEVO: SEGUIMIENTO DE AVANCES ====================
-        function loadTrackings() {
-            // Llenar filtros
-            const userFilter = document.getElementById('filterUser');
-            const taskFilter = document.getElementById('filterTask');
-            
-            if (userFilter) {
-                userFilter.innerHTML = '<option value="">Todos los usuarios</option>';
-                users.forEach(user => {
-                    const option = document.createElement('option');
-                    option.value = user.username;
-                    option.textContent = user.name;
-                    userFilter.appendChild(option);
-                });
-            }
-            
-            if (taskFilter) {
-                taskFilter.innerHTML = '<option value="">Todas las tareas</option>';
-                tasks.forEach(task => {
-                    const option = document.createElement('option');
-                    option.value = task.id;
-                    option.textContent = task.name;
-                    taskFilter.appendChild(option);
-                });
-            }
-            
-            // Aplicar filtros
-            applyTrackingFilters();
+    async function loadTrackings(taskId) {
+    const list = document.getElementById('trackingList');
+    if (!list) return;
+    
+    list.innerHTML = '<div style="text-align: center; padding: 2rem;"><i class="fas fa-spinner fa-spin"></i> Cargando historial...</div>';
+    
+    try {
+        let query = db.collection('trackings').where('taskId', '==', taskId);
+        
+        // FILTRO: Si no es admin, solo ve sus propios avances
+        if (currentUser.role !== 'admin') {
+            query = query.where('userName', '==', currentUser.name);
         }
+        
+        const snapshot = await query.orderBy('date', 'desc').get();
+        list.innerHTML = '';
+        
+        if (snapshot.empty) {
+            list.innerHTML = '<div style="text-align: center; padding: 2rem; color: var(--gray);">No hay avances registrados para esta tarea.</div>';
+            return;
+        }
+        
+        snapshot.forEach(doc => {
+            const data = doc.data();
+            const trackingItem = document.createElement('div');
+            trackingItem.className = 'tracking-item';
+            trackingItem.style.cssText = "display: flex; justify-content: space-between; align-items: center; padding: 15px; border-bottom: 1px solid #eee;";
+            
+            // BOTÓN ELIMINAR: Solo aparece si eres Admin
+            const deleteBtn = currentUser.role === 'admin' ? 
+                `<button onclick="deleteTracking('${doc.id}', '${taskId}')" class="btn btn-outline btn-sm" style="color: var(--danger); border-color: var(--danger); margin-left: 10px;">
+                    <i class="fas fa-trash"></i>
+                </button>` : '';
+
+            trackingItem.innerHTML = `
+                <div style="flex-grow: 1;">
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
+                        <span style="font-weight: bold; color: var(--primary);">${data.userName}</span>
+                        <small style="color: var(--gray);">${new Date(data.date).toLocaleString()}</small>
+                    </div>
+                    <p style="margin: 0; font-size: 0.9rem; color: var(--dark);">${data.notes}</p>
+                    ${data.imageUrl ? `<a href="${data.imageUrl}" target="_blank" style="display: inline-block; margin-top: 10px; color: var(--secondary); font-size: 0.8rem;"><i class="fas fa-image"></i> Ver evidencia</a>` : ''}
+                </div>
+                ${deleteBtn}
+            `;
+            list.appendChild(trackingItem);
+        });
+    } catch (error) {
+        console.error("Error al cargar seguimientos:", error);
+        list.innerHTML = '<div class="alert alert-danger">Error al cargar el historial.</div>';
+    }
+}
+
+// NUEVA FUNCIÓN: Para eliminar avances (Admin)
+async function deleteTracking(trackingId, taskId) {
+    if (confirm('¿Estás seguro de que deseas eliminar este avance? Esta acción no se puede deshacer.')) {
+        try {
+            await db.collection('trackings').doc(trackingId).delete();
+            showNotification('Avance eliminado correctamente', 'success');
+            loadTrackings(taskId); // Recargar la lista automáticamente
+        } catch (error) {
+            console.error("Error al eliminar:", error);
+            showNotification('Error al eliminar el avance', 'danger');
+        }
+    }
+}
 
         function applyTrackingFilters() {
             const dateFilter = document.getElementById('filterDate')?.value;
@@ -7244,6 +7282,12 @@ if (notificationBtn) {
     notificationBtn.addEventListener('click', (e) => {
         e.stopPropagation();
         document.getElementById('notificationDropdown').classList.toggle('active');
+        // ✅ LO NUEVO: Si hay notificaciones sin leer, las marcamos como leídas al abrir
+    const badge = document.getElementById('notificationCount');
+    if (badge && badge.style.display !== 'none') {
+        markAllRead(); // Esta es la función que ya tenemos creada
+    }
+
     });
 }
 
@@ -7539,30 +7583,30 @@ async function sendNotification(title, msg) {
 }
 
             // Intentar cargar sesión
+          // --- REEMPLAZA DESDE AQUÍ HASTA EL FINAL ---
             loadSession().then(sessionLoaded => {
-                if (!sessionLoaded) {
-                    const loginScreen = document.getElementById('loginScreen');
-                    const app = document.getElementById('app');
-                    if (loginScreen && app) {
-                        loginScreen.style.display = 'flex';
-                        app.style.display = 'none';
-                        if (sessionLoaded) {
-    listenNotifications(); // Iniciar escucha de avisos
-}
-                    }
+                const loginScreen = document.getElementById('loginScreen');
+                const app = document.getElementById('app');
 
+                if (sessionLoaded) {
+                    // ✅ SI HAY SESIÓN: Ocultar login, mostrar app y ACTIVAR campana
+                    if (loginScreen) loginScreen.style.display = 'none';
+                    if (app) app.style.display = 'flex';
                     
-                    // Cargar datos iniciales para el login
+                    // IMPORTANTE: Esto activa la campana y el conteo
+                    listenNotifications(); 
+                } else {
+                    // ❌ NO HAY SESIÓN: Mostrar login
+                    if (loginScreen) loginScreen.style.display = 'flex';
+                    if (app) app.style.display = 'none';
                     loadData();
                 }
             }).catch(error => {
                 console.error('❌ Error en inicialización:', error);
                 const loginScreen = document.getElementById('loginScreen');
                 const app = document.getElementById('app');
-                if (loginScreen && app) {
-                    loginScreen.style.display = 'flex';
-                    app.style.display = 'none';
-                }
+                if (loginScreen) loginScreen.style.display = 'flex';
+                if (app) app.style.display = 'none';
                 loadData();
             });
             
