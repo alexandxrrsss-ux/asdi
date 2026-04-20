@@ -16,6 +16,22 @@
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-storage-compat.js"></script>
     
     <style>
+        .notification-badge {
+    position: absolute;
+    top: -5px;
+    right: -5px;
+    background: #ff4757;
+    color: white;
+    border-radius: 50%;
+    width: 18px;
+    height: 18px;
+    font-size: 11px;
+    display: flex; /* Esto centra el número */
+    align-items: center;
+    justify-content: center;
+    border: 2px solid var(--primary-dark);
+    font-weight: bold;
+}
         :root {
             --primary: #4361ee;
             --secondary: #3a0ca3;
@@ -7542,6 +7558,18 @@ if (markBtn) {
                     if (userFormError) userFormError.style.display = 'none';
                 });
             }
+            async function deleteTracking(trackingId, taskId) {
+    if (confirm('¿Seguro que quieres borrar este avance?')) {
+        try {
+            await db.collection('trackings').doc(trackingId).delete();
+            showNotification('Avance borrado', 'success');
+            loadTrackings(taskId); // Esto recarga la lista para que desaparezca el avance
+        } catch (error) {
+            console.error("Error al borrar:", error);
+            showNotification('No se pudo borrar', 'danger');
+        }
+    }
+}
             // Función para que el Admin reciba avisos en tiempo real
 function listenNotifications() {
     if (!currentUser || currentUser.role !== 'admin') return;
@@ -7571,7 +7599,18 @@ function listenNotifications() {
             badge.style.display = unread > 0 ? 'flex' : 'none';
         });
 }
-
+async function deleteTracking(trackingId, taskId) {
+    if (confirm('¿Estás seguro de que deseas eliminar este avance? Esta acción no se puede deshacer.')) {
+        try {
+            await db.collection('trackings').doc(trackingId).delete();
+            showNotification('Avance eliminado correctamente', 'success');
+            loadTrackings(taskId); // Recarga la lista para que desaparezca el avance borrado
+        } catch (error) {
+            console.error("Error al eliminar:", error);
+            showNotification('Error al eliminar el avance', 'danger');
+        }
+    }
+}
 // Función para crear la notificación (se usa cuando alguien sube algo)
 async function sendNotification(title, msg) {
     await db.collection('notifications').add({
