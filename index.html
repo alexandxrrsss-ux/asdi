@@ -1954,6 +1954,15 @@
                         <h1>Dashboard de Gestión</h1>
                         <div class="date-display" id="currentDate"></div>
                     </div>
+                    <div id="unassignedWorkersAlert" class="card admin-only" style="display: none; border-left: 5px solid var(--warning);">
+    <div class="card-header">
+        <div class="card-title" style="color: var(--warning);">
+            <i class="fas fa-user-clock"></i> Trabajadores sin Actividad Asignada
+        </div>
+    </div>
+    <div id="unassignedWorkersList" class="report-description">
+        </div>
+</div>
 
                     <!-- Stats -->
                     <div class="stats-container">
@@ -2981,6 +2990,7 @@
                         if (currentPage === 'dashboard') updateDashboard();
                         if (currentPage === 'tasks') loadMyTasks();
                         if (currentPage === 'manage-tasks') loadAllTasks();
+                        updateUnassignedWorkers();
                     });
 
                     // Escuchar cambios en REPORTES en tiempo real
@@ -3583,6 +3593,41 @@ const user = users.find(u =>
         }
 
         // ==================== DASHBOARD ====================
+        function updateUnassignedWorkers() {
+    // Solo procesar si el usuario es administrador
+    if (!currentUser || currentUser.role !== 'admin') return;
+
+    const alertContainer = document.getElementById('unassignedWorkersAlert');
+    const listContainer = document.getElementById('unassignedWorkersList');
+    
+    if (!alertContainer || !listContainer) return;
+
+    // 1. Recolectar todos los nombres de usuario que tienen tareas (en el campo assignees)
+    const assignedUsernames = new Set();
+    tasks.forEach(task => {
+        if (task.assignees && Array.isArray(task.assignees)) {
+            task.assignees.forEach(username => assignedUsernames.add(username));
+        }
+    });
+
+    // 2. Filtrar la lista de usuarios para encontrar 'workers' que no estén en el Set anterior
+    const unassignedWorkers = users.filter(user => 
+        user.role === 'worker' && !assignedUsernames.has(user.username)
+    );
+
+    // 3. Actualizar la interfaz
+    if (unassignedWorkers.length > 0) {
+        alertContainer.style.display = 'block';
+        listContainer.innerHTML = `
+            <p style="margin-bottom: 10px;">Los siguientes trabajadores no tienen ninguna tarea asignada actualmente:</p>
+            <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                ${unassignedWorkers.map(w => `<span class="badge badge-pending">${w.name}</span>`).join('')}
+            </div>
+        `;
+    } else {
+        alertContainer.style.display = 'none';
+    }
+}
         function updateDashboard() {
             if (!currentUser) return;
             
@@ -3610,6 +3655,7 @@ const user = users.find(u =>
             // Actualizar alertas de stock bajo - SOLO PARA ADMIN
             if (currentUser.role === 'admin') {
                 updateLowStockAlerts();
+                updateUnassignedWorkers();
             }
 
             const recentTasks = userTasks.slice(-5).reverse();
