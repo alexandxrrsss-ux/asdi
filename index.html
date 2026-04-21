@@ -3413,48 +3413,13 @@
                 return;
             }
 
-            // 🔧 FIX: Deshabilitar botón mientras procesa para evitar doble submit
-            const submitBtn = e.target.querySelector('button[type="submit"]');
-            if (submitBtn) {
-                submitBtn.disabled = true;
-                submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Verificando...';
-            }
-
             // 🔐 Buscar usuario — soporta contraseña plana (existente) y hasheada (nueva)
             const pwHash = await hashPassword(password);
-            
-            // 🔧 FIX: Si users[] está vacío (Firebase aún no cargó), consultar directamente
-            let user = users.find(u => {
+            const user = users.find(u => {
                 if (u.username.toLowerCase() !== username.toLowerCase()) return false;
+                // Comparar con hash nuevo O con texto plano (usuarios viejos sin migrar)
                 return u.password === pwHash || u.password === password;
             });
-            
-            if (!user) {
-               try {
-                    const docSnap = await db.collection('users').doc(username).get();
-                    
-                    if (!docSnap.exists) {
-                        // Intentar búsqueda case-insensitive de forma segura
-                        const snap = await db.collection('users').get();
-                        snap.forEach(doc => {
-                            // Verificamos que el documento tenga ID antes de usar toLowerCase
-                            if (doc.id && doc.id.toLowerCase() === username.toLowerCase()) {
-                                const data = { id: doc.id, ...doc.data() };
-                                // Verificamos que data.password exista para evitar otro error
-                                if (data.password && (data.password === pwHash || data.password === password)) {
-                                    user = data;
-                                }
-                            }
-                        });
-                    } else {
-                        const data = { id: docSnap.id, ...docSnap.data() };
-                        if (data.password && (data.password === pwHash || data.password === password)) {
-                            user = data;
-                        }
-                    }
-                } catch(err) {
-                    console.warn('⚠️ Consulta directa a Firebase falló:', err);
-                }
             
             if (user) {
                 // 🔐 Si la contraseña está en texto plano, migrarla a hash silenciosamente
@@ -3515,10 +3480,6 @@
                 showNotification(`Bienvenido, ${user.name} 👋`, 'success');
             } else {
                 showNotification('Usuario o contraseña incorrectos', 'danger');
-                if (submitBtn) {
-                    submitBtn.disabled = false;
-                    submitBtn.innerHTML = '<i class="fas fa-sign-in-alt"></i> Ingresar al Sistema';
-                }
             }
         }
 
