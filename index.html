@@ -3079,9 +3079,10 @@
         function setupRealTimeListeners() {
             return new Promise((resolve, reject) => {
                 try {
+                    let resolved = false;
                     // Escuchar cambios en USUARIOS en tiempo real
                     db.collection('users').onSnapshot((snapshot) => {
-                        console.log('🔄 Cambios detectados en usuarios');
+                        console.log('🔄 Cambios detectados en usuarios, total:', snapshot.size);
                         users = [];
                         snapshot.forEach(doc => {
                             users.push({ id: doc.id, ...doc.data() });
@@ -3104,10 +3105,16 @@
                             updateUsersTable();
                         }
                         
-                        resolve();
+                        if (!resolved) {
+                            resolved = true;
+                            resolve();
+                        }
                     }, (error) => {
                         console.error('❌ Error en escucha de usuarios:', error);
-                        reject(error);
+                        if (!resolved) {
+                            resolved = true;
+                            resolve(); // resolver igual para no bloquear la app
+                        }
                     });
 
                     // Escuchar cambios en TAREAS en tiempo real
@@ -3413,13 +3420,55 @@
                 return;
             }
 
+            // 🔧 FIX: Deshabilitar botón mientras procesa para evitar doble submit
+            const submitBtn = e.target.querySelector('button[type="submit"]');
+            if (submitBtn) {
+                submitBtn.disabled = true;
+                submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Verificando...';
+            }
+
             // 🔐 Buscar usuario — soporta contraseña plana (existente) y hasheada (nueva)
             const pwHash = await hashPassword(password);
-            const user = users.find(u => {
+            
+            // 🔧 FIX: Si users[] está vacío (Firebase aún no cargó), consultar directamente
+            let user = users.find(u => {
                 if (u.username.toLowerCase() !== username.toLowerCase()) return false;
-                // Comparar con hash nuevo O con texto plano (usuarios viejos sin migrar)
                 return u.password === pwHash || u.password === password;
             });
+            
+            if (!user) {
+                try {
+                    const docSnap = await db.collection('users').doc(username).get();
+                    if (!docSnap.exists) {
+                        // Intentar búsqueda case-insensitive
+                        const snap = await db.collection('users').get();
+                        snap.forEach(doc => {
+                            if (doc.id.toLowerCase() === username.toLowerCase()) {
+                                const data = { id: doc.id, ...doc.data() };
+                                if (data.password === pwHash || data.password === password) {
+                                    user = data;
+                                }
+                            }
+                        });
+                    } else {
+                        const data = { id: docSnap.id, ...docSnap.data() };
+                        if (data.password === pwHash || data.password === password) {
+                            user = data;
+                        }
+                    }
+                } catch(err) {
+                    console.warn('⚠️ Consulta directa a Firebase falló:', err);
+                    // Si falla por permisos, mostrar mensaje útil
+                    if (err.code === 'permission-denied') {
+                        showNotification('Error de permisos en Firebase. Verifica las reglas de seguridad de Firestore.', 'danger');
+                        if (submitBtn) {
+                            submitBtn.disabled = false;
+                            submitBtn.innerHTML = '<i class="fas fa-sign-in-alt"></i> Ingresar al Sistema';
+                        }
+                        return;
+                    }
+                }
+            }
             
             if (user) {
                 // 🔐 Si la contraseña está en texto plano, migrarla a hash silenciosamente
@@ -3480,6 +3529,10 @@
                 showNotification(`Bienvenido, ${user.name} 👋`, 'success');
             } else {
                 showNotification('Usuario o contraseña incorrectos', 'danger');
+                if (submitBtn) {
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = '<i class="fas fa-sign-in-alt"></i> Ingresar al Sistema';
+                }
             }
         }
 
@@ -5601,8 +5654,8 @@
             } else if (username.length < 3) {
                 showUserFormError('userUsername', 'El nombre de usuario debe tener al menos 3 caracteres');
                 isValid = false;
-            } else if (!/^[a-zA-Z0-9_]+$/.test(username)) {
-                showUserFormError('userUsername', 'El nombre de usuario solo puede contener letras, números y guiones bajos');
+            } else if (!/^[a-zA-Z0-9_ ]+$/.test(username)) {
+                showUserFormError('userUsername', 'El nombre de usuario solo puede contener letras, números, espacios y guiones bajos');
                 isValid = false;
             }
 
@@ -5755,9 +5808,9 @@
                 role: role
             };
             
-            // Si se proporcionó una nueva contraseña, actualizarla
+            // Si se proporcionó una nueva contraseña, hashearla y actualizarla
             if (password && password.length >= 6) {
-                updateData.password = password;
+                updateData.password = await hashPassword(password);
             }
             
             console.log('💾 Actualizando usuario en Firebase:', updateData);
