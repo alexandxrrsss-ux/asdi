@@ -2955,6 +2955,35 @@
         let chatMessages = [];
         let onlineUsers = [];
         let currentPage = "dashboard";
+        let trackingPage = 0;
+        const TRACKING_PAGE_SIZE = 10;
+
+        // ==================== 🔐 HASH DE CONTRASEÑAS (SHA-256) ====================
+        async function hashPassword(password) {
+            const msgBuffer = new TextEncoder().encode(password);
+            const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
+            const hashArray = Array.from(new Uint8Array(hashBuffer));
+            return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+        }
+
+        // Detectar si una contraseña ya está hasheada (64 chars hex) o es texto plano
+        function isHashed(password) {
+            return /^[a-f0-9]{64}$/.test(password);
+        }
+
+        // ==================== ⏱️ FECHAS RELATIVAS ====================
+        function timeAgo(dateString) {
+            if (!dateString) return 'N/A';
+            const date = new Date(dateString);
+            const now = new Date();
+            const diff = Math.floor((now - date) / 1000);
+            if (diff < 60)   return 'hace un momento';
+            if (diff < 3600) return `hace ${Math.floor(diff/60)} min`;
+            if (diff < 86400) return `hace ${Math.floor(diff/3600)} h`;
+            if (diff < 172800) return 'ayer';
+            if (diff < 604800) return `hace ${Math.floor(diff/86400)} días`;
+            return new Date(dateString).toLocaleDateString('es-ES');
+        }
 
         // ==================== FUNCIONES DE UTILIDAD ====================
         function generateId() {
@@ -3059,14 +3088,14 @@
                         });
                         
                         // Si hay un usuario logueado, verificar si su contraseña cambió
+                        // NOTA: solo cerrar sesión si la contraseña cambió Y ya estamos logueados
+                        // (ignorar el cambio de plano→hash que ocurre durante la migración en el login)
                         if (currentUser) {
                             const updatedUser = users.find(u => u.username === currentUser.username);
                             if (updatedUser && updatedUser.password !== currentUser.password) {
-                                console.log('🔐 Contraseña cambiada - Cerrando sesión');
-                                showNotification('Tu sesión se cerró porque la contraseña fue actualizada', 'warning');
-                                setTimeout(() => {
-                                    handleLogout();
-                                }, 2000);
+                                // Si el cambio fue plano→hash del mismo password, actualizar localmente sin cerrar sesión
+                                currentUser.password = updatedUser.password;
+                                saveSession();
                             }
                         }
                         
@@ -3384,17 +3413,27 @@
                 return;
             }
 
-            // Buscar usuario
-            // Busca la línea dentro de handleLogin y cámbiala por esta:
-const user = users.find(u => 
-    u.username.toLowerCase() === username.toLowerCase() && 
-    u.password === password
-);
+            // 🔐 Buscar usuario — soporta contraseña plana (existente) y hasheada (nueva)
+            const pwHash = await hashPassword(password);
+            const user = users.find(u => {
+                if (u.username.toLowerCase() !== username.toLowerCase()) return false;
+                // Comparar con hash nuevo O con texto plano (usuarios viejos sin migrar)
+                return u.password === pwHash || u.password === password;
+            });
             
             if (user) {
+                // 🔐 Si la contraseña está en texto plano, migrarla a hash silenciosamente
+                if (!isHashed(user.password)) {
+                    try {
+                        await db.collection('users').doc(user.username).update({ password: pwHash });
+                        user.password = pwHash;
+                        console.log('🔐 Contraseña migrada a hash para:', user.username);
+                    } catch(e) { console.warn('No se pudo migrar contraseña:', e); }
+                }
+
                 currentUser = user;
                 
-                // ✅ GUARDAR ÚLTIMO ACCESO EN FIREBASE
+                // Guardar último acceso en Firebase
                 try {
                     await db.collection('users').doc(user.username).update({
                         lastLogin: new Date().toISOString(),
@@ -3414,23 +3453,20 @@ const user = users.find(u =>
                     app.style.display = 'block';
                 }
                 
-                // ✅ INICIAR MONITOREO DE SESIÓN
                 setupSessionMonitoring();
                 
                 const userInitials = document.getElementById('userInitials');
-                const userName = document.getElementById('userName');
-                const userRole = document.getElementById('userRole');
+                const userNameEl = document.getElementById('userName');
+                const userRoleEl = document.getElementById('userRole');
                 
                 if (userInitials) userInitials.textContent = user.name.charAt(0).toUpperCase();
-                if (userName) userName.textContent = user.name;
-                if (userRole) userRole.textContent = user.role === 'admin' ? 'Administrador' : 'Trabajador';
+                if (userNameEl) userNameEl.textContent = user.name;
+                if (userRoleEl) userRoleEl.textContent = user.role === 'admin' ? 'Administrador' : 'Trabajador';
                 
-                // Ocultar elementos de admin si el usuario no es admin
                 document.querySelectorAll('.admin-only').forEach(el => {
                     el.style.display = user.role === 'admin' ? 'flex' : 'none';
                 });
                 
-                // ✅ CORRECCIÓN: Para trabajadores, mostrar solo el menú de tareas
                 if (user.role === 'worker') {
                     document.querySelectorAll('.nav-item').forEach(item => {
                         const page = item.getAttribute('data-page');
@@ -3441,7 +3477,7 @@ const user = users.find(u =>
                 }
                 
                 loadUserData();
-                showNotification(`Bienvenido ${user.name}`, 'success');
+                showNotification(`Bienvenido, ${user.name} 👋`, 'success');
             } else {
                 showNotification('Usuario o contraseña incorrectos', 'danger');
             }
@@ -3582,14 +3618,8 @@ const user = users.find(u =>
                 }
                 
                 const currentUserData = userDoc.data();
+                // Aceptar coincidencia directa (hash==hash o plano==plano)
                 const passwordMatches = currentUserData.password === savedUser.password;
-                
-                console.log('🔐 Verificación de contraseña:', {
-                    usuario: savedUser.username,
-                    contraseñaGuardada: savedUser.password,
-                    contraseñaActual: currentUserData.password,
-                    coincide: passwordMatches
-                });
                 
                 return passwordMatches;
                 
@@ -5645,11 +5675,12 @@ const user = users.find(u =>
                 return;
             }
             
-            // Crear nuevo usuario
+            // Crear nuevo usuario con contraseña hasheada
+            const pwHash = await hashPassword(password);
             const newUser = {
                 username: username,
                 name: name,
-                password: password,
+                password: pwHash,
                 role: role
             };
             
