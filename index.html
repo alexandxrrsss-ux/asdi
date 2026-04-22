@@ -2046,6 +2046,44 @@
             border-radius: 8px;
             color: #04a777;
         }
+
+        /* ===== PERFORMANCE & UX IMPROVEMENTS ===== */
+        html { scroll-behavior: smooth; }
+        img { loading: lazy; }
+
+        /* Skeleton loader */
+        .skeleton {
+            background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+            background-size: 200% 100%;
+            animation: shimmer 1.2s infinite;
+            border-radius: 8px;
+        }
+        body.dark-mode .skeleton {
+            background: linear-gradient(90deg, #2a2a3e 25%, #1e1e2e 50%, #2a2a3e 75%);
+            background-size: 200% 100%;
+        }
+        @keyframes shimmer { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
+
+        /* Smooth page transitions */
+        .page { animation: pageIn 0.3s ease; }
+        @keyframes pageIn { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:translateY(0); } }
+
+        /* Global search button style */
+        .search-kbd { font-size:0.72rem; opacity:0.75; background:rgba(255,255,255,0.15); padding:2px 7px; border-radius:5px; border:1px solid rgba(255,255,255,0.25); }
+
+        /* Profile photo clickable ring */
+        #userInitials { transition: box-shadow 0.2s; }
+        #userInitials:hover { box-shadow: 0 0 0 3px rgba(255,255,255,0.5); }
+
+        /* Tracking images: allow more per row on desktop */
+        @media (min-width: 769px) {
+            .tracking-images { grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); }
+        }
+
+        /* Card hover only on desktop */
+        @media (hover: hover) {
+            .card:hover { transform: translateY(-4px); }
+        }
     </style>
 </head>
 <body>
@@ -2099,6 +2137,9 @@
                         <button class="dark-mode-toggle" id="darkModeToggle" title="Modo oscuro">
                             <i class="fas fa-moon"></i>
                         </button>
+                        <button class="dark-mode-toggle" onclick="openGlobalSearch()" title="Búsqueda global (Ctrl+K)" style="gap:6px;">
+                            <i class="fas fa-search"></i><span style="font-size:0.75rem;opacity:0.8;">Ctrl+K</span>
+                        </button>
                         <div class="notification-container">
                             <button class="btn btn-outline" id="notificationBtn" style="box-shadow: none; position: relative;">
                                 <i class="fas fa-bell"></i>
@@ -2116,7 +2157,7 @@
                                 </div>
                             </div>
                         </div>
-                        <div class="user-avatar" id="userInitials">A</div>
+                        <div class="user-avatar" id="userInitials" style="overflow:hidden;cursor:pointer;padding:0;" title="Cambiar foto de perfil" onclick="openProfilePhotoModal()">A</div>
                         <span id="userName">Administrador</span>
                         <span id="userRole" style="background: rgba(255,255,255,0.2); padding: 0.3rem 0.8rem; border-radius: 20px; font-size: 0.8rem;"></span>
                         <button class="btn btn-outline" id="logoutBtn" style="box-shadow: none;">
@@ -2537,7 +2578,7 @@
                                     <img id="reportImagePreview" class="image-preview" src="" alt="Vista previa">
                                 </div>
                                 <small style="color: var(--gray); margin-top: 5px; display: block;">
-                                    Puedes subir una foto del problema o material necesario
+                                    Puedes subir hasta 20MB por imagen · Se comprime automáticamente
                                 </small>
                             </div>
 
@@ -3078,7 +3119,7 @@
                         <label class="form-label">Evidencia (imágenes) *</label>
                         <input type="file" class="form-control" id="trackingImages" accept="image/*" multiple>
                         <small style="color: var(--gray); margin-top: 5px; display: block;">
-                            Puedes subir hasta 5 imágenes como evidencia del avance (máximo 5MB cada una)
+                            Puedes subir hasta 10 imágenes como evidencia · Máximo 20MB cada una · Se comprimen automáticamente
                         </small>
                         <div id="trackingImagesPreview" class="tracking-images" style="margin-top: 10px;"></div>
                     </div>
@@ -3199,6 +3240,12 @@
             setTimeout(() => {
                 notification.classList.remove('show');
             }, 4000);
+        }
+
+        // ===== UTILIDAD DEBOUNCE (performance) =====
+        function debounce(fn, ms = 250) {
+            let t;
+            return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), ms); };
         }
 
         function getStatusText(status) {
@@ -3707,6 +3754,7 @@
                 
                 loadUserData();
                 showNotification(`Bienvenido, ${user.name} 👋`, 'success');
+                updateHeaderAvatar();
             } else {
                 showNotification('Usuario o contraseña incorrectos', 'danger');
                 if (submitBtn) {
@@ -3896,6 +3944,7 @@
                         if (userInitials) userInitials.textContent = currentUser.name.charAt(0).toUpperCase();
                         if (userName) userName.textContent = currentUser.name;
                         if (userRole) userRole.textContent = currentUser.role === 'admin' ? 'Administrador' : 'Trabajador';
+                        setTimeout(updateHeaderAvatar, 300);
                         
                         // Ocultar elementos de admin si el usuario no es admin
                         document.querySelectorAll('.admin-only').forEach(el => {
@@ -4112,12 +4161,18 @@
             }
             window._dashCharts = [];
 
-            // Chart 1: Task Status Donut
+            // Filter tasks based on role
+            const isWorker = currentUser && currentUser.role === 'worker';
+            const myTasks = isWorker
+                ? tasks.filter(t => t.assignees && t.assignees.includes(currentUser.username))
+                : tasks;
+
+            // Chart 1: Task Status Donut (own tasks for worker)
             const ctx1 = document.getElementById('chartTaskStatus');
             if (ctx1) {
-                const pending = tasks.filter(t => t.status === 'pending').length;
-                const inProg = tasks.filter(t => t.status === 'in-progress').length;
-                const completed = tasks.filter(t => t.status === 'completed').length;
+                const pending = myTasks.filter(t => t.status === 'pending').length;
+                const inProg = myTasks.filter(t => t.status === 'in-progress').length;
+                const completed = myTasks.filter(t => t.status === 'completed').length;
                 const c1 = new Chart(ctx1, {
                     type: 'doughnut',
                     data: {
@@ -4141,13 +4196,23 @@
                 window._dashCharts.push(c1);
             }
 
-            // Chart 2: Progress per worker (bar)
+            // Chart 2: Worker progress (admin) or personal progress by status (worker)
             const ctx2 = document.getElementById('chartWorkerProgress');
             if (ctx2) {
-                const workers = users.filter(u => u.role === 'worker').slice(0, 6);
-                const workerLabels = workers.map(w => w.name ? w.name.split(' ')[0] : w.username);
-                const workerCompleted = workers.map(w => tasks.filter(t => t.assignees && t.assignees.includes(w.username) && t.status === 'completed').length);
-                const workerTotal = workers.map(w => tasks.filter(t => t.assignees && t.assignees.includes(w.username)).length);
+                let workerLabels, workerCompleted, workerTotal;
+                if (isWorker) {
+                    // Show worker's own task breakdown by urgency
+                    const urgencies = ['urgent','high','medium','low'];
+                    const urgencyLabels = ['Urgente','Alta','Media','Baja'];
+                    workerLabels = urgencyLabels;
+                    workerCompleted = urgencies.map(u => myTasks.filter(t => t.urgency === u && t.status === 'completed').length);
+                    workerTotal = urgencies.map(u => myTasks.filter(t => t.urgency === u).length);
+                } else {
+                    const workers = users.filter(u => u.role === 'worker').slice(0, 6);
+                    workerLabels = workers.map(w => w.name ? w.name.split(' ')[0] : w.username);
+                    workerCompleted = workers.map(w => tasks.filter(t => t.assignees && t.assignees.includes(w.username) && t.status === 'completed').length);
+                    workerTotal = workers.map(w => tasks.filter(t => t.assignees && t.assignees.includes(w.username)).length);
+                }
                 const c2 = new Chart(ctx2, {
                     type: 'bar',
                     data: {
@@ -6210,38 +6275,41 @@
             return new Promise((resolve, reject) => {
                 const img = new Image();
                 img.src = dataUrl;
-                
                 img.onload = function() {
                     const canvas = document.createElement('canvas');
                     const ctx = canvas.getContext('2d');
-                    
-                    // ✅ Redimensionar si es muy grande (máximo 1200px en el lado más largo)
                     let width = img.width;
                     let height = img.height;
-                    const maxDimension = 1200;
-                    
+                    // Scale down large images - up to 1600px
+                    const maxDimension = 1600;
                     if (width > height && width > maxDimension) {
-                        height = (height * maxDimension) / width;
+                        height = Math.round((height * maxDimension) / width);
                         width = maxDimension;
                     } else if (height > maxDimension) {
-                        width = (width * maxDimension) / height;
+                        width = Math.round((width * maxDimension) / height);
                         height = maxDimension;
                     }
-                    
                     canvas.width = width;
                     canvas.height = height;
-                    
+                    ctx.imageSmoothingEnabled = true;
+                    ctx.imageSmoothingQuality = 'high';
                     ctx.drawImage(img, 0, 0, width, height);
-                    
                     try {
-                        // ✅ Comprimir con calidad ajustable
-                        const compressedDataUrl = canvas.toDataURL('image/jpeg', quality);
-                        resolve(compressedDataUrl);
+                        // Try compressing until under 800KB
+                        let q = quality;
+                        let result = canvas.toDataURL('image/jpeg', q);
+                        const targetBytes = 800 * 1024;
+                        let attempts = 0;
+                        while (result.length * 0.75 > targetBytes && q > 0.2 && attempts < 5) {
+                            q = Math.max(0.2, q - 0.15);
+                            result = canvas.toDataURL('image/jpeg', q);
+                            attempts++;
+                        }
+                        resolve(result);
                     } catch (error) {
                         reject(error);
                     }
                 };
-                
                 img.onerror = reject;
             });
         }
@@ -6251,8 +6319,8 @@
             if (!file) return null;
             const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
             if (!validTypes.includes(file.type)) throw new Error('Tipo de archivo no válido. Use JPEG, PNG, GIF o WebP.');
-            const maxSize = 5 * 1024 * 1024;
-            if (file.size > maxSize) throw new Error('La imagen es muy grande. Máximo 5MB.');
+            const maxSize = 20 * 1024 * 1024;
+            if (file.size > maxSize) throw new Error('La imagen es muy grande. Máximo 20MB.');
 
             // 🔥 CORRECCIÓN CRÍTICA: Usar Firebase Storage en lugar de base64 en Firestore
             // Esto evita que los documentos superen el límite de 1MB de Firestore
@@ -6359,10 +6427,10 @@
                             return;
                         }
                         
-                        // Validar tamaño (5MB máximo)
-                        const maxSize = 5 * 1024 * 1024;
+                        // Validar tamaño (20MB máximo)
+                        const maxSize = 20 * 1024 * 1024;
                         if (file.size > maxSize) {
-                            showNotification('La imagen es muy grande. Máximo 5MB.', 'danger');
+                            showNotification('La imagen es muy grande. Máximo 20MB.', 'danger');
                             e.target.value = ''; // Limpiar input
                             return;
                         }
@@ -6387,7 +6455,7 @@
             previewContainer.innerHTML = '';
             
             // Limitar a 5 imágenes
-            const maxFiles = 5;
+            const maxFiles = 10;
             const filesToProcess = Array.from(files).slice(0, maxFiles);
             
             if (files.length > maxFiles) {
@@ -6403,9 +6471,9 @@
                 }
                 
                 // Validar tamaño
-                const maxSize = 5 * 1024 * 1024;
+                const maxSize = 20 * 1024 * 1024;
                 if (file.size > maxSize) {
-                    showNotification(`La imagen ${file.name} es muy grande (máximo 5MB)`, 'warning');
+                    showNotification(`La imagen ${file.name} es muy grande (máximo 20MB)`, 'warning');
                     return;
                 }
                 
@@ -8411,5 +8479,242 @@
         }
     });
     </script>
+
+    <!-- ===== FOTO DE PERFIL MODAL ===== -->
+    <div id="profilePhotoModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:5000;justify-content:center;align-items:center;">
+        <div style="background:var(--bg-card);border-radius:16px;padding:2rem;max-width:400px;width:90%;box-shadow:0 20px 60px rgba(0,0,0,0.3);">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.5rem;">
+                <h3 style="color:var(--text-main);"><i class="fas fa-user-circle"></i> Foto de Perfil</h3>
+                <button onclick="closeProfilePhotoModal()" style="background:none;border:none;font-size:1.5rem;cursor:pointer;color:var(--gray);">&times;</button>
+            </div>
+            <div style="text-align:center;margin-bottom:1.5rem;">
+                <div id="profilePhotoPreviewWrap" style="width:120px;height:120px;border-radius:50%;background:linear-gradient(135deg,var(--primary),var(--secondary));margin:0 auto 1rem;display:flex;align-items:center;justify-content:center;overflow:hidden;font-size:3rem;font-weight:700;color:white;">A</div>
+                <p style="color:var(--gray);font-size:0.9rem;">Haz clic en la foto para cambiarla</p>
+            </div>
+            <div style="margin-bottom:1.5rem;">
+                <label class="form-label">Seleccionar nueva foto</label>
+                <input type="file" id="profilePhotoInput" accept="image/*" class="form-control" onchange="previewProfilePhoto(this)">
+                <small style="color:var(--gray);display:block;margin-top:6px;">JPEG, PNG o WebP · Máx 10MB · Se comprimirá automáticamente</small>
+            </div>
+            <div style="display:flex;gap:10px;justify-content:flex-end;">
+                <button class="btn btn-outline" onclick="closeProfilePhotoModal()">Cancelar</button>
+                <button class="btn btn-primary" onclick="saveProfilePhoto()" id="saveProfilePhotoBtn"><i class="fas fa-save"></i> Guardar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== BÚSQUEDA GLOBAL (Ctrl+K) ===== -->
+    <div id="globalSearchModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:6000;align-items:flex-start;justify-content:center;padding-top:80px;">
+        <div style="background:var(--bg-card);border-radius:16px;width:90%;max-width:600px;box-shadow:0 30px 80px rgba(0,0,0,0.4);overflow:hidden;">
+            <div style="display:flex;align-items:center;gap:12px;padding:1rem 1.2rem;border-bottom:1px solid var(--border-color);">
+                <i class="fas fa-search" style="color:var(--primary);font-size:1.2rem;"></i>
+                <input id="globalSearchInput" type="text" placeholder="Buscar tareas, reportes, inventario..." style="flex:1;border:none;outline:none;font-size:1rem;background:transparent;color:var(--text-main);" oninput="runGlobalSearch(this.value)">
+                <kbd style="background:var(--border-color);padding:2px 8px;border-radius:6px;font-size:0.75rem;color:var(--text-muted);">ESC</kbd>
+            </div>
+            <div id="globalSearchResults" style="max-height:400px;overflow-y:auto;padding:0.5rem 0;">
+                <p style="text-align:center;color:var(--text-muted);padding:2rem;">Escribe para buscar...</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+    // ===== FOTO DE PERFIL =====
+    let _profilePhotoData = null;
+
+    function openProfilePhotoModal() {
+        if (!currentUser) return;
+        const modal = document.getElementById('profilePhotoModal');
+        const preview = document.getElementById('profilePhotoPreviewWrap');
+        // Show current photo or initials
+        if (currentUser.photoURL) {
+            preview.innerHTML = `<img src="${currentUser.photoURL}" style="width:100%;height:100%;object-fit:cover;">`;
+        } else {
+            preview.innerHTML = currentUser.name ? currentUser.name.charAt(0).toUpperCase() : 'U';
+            preview.style.display = 'flex';
+        }
+        _profilePhotoData = null;
+        modal.style.display = 'flex';
+    }
+
+    function closeProfilePhotoModal() {
+        document.getElementById('profilePhotoModal').style.display = 'none';
+        document.getElementById('profilePhotoInput').value = '';
+        _profilePhotoData = null;
+    }
+
+    function previewProfilePhoto(input) {
+        if (!input.files || !input.files[0]) return;
+        const file = input.files[0];
+        if (file.size > 10 * 1024 * 1024) {
+            showNotification('Imagen muy grande. Máximo 10MB.', 'danger');
+            input.value = '';
+            return;
+        }
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            compressImage(e.target.result, 0.75).then(compressed => {
+                _profilePhotoData = compressed;
+                const preview = document.getElementById('profilePhotoPreviewWrap');
+                preview.innerHTML = `<img src="${compressed}" style="width:100%;height:100%;object-fit:cover;">`;
+            });
+        };
+        reader.readAsDataURL(file);
+    }
+
+    async function saveProfilePhoto() {
+        if (!_profilePhotoData) {
+            showNotification('Selecciona una foto primero', 'warning');
+            return;
+        }
+        const btn = document.getElementById('saveProfilePhotoBtn');
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Guardando...';
+        try {
+            // Try Firebase Storage first
+            let photoURL = _profilePhotoData;
+            if (typeof storage !== 'undefined' && storage) {
+                try {
+                    const blob = await fetch(_profilePhotoData).then(r => r.blob());
+                    const ref = storage.ref(`profile_photos/${currentUser.username}_${Date.now()}.jpg`);
+                    const snap = await ref.put(blob);
+                    photoURL = await snap.ref.getDownloadURL();
+                } catch(e) { /* fallback to base64 */ }
+            }
+            await db.collection('users').doc(currentUser.username).update({ photoURL });
+            currentUser.photoURL = photoURL;
+            saveSession();
+            updateHeaderAvatar();
+            closeProfilePhotoModal();
+            showNotification('¡Foto de perfil actualizada! 🎉', 'success');
+        } catch(err) {
+            showNotification('Error al guardar la foto: ' + err.message, 'danger');
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fas fa-save"></i> Guardar';
+        }
+    }
+
+    function updateHeaderAvatar() {
+        const avatar = document.getElementById('userInitials');
+        if (!avatar || !currentUser) return;
+        if (currentUser.photoURL) {
+            avatar.innerHTML = `<img src="${currentUser.photoURL}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">`;
+            avatar.style.padding = '0';
+        } else {
+            avatar.innerHTML = currentUser.name ? currentUser.name.charAt(0).toUpperCase() : 'U';
+        }
+    }
+
+    // Call after login to show photo in avatar
+    const _origLoadUserData = window.loadUserData;
+    document.addEventListener('DOMContentLoaded', () => {
+        // Patch loadUserData to also update avatar photo after login
+        const origSetup = window.setupRealTimeListeners;
+    });
+
+    // ===== BÚSQUEDA GLOBAL Ctrl+K =====
+    document.addEventListener('keydown', function(e) {
+        if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+            e.preventDefault();
+            if (!currentUser) return;
+            const modal = document.getElementById('globalSearchModal');
+            modal.style.display = modal.style.display === 'flex' ? 'none' : 'flex';
+            if (modal.style.display === 'flex') {
+                setTimeout(() => document.getElementById('globalSearchInput').focus(), 50);
+            }
+        }
+        if (e.key === 'Escape') {
+            document.getElementById('globalSearchModal').style.display = 'none';
+        }
+    });
+
+    document.getElementById('globalSearchModal').addEventListener('click', function(e) {
+        if (e.target === this) this.style.display = 'none';
+    });
+
+    function runGlobalSearch(q) {
+        const results = document.getElementById('globalSearchResults');
+        if (!q || q.length < 2) {
+            results.innerHTML = '<p style="text-align:center;color:var(--text-muted);padding:2rem;">Escribe para buscar...</p>';
+            return;
+        }
+        q = q.toLowerCase();
+        let html = '';
+
+        // Tasks
+        const taskResults = tasks.filter(t =>
+            (t.name && t.name.toLowerCase().includes(q)) ||
+            (t.description && t.description.toLowerCase().includes(q))
+        ).slice(0, 5);
+        if (taskResults.length) {
+            html += `<div style="padding:0.5rem 1rem;font-size:0.75rem;text-transform:uppercase;color:var(--text-muted);font-weight:700;letter-spacing:1px;">Tareas</div>`;
+            taskResults.forEach(t => {
+                html += `<div onclick="closeGlobalSearch();switchPage('tasks')" style="padding:0.8rem 1rem;cursor:pointer;display:flex;gap:12px;align-items:center;" onmouseover="this.style.background='rgba(67,97,238,0.08)'" onmouseout="this.style.background=''">
+                    <i class="fas fa-tasks" style="color:var(--primary);width:18px;"></i>
+                    <div><div style="font-weight:600;color:var(--text-main);font-size:0.95rem;">${t.name}</div>
+                    <div style="font-size:0.8rem;color:var(--text-muted);">Estado: ${t.status} · Urgencia: ${t.urgency||'-'}</div></div>
+                </div>`;
+            });
+        }
+
+        // Reports
+        const repResults = reports.filter(r =>
+            (r.title && r.title.toLowerCase().includes(q)) ||
+            (r.description && r.description.toLowerCase().includes(q))
+        ).slice(0, 3);
+        if (repResults.length) {
+            html += `<div style="padding:0.5rem 1rem;font-size:0.75rem;text-transform:uppercase;color:var(--text-muted);font-weight:700;letter-spacing:1px;margin-top:4px;">Reportes</div>`;
+            repResults.forEach(r => {
+                html += `<div onclick="closeGlobalSearch();switchPage('reports')" style="padding:0.8rem 1rem;cursor:pointer;display:flex;gap:12px;align-items:center;" onmouseover="this.style.background='rgba(67,97,238,0.08)'" onmouseout="this.style.background=''">
+                    <i class="fas fa-flag" style="color:var(--warning);width:18px;"></i>
+                    <div><div style="font-weight:600;color:var(--text-main);font-size:0.95rem;">${r.title||'Reporte'}</div>
+                    <div style="font-size:0.8rem;color:var(--text-muted);">Estado: ${r.status||'-'}</div></div>
+                </div>`;
+            });
+        }
+
+        // Inventory
+        const invResults = inventory.filter(m =>
+            (m.name && m.name.toLowerCase().includes(q)) ||
+            (m.category && m.category.toLowerCase().includes(q))
+        ).slice(0, 3);
+        if (invResults.length) {
+            html += `<div style="padding:0.5rem 1rem;font-size:0.75rem;text-transform:uppercase;color:var(--text-muted);font-weight:700;letter-spacing:1px;margin-top:4px;">Inventario</div>`;
+            invResults.forEach(m => {
+                html += `<div onclick="closeGlobalSearch();switchPage('inventory')" style="padding:0.8rem 1rem;cursor:pointer;display:flex;gap:12px;align-items:center;" onmouseover="this.style.background='rgba(67,97,238,0.08)'" onmouseout="this.style.background=''">
+                    <i class="fas fa-box" style="color:var(--success);width:18px;"></i>
+                    <div><div style="font-weight:600;color:var(--text-main);font-size:0.95rem;">${m.name}</div>
+                    <div style="font-size:0.8rem;color:var(--text-muted);">Stock: ${m.quantity} ${m.unit||''}</div></div>
+                </div>`;
+            });
+        }
+
+        if (!html) {
+            results.innerHTML = `<p style="text-align:center;color:var(--text-muted);padding:2rem;">Sin resultados para "<strong>${q}</strong>"</p>`;
+        } else {
+            results.innerHTML = html;
+        }
+    }
+
+    function openGlobalSearch() {
+        if (!currentUser) return;
+        const modal = document.getElementById('globalSearchModal');
+        modal.style.display = 'flex';
+        setTimeout(() => document.getElementById('globalSearchInput').focus(), 50);
+    }
+
+    function closeGlobalSearch() {
+        document.getElementById('globalSearchModal').style.display = 'none';
+        document.getElementById('globalSearchInput').value = '';
+    }
+
+    // ===== BOTÓN BÚSQUEDA EN HEADER (tooltip) =====
+    // Add Ctrl+K hint to notification bell label on first load
+    window.addEventListener('load', function() {
+        // Update avatar if user already logged in via session
+        setTimeout(updateHeaderAvatar, 800);
+    });
+    </script>
+
 </body>
 </html>
