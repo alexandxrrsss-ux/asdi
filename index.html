@@ -14,6 +14,15 @@
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-storage-compat.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+    
+    <!-- PWA Manifest inline -->
+    <link rel="manifest" href="data:application/manifest+json,{%22name%22:%22TaskMaster%20PRO%22,%22short_name%22:%22TaskMaster%22,%22start_url%22:%22.%22,%22display%22:%22standalone%22,%22background_color%22:%22%234361ee%22,%22theme_color%22:%22%234361ee%22,%22icons%22:[{%22src%22:%22https://via.placeholder.com/192x192/4361ee/white?text=TM%22,%22sizes%22:%22192x192%22,%22type%22:%22image/png%22}]}">
+    <meta name="theme-color" content="#4361ee">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="TaskMaster">
     
     <style>
         :root {
@@ -28,6 +37,80 @@
             --border-radius: 12px;
             --shadow: 0 6px 15px rgba(0, 0, 0, 0.1);
             --transition: all 0.3s ease;
+            --bg-body: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            --bg-card: #ffffff;
+            --bg-sidebar: #ffffff;
+            --text-main: #212529;
+            --text-muted: #6c757d;
+            --border-color: rgba(0,0,0,0.05);
+            --table-stripe: #f8f9fa;
+            --input-bg: #ffffff;
+            --input-border: #dee2e6;
+        }
+
+        body.dark-mode {
+            --bg-body: linear-gradient(135deg, #0f0f1a 0%, #1a1a2e 100%);
+            --bg-card: #1e1e2e;
+            --bg-sidebar: #16213e;
+            --text-main: #e2e2e2;
+            --text-muted: #a0a0b0;
+            --border-color: rgba(255,255,255,0.08);
+            --shadow: 0 6px 15px rgba(0,0,0,0.4);
+            --table-stripe: #252540;
+            --input-bg: #2a2a3e;
+            --input-border: #3a3a55;
+            --light: #1e1e2e;
+            --dark: #e2e2e2;
+        }
+
+        body.dark-mode .card,
+        body.dark-mode .stat-card,
+        body.dark-mode .task-card,
+        body.dark-mode .report-card,
+        body.dark-mode .inventory-card,
+        body.dark-mode .login-card {
+            background-color: var(--bg-card);
+            color: var(--text-main);
+            border-color: var(--border-color);
+        }
+
+        body.dark-mode .sidebar { background-color: var(--bg-sidebar); }
+        body.dark-mode body { color: var(--text-main); }
+        body.dark-mode .form-control,
+        body.dark-mode .form-select {
+            background-color: var(--input-bg);
+            border-color: var(--input-border);
+            color: var(--text-main);
+        }
+        body.dark-mode table tbody tr:nth-child(even) { background-color: var(--table-stripe); }
+        body.dark-mode .modal-content { background-color: var(--bg-card); color: var(--text-main); }
+        body.dark-mode .nav-item { color: var(--text-main); }
+        body.dark-mode .tabs { background-color: var(--bg-card); border-color: var(--border-color); }
+        body.dark-mode .tab-content { background-color: transparent; }
+        body.dark-mode .page-title h1 { filter: none; }
+
+        /* Dark mode toggle button */
+        .dark-mode-toggle {
+            background: none;
+            border: 2px solid rgba(255,255,255,0.4);
+            color: white;
+            padding: 6px 10px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 1rem;
+            transition: var(--transition);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .dark-mode-toggle:hover { background: rgba(255,255,255,0.15); }
+
+        @media (hover: none) and (pointer: coarse) {
+            .card:hover, .stat-card:hover, .task-card:hover,
+            .report-card:hover, .inventory-card:hover, .login-card:hover {
+                transform: none !important;
+                box-shadow: var(--shadow) !important;
+            }
         }
 
         * {
@@ -38,10 +121,11 @@
         }
 
         body {
-            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
-            color: var(--dark);
+            background: var(--bg-body);
+            color: var(--text-main);
             line-height: 1.6;
             min-height: 100vh;
+            transition: background 0.3s ease, color 0.3s ease;
         }
 
         .container {
@@ -623,7 +707,7 @@
         }
 
         .task-card {
-            background: white;
+            background: var(--bg-card);
             border-radius: var(--border-radius);
             box-shadow: var(--shadow);
             padding: 1.5rem;
@@ -636,6 +720,66 @@
             transform: translateY(-5px);
             box-shadow: 0 10px 20px rgba(0,0,0,0.15);
         }
+
+        .task-progress-bar-wrap {
+            margin: 0.8rem 0;
+        }
+        .task-progress-label {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            margin-bottom: 4px;
+        }
+        .task-progress-track {
+            height: 8px;
+            background: #e9ecef;
+            border-radius: 99px;
+            overflow: hidden;
+        }
+        body.dark-mode .task-progress-track { background: #3a3a55; }
+        .task-progress-fill {
+            height: 100%;
+            border-radius: 99px;
+            transition: width 0.5s ease;
+            background: linear-gradient(90deg, var(--primary), var(--success));
+        }
+        .task-progress-fill.overdue { background: linear-gradient(90deg, var(--danger), var(--warning)); }
+
+        .badge-overdue {
+            background: linear-gradient(135deg, #e63946, #c1121f);
+            color: white;
+            animation: pulse-overdue 1.5s ease-in-out infinite;
+        }
+        @keyframes pulse-overdue {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+
+        /* Dashboard charts area */
+        .dashboard-charts {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1.5rem;
+            margin-bottom: 1.8rem;
+        }
+        @media (max-width: 768px) {
+            .dashboard-charts { grid-template-columns: 1fr; }
+        }
+        .chart-card {
+            background: var(--bg-card);
+            border-radius: var(--border-radius);
+            box-shadow: var(--shadow);
+            padding: 1.5rem;
+            border: 1px solid var(--border-color);
+        }
+        .chart-card h3 {
+            font-size: 1rem;
+            font-weight: 600;
+            margin-bottom: 1rem;
+            color: var(--text-main);
+        }
+        .chart-canvas-wrap { position: relative; height: 220px; }
 
         .task-card.urgent {
             border-left-color: var(--danger);
@@ -1902,111 +2046,6 @@
             border-radius: 8px;
             color: #04a777;
         }
-
-        /* ========== NOTIFICACIONES PUSH ========== */
-        .push-notif-banner {
-            position: fixed;
-            bottom: 20px;
-            left: 50%;
-            transform: translateX(-50%) translateY(100px);
-            background: linear-gradient(135deg, var(--primary), var(--secondary));
-            color: white;
-            padding: 1rem 2rem;
-            border-radius: 50px;
-            box-shadow: 0 6px 20px rgba(67,97,238,0.4);
-            z-index: 9999;
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            font-weight: 600;
-            transition: transform 0.4s ease;
-            white-space: nowrap;
-            font-size: 0.95rem;
-        }
-        .push-notif-banner.show {
-            transform: translateX(-50%) translateY(0);
-        }
-        .push-permission-btn {
-            background: white;
-            color: var(--primary);
-            border: none;
-            padding: 0.4rem 1rem;
-            border-radius: 50px;
-            cursor: pointer;
-            font-weight: 700;
-            font-size: 0.85rem;
-        }
-
-        /* ========== TOAST STACK (múltiples notificaciones) ========== */
-        .toast-stack {
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            z-index: 9990;
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-            max-width: 380px;
-            pointer-events: none;
-        }
-        .toast-item {
-            background: white;
-            border-radius: 12px;
-            box-shadow: 0 6px 20px rgba(0,0,0,0.15);
-            padding: 1rem 1.5rem;
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            pointer-events: all;
-            animation: toastIn 0.4s ease;
-            border-left: 5px solid var(--primary);
-        }
-        .toast-item.toast-success { border-left-color: var(--success); }
-        .toast-item.toast-danger  { border-left-color: var(--danger); }
-        .toast-item.toast-warning { border-left-color: #ff9e00; }
-        @keyframes toastIn {
-            from { opacity: 0; transform: translateX(60px); }
-            to   { opacity: 1; transform: translateX(0); }
-        }
-        @keyframes toastOut {
-            from { opacity: 1; transform: translateX(0); }
-            to   { opacity: 0; transform: translateX(60px); }
-        }
-        .toast-icon { font-size: 1.4rem; }
-        .toast-success .toast-icon { color: var(--success); }
-        .toast-danger  .toast-icon { color: var(--danger); }
-        .toast-warning .toast-icon { color: #ff9e00; }
-        .toast-body { flex: 1; }
-        .toast-title { font-weight: 700; font-size: 0.95rem; }
-        .toast-msg   { color: var(--gray); font-size: 0.85rem; margin-top: 2px; }
-        .toast-close { cursor: pointer; color: var(--gray); font-size: 1.1rem; background: none; border: none; }
-
-        /* ========== ERRORES VISIBLES EN FORMULARIOS ========== */
-        .form-error-box {
-            background: #fff0f0;
-            border: 2px solid var(--danger);
-            border-radius: 10px;
-            padding: 1rem 1.2rem;
-            margin-bottom: 1.2rem;
-            color: var(--danger);
-            font-weight: 600;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            animation: shake 0.4s ease;
-        }
-        @keyframes shake {
-            0%,100% { transform: translateX(0); }
-            20%      { transform: translateX(-8px); }
-            60%      { transform: translateX(8px); }
-        }
-
-        /* ========== BADGE NOTIFICACIÓN PUSH ========== */
-        #pushToggleBtn {
-            position: relative;
-        }
-        .push-on  { color: var(--success) !important; border-color: var(--success) !important; }
-        .push-off { color: var(--gray)    !important; border-color: var(--gray)    !important; }
     </style>
 </head>
 <body>
@@ -2036,10 +2075,7 @@
                 </button>
             </form>
             <div style="margin-top: 2rem; text-align: center; color: var(--gray); padding: 1rem; background: #f8f9fa; border-radius: 10px;">
-                <p style="font-weight: 600; margin-bottom: 0.5rem;">Credenciales de prueba:</p>
-                <p>Administrador: <strong>admin</strong> / <strong>admin123</strong></p>
-                <p>Trabajador: <strong>juan</strong> / <strong>juan123</strong></p>
-                <p>Trabajador: <strong>maria</strong> / <strong>maria123</strong></p>
+                <p style="font-size: 0.85rem;"><i class="fas fa-lock"></i> Sistema seguro — Contacta al administrador si olvidaste tu contraseña.</p>
             </div>
         </div>
     </div>
@@ -2060,13 +2096,13 @@
                         </div>
                     </div>
                     <div class="user-info">
+                        <button class="dark-mode-toggle" id="darkModeToggle" title="Modo oscuro">
+                            <i class="fas fa-moon"></i>
+                        </button>
                         <div class="notification-container">
                             <button class="btn btn-outline" id="notificationBtn" style="box-shadow: none; position: relative;">
                                 <i class="fas fa-bell"></i>
                                 <span id="notificationCount" class="notification-badge" style="display: none;">0</span>
-                            </button>
-                            <button class="btn btn-outline push-off" id="pushToggleBtn" title="Activar notificaciones push al teléfono" style="box-shadow: none; padding: 0.8rem 1rem;">
-                                <i class="fas fa-mobile-alt"></i>
                             </button>
                             <div class="notification-dropdown" id="notificationDropdown">
                                 <div class="notification-header">
@@ -2221,6 +2257,22 @@
                         </div>
                     </div>
 
+                    <!-- Dashboard Charts -->
+                    <div class="dashboard-charts">
+                        <div class="chart-card">
+                            <h3><i class="fas fa-chart-pie" style="color: var(--primary); margin-right: 8px;"></i>Estado de Tareas</h3>
+                            <div class="chart-canvas-wrap">
+                                <canvas id="chartTaskStatus"></canvas>
+                            </div>
+                        </div>
+                        <div class="chart-card">
+                            <h3><i class="fas fa-chart-bar" style="color: var(--success); margin-right: 8px;"></i>Avance por Trabajador</h3>
+                            <div class="chart-canvas-wrap">
+                                <canvas id="chartWorkerProgress"></canvas>
+                            </div>
+                        </div>
+                    </div>
+
                     <div class="card">
                         <div class="card-header">
                             <div class="card-title">Tareas Recientes</div>
@@ -2293,6 +2345,26 @@
                     </div>
 
                     <div class="card">
+                        <!-- Filtros -->
+                        <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 1rem;">
+                            <input type="text" class="form-control" id="filterTaskSearch" placeholder="🔍 Buscar tarea..." style="flex: 1; min-width: 150px;">
+                            <select class="form-select" id="filterTaskStatus" style="min-width: 140px;">
+                                <option value="">Todos los estados</option>
+                                <option value="pending">Pendiente</option>
+                                <option value="in-progress">En Progreso</option>
+                                <option value="completed">Completada</option>
+                            </select>
+                            <select class="form-select" id="filterTaskUrgency" style="min-width: 140px;">
+                                <option value="">Todas las urgencias</option>
+                                <option value="urgent">Urgente</option>
+                                <option value="high">Alta</option>
+                                <option value="medium">Media</option>
+                                <option value="low">Baja</option>
+                            </select>
+                            <select class="form-select" id="filterTaskWorker" style="min-width: 150px;">
+                                <option value="">Todos los trabajadores</option>
+                            </select>
+                        </div>
                         <div style="overflow-x: auto;">
                             <table class="table">
                                 <thead>
@@ -2961,17 +3033,6 @@
         </div>
     </div>
 
-    <!-- Toast Stack para notificaciones admin en tiempo real -->
-    <div class="toast-stack" id="toastStack"></div>
-
-    <!-- Banner solicitar permisos push -->
-    <div class="push-notif-banner" id="pushBanner">
-        <i class="fas fa-bell"></i>
-        <span>Activa notificaciones para recibir alertas en tu teléfono</span>
-        <button class="push-permission-btn" id="pushPermissionBtn">Activar</button>
-        <button style="background:none;border:none;color:white;cursor:pointer;font-size:1.2rem;" id="pushBannerClose">&times;</button>
-    </div>
-
     <!-- NUEVO MODAL: Agregar Seguimiento de Avance -->
     <div class="modal-overlay" id="addTrackingModal">
         <div class="modal">
@@ -3017,7 +3078,7 @@
                         <label class="form-label">Evidencia (imágenes) *</label>
                         <input type="file" class="form-control" id="trackingImages" accept="image/*" multiple>
                         <small style="color: var(--gray); margin-top: 5px; display: block;">
-                            📸 Sube hasta 5 fotos de evidencia — se comprimen automáticamente (hasta 10MB c/u)
+                            Puedes subir hasta 5 imágenes como evidencia del avance (máximo 5MB cada una)
                         </small>
                         <div id="trackingImagesPreview" class="tracking-images" style="margin-top: 10px;"></div>
                     </div>
@@ -3124,117 +3185,6 @@
             return new Date(dateString).toLocaleString('es-ES');
         }
 
-        // ==================== 🔔 SISTEMA DE NOTIFICACIONES PUSH ====================
-        let pushEnabled = false;
-
-        function initPushNotifications() {
-            // Verificar soporte
-            if (!('Notification' in window)) return;
-            
-            // Si ya tiene permiso, marcar como activo
-            if (Notification.permission === 'granted') {
-                pushEnabled = true;
-                updatePushBtn(true);
-                return;
-            }
-            
-            // Mostrar banner si el permiso no ha sido decidido (solo para admins)
-            if (Notification.permission === 'default' && currentUser && currentUser.role === 'admin') {
-                setTimeout(() => {
-                    const banner = document.getElementById('pushBanner');
-                    if (banner) banner.classList.add('show');
-                }, 2000);
-            }
-        }
-
-        function updatePushBtn(enabled) {
-            const btn = document.getElementById('pushToggleBtn');
-            if (!btn) return;
-            if (enabled) {
-                btn.classList.remove('push-off');
-                btn.classList.add('push-on');
-                btn.title = 'Notificaciones push activas — clic para desactivar';
-                btn.innerHTML = '<i class="fas fa-mobile-alt"></i> <i class="fas fa-check" style="font-size:0.7rem;"></i>';
-            } else {
-                btn.classList.remove('push-on');
-                btn.classList.add('push-off');
-                btn.title = 'Activar notificaciones push al teléfono';
-                btn.innerHTML = '<i class="fas fa-mobile-alt"></i>';
-            }
-        }
-
-        async function requestPushPermission() {
-            if (!('Notification' in window)) {
-                showToast('Tu navegador no soporta notificaciones push', 'warning');
-                return;
-            }
-            try {
-                const permission = await Notification.requestPermission();
-                if (permission === 'granted') {
-                    pushEnabled = true;
-                    updatePushBtn(true);
-                    showToast('¡Notificaciones push activadas! Recibirás alertas en este dispositivo.', 'success');
-                    // Enviar notificación de prueba
-                    new Notification('✅ TaskMaster PRO Plus', {
-                        body: 'Notificaciones activadas. Recibirás alertas de reportes, avances y mensajes.',
-                        icon: 'https://cdn-icons-png.flaticon.com/512/1198/1198281.png'
-                    });
-                } else {
-                    showToast('Permiso denegado. Actívalo desde la configuración del navegador.', 'danger');
-                }
-            } catch (e) {
-                showToast('Error al solicitar permisos de notificación', 'danger');
-            }
-        }
-
-        function sendPushNotification(title, body) {
-            if (!pushEnabled || Notification.permission !== 'granted') return;
-            // No enviar si la página está activa y visible
-            if (document.visibilityState === 'visible') {
-                // Mostrar como toast en su lugar
-                showToast(body, 'success', title);
-                return;
-            }
-            try {
-                new Notification(title, {
-                    body: body,
-                    icon: 'https://cdn-icons-png.flaticon.com/512/1198/1198281.png',
-                    badge: 'https://cdn-icons-png.flaticon.com/512/1198/1198281.png',
-                    tag: title,
-                    renotify: true
-                });
-            } catch (e) {
-                console.warn('Error enviando push notification:', e);
-            }
-        }
-
-        // ==================== 🍞 SISTEMA DE TOASTS ====================
-        function showToast(message, type = 'success', title = null) {
-            const stack = document.getElementById('toastStack');
-            if (!stack) { showNotification(message, type); return; }
-
-            const icons = { success: 'fa-check-circle', danger: 'fa-exclamation-circle', warning: 'fa-exclamation-triangle' };
-            const titles = { success: title || 'Éxito', danger: title || 'Error', warning: title || 'Atención' };
-
-            const toast = document.createElement('div');
-            toast.className = `toast-item toast-${type}`;
-            toast.innerHTML = `
-                <div class="toast-icon"><i class="fas ${icons[type] || icons.success}"></i></div>
-                <div class="toast-body">
-                    <div class="toast-title">${titles[type]}</div>
-                    <div class="toast-msg">${message}</div>
-                </div>
-                <button class="toast-close" onclick="this.parentElement.remove()">&times;</button>
-            `;
-            stack.appendChild(toast);
-
-            // Auto-remover después de 5s
-            setTimeout(() => {
-                toast.style.animation = 'toastOut 0.4s ease forwards';
-                setTimeout(() => toast.remove(), 400);
-            }, 5000);
-        }
-
         function showNotification(message, type = 'success') {
             const notification = document.getElementById('notification');
             if (!notification) return;
@@ -3282,46 +3232,6 @@
             if (loadingOverlay) {
                 loadingOverlay.classList.remove('active');
             }
-        }
-
-        // ==================== ERRORES VISIBLES EN MODALES ====================
-        function showFormError(message, containerId) {
-            // Buscar contenedor primero; si no existe, usar toast
-            let container = containerId ? document.getElementById(containerId) : null;
-            
-            // Si el contenedor está en un modal, asegurarse de que el modal sea visible
-            if (!container) {
-                // Intentar mostrar en el modal activo
-                const activeModal = document.querySelector('.modal-overlay.active .modal-body');
-                if (activeModal) {
-                    let errBox = activeModal.querySelector('.form-error-box');
-                    if (!errBox) {
-                        errBox = document.createElement('div');
-                        errBox.className = 'form-error-box';
-                        activeModal.insertBefore(errBox, activeModal.firstChild);
-                    }
-                    errBox.innerHTML = `<i class="fas fa-exclamation-triangle"></i> ${message}`;
-                    errBox.style.display = 'flex';
-                    // Scroll al error
-                    errBox.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                    return;
-                }
-                // Fallback a toast
-                showToast(message, 'danger');
-                return;
-            }
-            
-            container.innerHTML = `<i class="fas fa-exclamation-triangle"></i> ${message}`;
-            container.style.display = 'flex';
-            container.className = 'form-error-box';
-            container.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        }
-
-        function clearFormError(containerId) {
-            const el = containerId ? document.getElementById(containerId) : null;
-            if (el) { el.style.display = 'none'; el.innerHTML = ''; }
-            // También limpiar errores en modal activo
-            document.querySelectorAll('.form-error-box').forEach(e => { e.style.display = 'none'; });
         }
 
         // ==================== GESTIÓN DE DATOS CON FIREBASE ====================
@@ -3388,30 +3298,12 @@
                     });
 
                     // Escuchar cambios en TAREAS en tiempo real
-                    let isFirstTaskLoad = true;
                     db.collection('tasks').onSnapshot((snapshot) => {
                         console.log('🔄 Cambios detectados en tareas');
-                        const prevTaskIds = new Set(tasks.map(t => t.id));
                         tasks = [];
                         snapshot.forEach(doc => {
                             tasks.push({ id: doc.id, ...doc.data() });
                         });
-                        
-                        // 🔔 Notificar al admin sobre nuevas tareas creadas por otros
-                        if (!isFirstTaskLoad && currentUser && currentUser.role === 'admin') {
-                            tasks.forEach(t => {
-                                if (!prevTaskIds.has(t.id)) {
-                                    addAdminBellNotification({
-                                        id: 'task-' + t.id,
-                                        title: '📋 Nueva tarea creada',
-                                        message: `"${t.name}" asignada a ${(t.assignees||[]).length} trabajador(es)`,
-                                        createdAt: t.createdAt,
-                                        read: false
-                                    });
-                                }
-                            });
-                        }
-                        isFirstTaskLoad = false;
                         
                         // Actualizar interfaz si es necesario
                         if (currentPage === 'dashboard') updateDashboard();
@@ -3421,33 +3313,12 @@
                     });
 
                     // Escuchar cambios en REPORTES en tiempo real
-                    let isFirstReportLoad = true;
                     db.collection('reports').onSnapshot((snapshot) => {
                         console.log('🔄 Cambios detectados en reportes');
-                        const prevReportIds = new Set(reports.map(r => r.id));
                         reports = [];
                         snapshot.forEach(doc => {
                             reports.push({ id: doc.id, ...doc.data() });
                         });
-
-                        // 🔔 Notificar al admin sobre nuevos reportes
-                        if (!isFirstReportLoad && currentUser && currentUser.role === 'admin') {
-                            reports.forEach(r => {
-                                if (!prevReportIds.has(r.id)) {
-                                    const reporter = users.find(u => u.username === r.reporter);
-                                    const reporterName = reporter ? reporter.name : r.reporter;
-                                    addAdminBellNotification({
-                                        id: 'rep-' + r.id,
-                                        title: '🚨 Nuevo reporte recibido',
-                                        message: `${reporterName}: "${r.title}" — Urgencia: ${getUrgencyText(r.urgency)}`,
-                                        createdAt: r.createdAt,
-                                        read: false
-                                    });
-                                    sendPushNotification('🚨 Nuevo Reporte', `${reporterName}: ${r.title}`);
-                                }
-                            });
-                        }
-                        isFirstReportLoad = false;
                         
                         // Actualizar interfaz si es necesario
                         if (currentPage === 'dashboard') updateDashboard();
@@ -3494,7 +3365,6 @@
                                         read: false,
                                         trackingId: t.id
                                     });
-                                    sendPushNotification('📸 Nuevo Avance', `${workerName}: ${t.percentage}% en "${taskName}"`);
                                 }
                             });
                         }
@@ -3506,33 +3376,12 @@
                     });
 
                     // Escuchar cambios en CHAT
-                    let isFirstChatLoad = true;
                     db.collection('chat').orderBy('timestamp', 'desc').limit(100).onSnapshot((snapshot) => {
                         console.log('🔄 Cambios detectados en chat');
-                        const prevChatIds = new Set(chatMessages.map(m => m.id));
                         chatMessages = [];
                         snapshot.forEach(doc => {
                             chatMessages.push({ id: doc.id, ...doc.data() });
                         });
-
-                        // 🔔 Notificar al admin sobre nuevos mensajes cuando no está en el chat
-                        if (!isFirstChatLoad && currentUser && currentUser.role === 'admin' && currentPage !== 'chat') {
-                            chatMessages.forEach(m => {
-                                if (!prevChatIds.has(m.id) && m.userId !== currentUser.username) {
-                                    const sender = users.find(u => u.username === m.userId);
-                                    const senderName = sender ? sender.name : m.userId;
-                                    addAdminBellNotification({
-                                        id: 'chat-' + m.id,
-                                        title: '💬 Nuevo mensaje en chat',
-                                        message: `${senderName}: "${m.text.substring(0,60)}${m.text.length>60?'...':''}"`,
-                                        createdAt: m.timestamp,
-                                        read: false
-                                    });
-                                    sendPushNotification('💬 Chat', `${senderName}: ${m.text.substring(0,80)}`);
-                                }
-                            });
-                        }
-                        isFirstChatLoad = false;
                         
                         if (currentPage === 'chat') {
                             loadChatMessages();
@@ -3858,10 +3707,6 @@
                 
                 loadUserData();
                 showNotification(`Bienvenido, ${user.name} 👋`, 'success');
-                // Inicializar notificaciones push para admin
-                if (user.role === 'admin') {
-                    setTimeout(() => initPushNotifications(), 1500);
-                }
             } else {
                 showNotification('Usuario o contraseña incorrectos', 'danger');
                 if (submitBtn) {
@@ -4073,7 +3918,6 @@
                         // Cargar notificaciones de campana (solo admin)
                         if (currentUser && currentUser.role === 'admin') {
                             loadBellNotifications();
-                            initPushNotifications();
                         }
                         return true;
                     } else {
@@ -4512,6 +4356,20 @@
                 tasks[taskIndex].updatedAt = new Date().toISOString();
                 
                 await saveSingleTask(taskId);
+
+                // 📝 Historial de cambios
+                try {
+                    await db.collection('task_history').add({
+                        taskId: taskId,
+                        taskName: tasks[taskIndex].name,
+                        changedBy: currentUser ? currentUser.username : 'unknown',
+                        changedByName: currentUser ? (currentUser.name || currentUser.username) : 'unknown',
+                        field: 'status',
+                        oldValue: oldStatus,
+                        newValue: newStatus,
+                        timestamp: new Date().toISOString()
+                    });
+                } catch(e) { console.warn('No se pudo guardar historial:', e); }
                 
                 showNotification(`Estado actualizado a: ${getStatusText(newStatus)}`, 'success');
                 
@@ -5070,7 +4928,7 @@
             const reportImage = document.getElementById('reportImage').files[0];
             
             if (!reportTitle || !problemDescription) {
-                showToast('Completa todos los campos obligatorios (título y descripción)', 'warning');
+                showNotification('Completa todos los campos obligatorios', 'warning');
                 return;
             }
             
@@ -5083,8 +4941,8 @@
                     imageUrl = await uploadImage(reportImage, 'reports');
                 } catch (error) {
                     console.error('❌ Error subiendo imagen:', error);
+                    showNotification('Error al subir la imagen', 'danger');
                     hideLoading();
-                    showToast(`Error al subir la imagen: ${error.message}`, 'danger');
                     return;
                 }
             }
@@ -5122,35 +4980,28 @@
                 createdAt: new Date().toISOString()
             };
             
-            try {
-                reports.push(newReport);
-                await saveReports();
-                
-                hideLoading();
-                showToast('Reporte enviado correctamente ✅', 'success');
-                const reportForm = document.getElementById('reportForm');
-                if (reportForm) reportForm.reset();
-                
-                // Limpiar vista previa de imagen
-                const reportImagePreview = document.getElementById('reportImagePreview');
-                const reportImagePlaceholder = document.getElementById('reportImagePlaceholder');
-                if (reportImagePreview) {
-                    reportImagePreview.src = '';
-                    reportImagePreview.classList.remove('active');
-                }
-                if (reportImagePlaceholder) {
-                    reportImagePlaceholder.style.display = 'flex';
-                }
-                
-                // Si el usuario es admin, actualizar la página de reportes
-                if (currentUser.role === 'admin') {
-                    loadReports();
-                }
-            } catch (error) {
-                console.error('❌ Error enviando reporte:', error);
-                hideLoading();
-                reports = reports.filter(r => r.id !== newReport.id);
-                showToast(`Error al enviar el reporte: ${error.message}`, 'danger');
+            reports.push(newReport);
+            await saveReports();
+            
+            hideLoading();
+            showNotification('Reporte enviado correctamente', 'success');
+            const reportForm = document.getElementById('reportForm');
+            if (reportForm) reportForm.reset();
+            
+            // Limpiar vista previa de imagen
+            const reportImagePreview = document.getElementById('reportImagePreview');
+            const reportImagePlaceholder = document.getElementById('reportImagePlaceholder');
+            if (reportImagePreview) {
+                reportImagePreview.src = '';
+                reportImagePreview.classList.remove('active');
+            }
+            if (reportImagePlaceholder) {
+                reportImagePlaceholder.style.display = 'flex';
+            }
+            
+            // Si el usuario es admin, actualizar la página de reportes
+            if (currentUser.role === 'admin') {
+                loadReports();
             }
         }
 
@@ -5578,36 +5429,21 @@
             const observations = document.getElementById('trackingObservations').value;
             const imagesInput = document.getElementById('trackingImages').files;
             
-            // Limpiar errores previos
-            clearFormError();
-            
-            if (!taskId) {
-                showFormError('Debes seleccionar una tarea');
-                return;
-            }
-            if (!percentage) {
-                showFormError('Debes seleccionar el porcentaje de avance');
-                return;
-            }
-            if (!description || description.trim().length < 5) {
-                showFormError('La descripción del avance debe tener al menos 5 caracteres');
+            if (!taskId || !percentage || !description) {
+                showNotification('Completa todos los campos obligatorios', 'warning');
                 return;
             }
             
             showLoading();
             
             try {
-                // Subir imágenes con compresión agresiva
+                // Subir imágenes
                 let imageUrls = [];
                 if (imagesInput && imagesInput.length > 0) {
-                    const totalImages = Math.min(imagesInput.length, 5);
-                    for (let i = 0; i < totalImages; i++) {
-                        try {
-                            const imageUrl = await uploadImage(imagesInput[i], 'trackings');
-                            if (imageUrl) imageUrls.push(imageUrl);
-                        } catch (imgErr) {
-                            console.warn(`⚠️ Error procesando imagen ${i+1}:`, imgErr.message);
-                            showToast(`Imagen ${i+1} omitida: ${imgErr.message}`, 'warning');
+                    for (let i = 0; i < Math.min(imagesInput.length, 5); i++) {
+                        const imageUrl = await uploadImage(imagesInput[i], 'trackings');
+                        if (imageUrl) {
+                            imageUrls.push(imageUrl);
                         }
                     }
                 }
@@ -5618,8 +5454,8 @@
                     taskId: taskId,
                     userId: currentUser.username,
                     percentage: parseInt(percentage),
-                    description: description.trim(),
-                    observations: observations ? observations.trim() : '',
+                    description: description,
+                    observations: observations || '',
                     images: imageUrls,
                     createdAt: new Date().toISOString()
                 };
@@ -5637,8 +5473,7 @@
                     }
                 }
                 
-                const imgCount = imageUrls.length;
-                showToast(`Avance registrado correctamente${imgCount > 0 ? ` con ${imgCount} imagen(es)` : ''} ✅`, 'success');
+                showNotification('Avance registrado correctamente', 'success');
                 
                 // Cerrar modal y limpiar formulario
                 const modal = document.getElementById('addTrackingModal');
@@ -5647,20 +5482,15 @@
                 const form = document.getElementById('trackingForm');
                 if (form) form.reset();
                 
-                // Limpiar preview de imágenes
-                const preview = document.getElementById('trackingImagesPreview');
-                if (preview) preview.innerHTML = '';
-                
                 // Recargar seguimientos
                 applyTrackingFilters();
                 
             } catch (error) {
                 console.error('❌ Error guardando seguimiento:', error);
+                showNotification('Error al guardar el avance', 'danger');
+            } finally {
                 hideLoading();
-                showFormError(`Error al guardar el avance: ${error.message}`);
-                return;
             }
-            hideLoading();
         }
 
         // ==================== NUEVO: CHAT GRUPAL ====================
@@ -6219,10 +6049,10 @@
         function loadUserData() {
             loadData();
             updateDashboard();
-            // Cargar notificaciones de campana (solo admin)
-            if (currentUser && currentUser.role === 'admin') {
-                loadBellNotifications();
-            }
+            // Cargar notificaciones de campana
+            loadBellNotifications();
+            // Configurar listener de notificaciones para trabajadores
+            setupWorkerNotificationListener();
             
             // Mostrar fecha actual
             const now = new Date();
@@ -6291,8 +6121,8 @@
 
         // ==================== SISTEMA DE CARGA Y VISUALIZACIÓN DE IMÁGENES ====================
 
-        // ✅ FUNCIÓN MEJORADA: Compresión de imágenes con parámetros ajustables
-        function compressImage(dataUrl, quality = 0.6, maxDimension = 900) {
+        // ✅ NUEVA FUNCIÓN: Compresión de imágenes
+        function compressImage(dataUrl, quality = 0.7) {
             return new Promise((resolve, reject) => {
                 const img = new Image();
                 img.src = dataUrl;
@@ -6301,38 +6131,28 @@
                     const canvas = document.createElement('canvas');
                     const ctx = canvas.getContext('2d');
                     
-                    // Redimensionar si es muy grande
+                    // ✅ Redimensionar si es muy grande (máximo 1200px en el lado más largo)
                     let width = img.width;
                     let height = img.height;
+                    const maxDimension = 1200;
                     
                     if (width > height && width > maxDimension) {
-                        height = Math.round((height * maxDimension) / width);
+                        height = (height * maxDimension) / width;
                         width = maxDimension;
                     } else if (height > maxDimension) {
-                        width = Math.round((width * maxDimension) / height);
+                        width = (width * maxDimension) / height;
                         height = maxDimension;
                     }
                     
                     canvas.width = width;
                     canvas.height = height;
                     
-                    // Fondo blanco (para PNGs con transparencia)
-                    ctx.fillStyle = '#FFFFFF';
-                    ctx.fillRect(0, 0, width, height);
                     ctx.drawImage(img, 0, 0, width, height);
                     
                     try {
-                        // Comprimir como JPEG con calidad ajustable
+                        // ✅ Comprimir con calidad ajustable
                         const compressedDataUrl = canvas.toDataURL('image/jpeg', quality);
-                        
-                        // Verificar que el resultado no sea mayor que el original
-                        if (compressedDataUrl.length > dataUrl.length && quality > 0.4) {
-                            // Re-comprimir con calidad más baja si es necesario
-                            const recompressed = canvas.toDataURL('image/jpeg', 0.4);
-                            resolve(recompressed);
-                        } else {
-                            resolve(compressedDataUrl);
-                        }
+                        resolve(compressedDataUrl);
                     } catch (error) {
                         reject(error);
                     }
@@ -6342,48 +6162,34 @@
             });
         }
 
-        // ✅ FUNCIÓN MEJORADA: Subir imagen con compresión agresiva según carpeta
+        // ✅ NUEVA FUNCIÓN: Subir imagen optimizada
         async function uploadImage(file, folder) {
+            if (!file) return null;
+            const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
+            if (!validTypes.includes(file.type)) throw new Error('Tipo de archivo no válido. Use JPEG, PNG, GIF o WebP.');
+            const maxSize = 5 * 1024 * 1024;
+            if (file.size > maxSize) throw new Error('La imagen es muy grande. Máximo 5MB.');
+
+            // 🔥 CORRECCIÓN CRÍTICA: Usar Firebase Storage en lugar de base64 en Firestore
+            // Esto evita que los documentos superen el límite de 1MB de Firestore
+            try {
+                if (typeof storage !== 'undefined' && storage) {
+                    const fileName = `${folder}/${Date.now()}_${file.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
+                    const storageRef = storage.ref(fileName);
+                    const snapshot = await storageRef.put(file);
+                    const downloadURL = await snapshot.ref.getDownloadURL();
+                    console.log('✅ Imagen subida a Firebase Storage:', downloadURL);
+                    return downloadURL;
+                }
+            } catch (storageError) {
+                console.warn('⚠️ Firebase Storage falló, usando base64 comprimido como fallback:', storageError);
+            }
+
+            // Fallback: base64 comprimido si Storage no disponible
             return new Promise((resolve, reject) => {
-                if (!file) { resolve(null); return; }
-                
-                // Validar tipo de archivo
-                const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
-                if (!validTypes.includes(file.type)) {
-                    reject(new Error('Tipo de archivo no válido. Use JPEG, PNG, GIF o WebP.'));
-                    return;
-                }
-                
-                // Para avances (trackings) permitir hasta 10MB porque se van a comprimir
-                const maxSize = folder === 'trackings' ? 10 * 1024 * 1024 : 8 * 1024 * 1024;
-                if (file.size > maxSize) {
-                    reject(new Error(`La imagen es muy grande. Máximo ${folder === 'trackings' ? '10' : '8'}MB.`));
-                    return;
-                }
-                
                 const reader = new FileReader();
-                
-                reader.onload = function(e) {
-                    // Comprimir más agresivamente para avances (múltiples fotos)
-                    const quality = folder === 'trackings' ? 0.45 : 0.6;
-                    const maxDim  = folder === 'trackings' ? 800  : 1000;
-                    
-                    compressImage(e.target.result, quality, maxDim)
-                        .then(compressedImage => {
-                            console.log(`✅ Imagen comprimida para ${folder}: ${Math.round(compressedImage.length/1024)}KB`);
-                            resolve(compressedImage);
-                        })
-                        .catch(error => {
-                            console.warn('⚠️ Error en compresión, usando imagen original:', error);
-                            resolve(e.target.result);
-                        });
-                };
-                
-                reader.onerror = function(error) {
-                    console.error('❌ Error leyendo imagen:', error);
-                    reject(error);
-                };
-                
+                reader.onload = (e) => compressImage(e.target.result, 0.5).then(resolve).catch(() => resolve(e.target.result));
+                reader.onerror = reject;
                 reader.readAsDataURL(file);
             });
         }
@@ -6451,7 +6257,7 @@
                             return;
                         }
                         
-                        // Para imágenes múltiples (tracking) - Validar con límite mayor
+                        // Para imágenes múltiples (tracking)
                         if (config.input === 'trackingImages') {
                             handleMultipleImages(files, preview);
                             return;
@@ -6464,16 +6270,16 @@
                         // Validar tipo de archivo
                         const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
                         if (!validTypes.includes(file.type)) {
-                            showToast('Tipo de archivo no válido. Use JPEG, PNG, GIF o WebP.', 'danger');
-                            e.target.value = '';
+                            showNotification('Tipo de archivo no válido. Use JPEG, PNG, GIF o WebP.', 'danger');
+                            e.target.value = ''; // Limpiar input
                             return;
                         }
                         
-                        // Validar tamaño (8MB máximo — se comprimirá)
-                        const maxSize = 8 * 1024 * 1024;
+                        // Validar tamaño (5MB máximo)
+                        const maxSize = 5 * 1024 * 1024;
                         if (file.size > maxSize) {
-                            showToast('La imagen es muy grande. Máximo 8MB.', 'danger');
-                            e.target.value = '';
+                            showNotification('La imagen es muy grande. Máximo 5MB.', 'danger');
+                            e.target.value = ''; // Limpiar input
                             return;
                         }
                         
@@ -6489,7 +6295,7 @@
             console.log('✅ Todos los handlers de imagen configurados');
         }
 
-        // ✅ FUNCIÓN MEJORADA: Manejar múltiples imágenes con compresión agresiva
+        // ✅ NUEVA FUNCIÓN: Manejar múltiples imágenes
         function handleMultipleImages(files, previewContainer) {
             if (!previewContainer) return;
             
@@ -6501,67 +6307,44 @@
             const filesToProcess = Array.from(files).slice(0, maxFiles);
             
             if (files.length > maxFiles) {
-                showToast(`Solo se procesarán las primeras ${maxFiles} imágenes`, 'warning');
+                showNotification(`Solo se procesarán las primeras ${maxFiles} imágenes`, 'warning');
             }
             
-            let processed = 0;
             filesToProcess.forEach((file, index) => {
                 // Validar tipo de archivo
                 const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
                 if (!validTypes.includes(file.type)) {
-                    showToast(`La imagen ${file.name} tiene un tipo no válido`, 'warning');
+                    showNotification(`La imagen ${file.name} tiene un tipo no válido`, 'warning');
                     return;
                 }
                 
-                // Permitir hasta 10MB (se va a comprimir fuertemente)
-                const maxSize = 10 * 1024 * 1024;
+                // Validar tamaño
+                const maxSize = 5 * 1024 * 1024;
                 if (file.size > maxSize) {
-                    showToast(`La imagen ${file.name} es muy grande (máximo 10MB)`, 'warning');
+                    showNotification(`La imagen ${file.name} es muy grande (máximo 5MB)`, 'warning');
                     return;
                 }
-
-                // Placeholder mientras carga
-                const wrapper = document.createElement('div');
-                wrapper.style.cssText = 'position:relative; width:100%; height:120px; background:#f0f0f0; border-radius:8px; display:flex; align-items:center; justify-content:center;';
-                wrapper.innerHTML = '<i class="fas fa-spinner fa-spin" style="font-size:1.5rem; color:var(--primary);"></i>';
-                previewContainer.appendChild(wrapper);
                 
                 const reader = new FileReader();
+                
                 reader.onload = function(e) {
-                    // Comprimir antes de mostrar
-                    compressImage(e.target.result, 0.45, 800)
-                        .then(compressed => {
-                            const img = document.createElement('img');
-                            img.src = compressed;
-                            img.className = 'tracking-image';
-                            img.alt = `Evidencia ${index + 1}`;
-                            img.style.cssText = 'width:100%; height:120px; object-fit:cover; border-radius:8px; cursor:pointer;';
-                            img.addEventListener('click', function() {
-                                openImageModal(compressed);
-                            });
-                            wrapper.innerHTML = '';
-                            wrapper.appendChild(img);
-                            
-                            const sizeKB = Math.round(compressed.length * 0.75 / 1024);
-                            const badge = document.createElement('div');
-                            badge.style.cssText = 'position:absolute; bottom:4px; right:4px; background:rgba(0,0,0,0.6); color:white; font-size:0.7rem; padding:2px 6px; border-radius:10px;';
-                            badge.textContent = `~${sizeKB}KB`;
-                            wrapper.appendChild(badge);
-                            
-                            processed++;
-                            if (processed === 1) {
-                                showToast(`Imágenes comprimidas y listas para subir`, 'success');
-                            }
-                        })
-                        .catch(() => {
-                            const img = document.createElement('img');
-                            img.src = e.target.result;
-                            img.className = 'tracking-image';
-                            img.style.cssText = 'width:100%; height:120px; object-fit:cover; border-radius:8px; cursor:pointer;';
-                            wrapper.innerHTML = '';
-                            wrapper.appendChild(img);
-                        });
+                    const img = document.createElement('img');
+                    img.src = e.target.result;
+                    img.className = 'tracking-image';
+                    img.alt = `Evidencia ${index + 1}`;
+                    img.style.width = '100%';
+                    img.style.height = '120px';
+                    img.style.objectFit = 'cover';
+                    img.style.borderRadius = '8px';
+                    img.style.cursor = 'pointer';
+                    
+                    img.addEventListener('click', function() {
+                        openImageModal(e.target.result);
+                    });
+                    
+                    previewContainer.appendChild(img);
                 };
+                
                 reader.readAsDataURL(file);
             });
         }
@@ -6612,15 +6395,10 @@
             reader.onload = function(e) {
                 console.log('✅ Archivo leído, comprimiendo...');
                 
-                // Comprimir imagen con parámetros mejorados
-                compressImage(e.target.result, 0.6, 1000)
+                // Comprimir imagen
+                compressImage(e.target.result, 0.7)
                     .then(compressedImage => {
-                        console.log('✅ Imagen comprimida');
-                        
-                        // Calcular tamaño comprimido aproximado
-                        const originalKB = Math.round(file.size / 1024);
-                        const compressedKB = Math.round(compressedImage.length * 0.75 / 1024);
-                        const reduction = originalKB > 0 ? Math.round((1 - compressedKB/originalKB)*100) : 0;
+                        console.log('✅ Imagen comprimida, mostrando vista previa...');
                         
                         // Mostrar vista previa
                         if (preview) {
@@ -6632,10 +6410,8 @@
                         setTimeout(() => {
                             fileInfo.remove();
                             showImageUploadProgress(false);
-                            if (reduction > 5) {
-                                showToast(`Imagen lista: ${originalKB}KB → ~${compressedKB}KB (${reduction}% menos peso) ✅`, 'success');
-                            }
-                        }, 800);
+                            console.log('🎉 Imagen procesada correctamente');
+                        }, 1000);
                         
                     })
                     .catch(error => {
@@ -6649,7 +6425,7 @@
                         
                         fileInfo.remove();
                         showImageUploadProgress(false);
-                        showToast('Imagen cargada (sin compresión)', 'warning');
+                        showNotification('Imagen cargada (sin compresión)', 'warning');
                     });
             };
             
@@ -6657,7 +6433,7 @@
                 console.error('❌ Error leyendo archivo:', error);
                 fileInfo.remove();
                 showImageUploadProgress(false);
-                showToast('Error al cargar la imagen. Intenta con otro archivo.', 'danger');
+                showNotification('Error al cargar la imagen', 'danger');
                 if (placeholder) {
                     placeholder.style.display = 'flex';
                 }
@@ -6899,6 +6675,11 @@
                     loadAllTasks();
                 }
                 updateDashboard();
+
+                // 🔔 Notificar a trabajadores asignados
+                if (newTask.assignees && newTask.assignees.length > 0) {
+                    notifyWorkersNewTask(newTask);
+                }
                 
             } catch (error) {
                 console.error('❌ Error guardando tarea en Firebase:', error);
@@ -8285,40 +8066,614 @@
                 }
                 loadData();
             });
-
-            // ========== BOTÓN PUSH MÓVIL ==========
-            const pushToggleBtn = document.getElementById('pushToggleBtn');
-            if (pushToggleBtn) {
-                pushToggleBtn.addEventListener('click', async function() {
-                    if (pushEnabled) {
-                        pushEnabled = false;
-                        updatePushBtn(false);
-                        showToast('Notificaciones push desactivadas', 'warning');
-                    } else {
-                        await requestPushPermission();
-                    }
-                });
-            }
-
-            // ========== BANNER PUSH ==========
-            const pushPermissionBtn = document.getElementById('pushPermissionBtn');
-            if (pushPermissionBtn) {
-                pushPermissionBtn.addEventListener('click', async function() {
-                    const banner = document.getElementById('pushBanner');
-                    if (banner) banner.classList.remove('show');
-                    await requestPushPermission();
-                });
-            }
-            const pushBannerClose = document.getElementById('pushBannerClose');
-            if (pushBannerClose) {
-                pushBannerClose.addEventListener('click', function() {
-                    const banner = document.getElementById('pushBanner');
-                    if (banner) banner.classList.remove('show');
-                });
-            }
             
             console.log('✅ Sistema TaskMaster PRO Plus completamente inicializado y listo para usar 🚀');
+
+            // ==================== DARK MODE ====================
+            const darkToggle = document.getElementById('darkModeToggle');
+            const savedTheme = localStorage.getItem('tm_dark_mode');
+            if (savedTheme === 'true') {
+                document.body.classList.add('dark-mode');
+                if (darkToggle) darkToggle.innerHTML = '<i class="fas fa-sun"></i>';
+            }
+            if (darkToggle) {
+                darkToggle.addEventListener('click', () => {
+                    const isDark = document.body.classList.toggle('dark-mode');
+                    darkToggle.innerHTML = isDark ? '<i class="fas fa-sun"></i>' : '<i class="fas fa-moon"></i>';
+                    localStorage.setItem('tm_dark_mode', isDark);
+                    // Redraw charts with new theme
+                    if (window._dashCharts) {
+                        window._dashCharts.forEach(c => c.destroy());
+                        window._dashCharts = null;
+                    }
+                    updateDashboard();
+                });
+            }
+
+            // ==================== REPORT FORM AUTOSAVE ====================
+            const reportFields = ['reportType','taskSelect','reportDescription','reportPriority'];
+            const autosaveKey = 'tm_report_draft';
+
+            function saveReportDraft() {
+                const draft = {};
+                reportFields.forEach(id => {
+                    const el = document.getElementById(id);
+                    if (el) draft[id] = el.value;
+                });
+                try { localStorage.setItem(autosaveKey, JSON.stringify(draft)); } catch(e) {}
+            }
+
+            function loadReportDraft() {
+                try {
+                    const saved = localStorage.getItem(autosaveKey);
+                    if (!saved) return;
+                    const draft = JSON.parse(saved);
+                    reportFields.forEach(id => {
+                        const el = document.getElementById(id);
+                        if (el && draft[id] !== undefined) el.value = draft[id];
+                    });
+                } catch(e) {}
+            }
+
+            function clearReportDraft() {
+                try { localStorage.removeItem(autosaveKey); } catch(e) {}
+            }
+
+            reportFields.forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.addEventListener('input', saveReportDraft);
+            });
+
+            // Load draft when navigating to reports page
+            const origSwitchPage = window.switchPage;
+            // Hook into tab change for report page
+            document.addEventListener('click', (e) => {
+                const navItem = e.target.closest('[data-page="reports"]');
+                if (navItem) setTimeout(loadReportDraft, 100);
+            });
+
+            // Clear draft on successful submit
+            const reportForm = document.getElementById('reportForm');
+            if (reportForm) {
+                reportForm.addEventListener('submit', () => setTimeout(clearReportDraft, 500), true);
+            }
+
+            // ==================== TASK FILTERS FOR MANAGE-TASKS ====================
+            ['filterTaskSearch','filterTaskStatus','filterTaskUrgency','filterTaskWorker'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.addEventListener('input', loadAllTasksFiltered);
+                if (el) el.addEventListener('change', loadAllTasksFiltered);
+            });
+
+            // ==================== UPLOAD IMAGES TO FIREBASE STORAGE ====================
+            // (Storage is initialized; base64 images in tracking should use Storage)
+            // This is an enhancement patch — new trackings will use Storage URLs when available
         });
+
+        // ==================== CHART RENDERING ====================
+        let _chartInstances = [];
+
+        function renderDashboardCharts() {
+            const isDark = document.body.classList.contains('dark-mode');
+            const textColor = isDark ? '#e2e2e2' : '#212529';
+            const gridColor = isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)';
+            Chart.defaults.color = textColor;
+
+            if (window._dashCharts) {
+                window._dashCharts.forEach(c => { try { c.destroy(); } catch(e){} });
+            }
+            window._dashCharts = [];
+
+            // Chart 1: Task Status Donut
+            const ctx1 = document.getElementById('chartTaskStatus');
+            if (ctx1) {
+                const pending = tasks.filter(t => t.status === 'pending').length;
+                const inProg = tasks.filter(t => t.status === 'in-progress').length;
+                const completed = tasks.filter(t => t.status === 'completed').length;
+                const c1 = new Chart(ctx1, {
+                    type: 'doughnut',
+                    data: {
+                        labels: ['Pendientes', 'En Progreso', 'Completadas'],
+                        datasets: [{
+                            data: [pending, inProg, completed],
+                            backgroundColor: ['#f72585','#4361ee','#06d6a0'],
+                            borderWidth: 2,
+                            borderColor: isDark ? '#1e1e2e' : '#fff'
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: { position: 'bottom', labels: { color: textColor, padding: 12, font: { size: 12 } } }
+                        },
+                        cutout: '65%'
+                    }
+                });
+                window._dashCharts.push(c1);
+            }
+
+            // Chart 2: Progress per worker (bar)
+            const ctx2 = document.getElementById('chartWorkerProgress');
+            if (ctx2) {
+                const workers = users.filter(u => u.role === 'worker').slice(0, 6);
+                const workerLabels = workers.map(w => w.name ? w.name.split(' ')[0] : w.username);
+                const workerCompleted = workers.map(w => tasks.filter(t => t.assignees && t.assignees.includes(w.username) && t.status === 'completed').length);
+                const workerTotal = workers.map(w => tasks.filter(t => t.assignees && t.assignees.includes(w.username)).length);
+                const c2 = new Chart(ctx2, {
+                    type: 'bar',
+                    data: {
+                        labels: workerLabels,
+                        datasets: [
+                            {
+                                label: 'Completadas',
+                                data: workerCompleted,
+                                backgroundColor: '#06d6a0',
+                                borderRadius: 6
+                            },
+                            {
+                                label: 'Total',
+                                data: workerTotal,
+                                backgroundColor: isDark ? 'rgba(67,97,238,0.3)' : 'rgba(67,97,238,0.15)',
+                                borderRadius: 6
+                            }
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: { position: 'bottom', labels: { color: textColor, font: { size: 12 } } }
+                        },
+                        scales: {
+                            x: { ticks: { color: textColor }, grid: { color: gridColor } },
+                            y: { ticks: { color: textColor, stepSize: 1 }, grid: { color: gridColor }, beginAtZero: true }
+                        }
+                    }
+                });
+                window._dashCharts.push(c2);
+            }
+        }
+
+        // Patch updateDashboard to also render charts
+        const _origUpdateDashboard = updateDashboard;
+        function updateDashboard() {
+            _origUpdateDashboard();
+            try { renderDashboardCharts(); } catch(e) { console.warn('Chart error:', e); }
+        }
+
+        // ==================== TASK FILTERS ====================
+        function loadAllTasksFiltered() {
+            const search = (document.getElementById('filterTaskSearch')?.value || '').toLowerCase();
+            const status = document.getElementById('filterTaskStatus')?.value || '';
+            const urgency = document.getElementById('filterTaskUrgency')?.value || '';
+            const worker = document.getElementById('filterTaskWorker')?.value || '';
+
+            let filtered = tasks.filter(task => {
+                if (search && !task.name.toLowerCase().includes(search) && !task.description.toLowerCase().includes(search)) return false;
+                if (status && task.status !== status) return false;
+                if (urgency && task.urgency !== urgency) return false;
+                if (worker && !(task.assignees && task.assignees.includes(worker))) return false;
+                return true;
+            });
+
+            const tbody = document.getElementById('allTasksTable');
+            if (!tbody) return;
+            tbody.innerHTML = '';
+
+            if (filtered.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 2rem; color: var(--gray);">No hay tareas con esos filtros</td></tr>';
+                return;
+            }
+
+            filtered.forEach(task => {
+                const today = new Date();
+                today.setHours(0,0,0,0);
+                const due = task.dueDate ? new Date(task.dueDate) : null;
+                const isOverdue = due && due < today && task.status !== 'completed';
+
+                const assigneesNames = task.assignees ? task.assignees.map(username => {
+                    const u = users.find(x => x.username === username);
+                    return u ? u.name : username;
+                }).join(', ') : 'Sin asignar';
+
+                const materialsText = task.materials && task.materials.length > 0
+                    ? task.materials.map(m => {
+                        const mat = inventory.find(x => x.id === m.materialId);
+                        return mat ? `${mat.name} (${m.quantity} ${mat.unit})` : '';
+                    }).filter(Boolean).join(', ')
+                    : 'Ninguno';
+
+                const overdueTag = isOverdue ? '<span class="badge badge-overdue" style="margin-left:4px;font-size:0.7rem;">Vencida</span>' : '';
+
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>
+                        <div><strong>${sanitizeInput(task.name)}</strong>${overdueTag}</div>
+                        <div style="font-size: 0.9rem; color: var(--gray);">${sanitizeInput(task.description).substring(0, 50)}...</div>
+                    </td>
+                    <td>${assigneesNames}</td>
+                    <td style="color:${isOverdue?'var(--danger)':'inherit'}">${formatDate(task.dueDate)}</td>
+                    <td><span class="badge badge-${task.status}">${getStatusText(task.status)}</span></td>
+                    <td><span class="badge badge-${task.urgency}">${getUrgencyText(task.urgency)}</span></td>
+                    <td>${materialsText}</td>
+                    <td style="white-space: nowrap;">
+                        <button class="btn btn-outline edit-task-btn" data-task-id="${task.id}" style="margin-bottom: 5px;">
+                            <i class="fas fa-edit"></i> Editar
+                        </button>
+                        ${currentUser && currentUser.role === 'admin' ? `
+                        <button class="btn btn-outline assign-materials-btn" data-task-id="${task.id}" style="margin-bottom: 5px;">
+                            <i class="fas fa-boxes"></i> Materiales
+                        </button>
+                        <button class="btn btn-danger delete-task-btn" data-task-id="${task.id}" style="margin-bottom: 5px;">
+                            <i class="fas fa-trash"></i> Eliminar
+                        </button>
+                        ` : ''}
+                        <button class="btn btn-outline view-history-btn" data-task-id="${task.id}" style="font-size:0.8rem;">
+                            <i class="fas fa-history"></i> Historial
+                        </button>
+                    </td>
+                `;
+                tbody.appendChild(row);
+            });
+            addTaskTableEventListeners();
+        }
+
+        // Populate worker filter when users load
+        function updateTaskFilterWorkers() {
+            const sel = document.getElementById('filterTaskWorker');
+            if (!sel) return;
+            const current = sel.value;
+            sel.innerHTML = '<option value="">Todos los trabajadores</option>';
+            users.filter(u => u.role === 'worker').forEach(u => {
+                const opt = document.createElement('option');
+                opt.value = u.username;
+                opt.textContent = u.name || u.username;
+                sel.appendChild(opt);
+            });
+            sel.value = current;
+        }
+
+        // Patch loadAllTasks to use filtered version
+        const _origLoadAllTasks = loadAllTasks;
+        function loadAllTasks() {
+            updateTaskFilterWorkers();
+            loadAllTasksFiltered();
+        }
+
+        // ==================== PROGRESS BAR IN TASK CARDS ====================
+        function getTaskProgress(taskId) {
+            const taskTrackings = trackings.filter(t => t.taskId === taskId);
+            if (taskTrackings.length === 0) return 0;
+            return Math.max(...taskTrackings.map(t => t.percentage || 0));
+        }
+
+        // Patch updateMyTasksCards to show progress bars and overdue badges
+        const _origUpdateMyTasksCards = updateMyTasksCards;
+        function updateMyTasksCards(taskList, currentFilter = 'all') {
+            const container = document.getElementById(`tab-${currentFilter}`);
+            if (!container) return;
+            container.innerHTML = '';
+
+            if (taskList.length === 0) {
+                let message = 'No hay tareas disponibles';
+                if (currentFilter === 'pending') message = 'No hay tareas pendientes';
+                else if (currentFilter === 'in-progress') message = 'No hay tareas en progreso';
+                else if (currentFilter === 'completed') message = 'No hay tareas completadas';
+                container.innerHTML = `<div class="card" style="text-align: center; padding: 2rem; color: var(--gray);">${message}</div>`;
+                return;
+            }
+
+            const today = new Date();
+            today.setHours(0,0,0,0);
+
+            taskList.forEach(task => {
+                const assigneesNames = task.assignees ? task.assignees.map(username => {
+                    const user = users.find(u => u.username === username);
+                    return user ? user.name : username;
+                }).join(', ') : 'Sin asignar';
+
+                let statusBadgeClass = 'badge-pending';
+                let statusText = 'Pendiente';
+                if (task.status === 'in-progress') { statusBadgeClass = 'badge-in-progress'; statusText = 'En Progreso'; }
+                else if (task.status === 'completed') { statusBadgeClass = 'badge-completed'; statusText = 'Terminada'; }
+
+                const due = task.dueDate ? new Date(task.dueDate) : null;
+                const isOverdue = due && due < today && task.status !== 'completed';
+                const overdueTag = isOverdue ? '<span class="badge badge-overdue" style="font-size:0.7rem;margin-left:4px;">Vencida</span>' : '';
+
+                const progress = getTaskProgress(task.id);
+                const progressHtml = `
+                    <div class="task-progress-bar-wrap">
+                        <div class="task-progress-label">
+                            <span><i class="fas fa-chart-line"></i> Avance</span>
+                            <span>${progress}%</span>
+                        </div>
+                        <div class="task-progress-track">
+                            <div class="task-progress-fill ${isOverdue?'overdue':''}" style="width:${progress}%"></div>
+                        </div>
+                    </div>
+                `;
+
+                let materialsHtml = '';
+                if (task.materials && task.materials.length > 0) {
+                    materialsHtml = `<div class="material-assignment"><strong>Materiales asignados:</strong>${task.materials.map(material => {
+                        const mat = inventory.find(m => m.id === material.materialId);
+                        return mat ? `<div class="assignment-item"><span>${mat.name} - ${material.quantity} ${mat.unit}</span><span class="badge ${material.delivered ? 'badge-success' : 'badge-pending'}">${material.delivered ? 'Entregado' : 'Pendiente'}</span></div>` : '';
+                    }).join('')}</div>`;
+                }
+
+                let imageHtml = '';
+                if (task.imageUrl && task.imageUrl !== 'null' && task.imageUrl !== '' && (task.imageUrl.startsWith('http') || task.imageUrl.startsWith('data:image'))) {
+                    imageHtml = `<div class="image-container" style="margin: 1rem 0; text-align: center;"><p style="font-weight: 600; margin-bottom: 0.5rem; color: var(--primary);"><i class="fas fa-image"></i> Imagen de la tarea:</p><img src="${task.imageUrl}" alt="Imagen de la tarea" class="image-preview active" style="max-width: 100%; max-height: 200px; border-radius: 8px; border: 2px solid #eee; box-shadow: 0 3px 10px rgba(0,0,0,0.1);"></div>`;
+                }
+
+                const card = document.createElement('div');
+                card.className = `task-card ${task.urgency}`;
+                card.innerHTML = `
+                    <div class="task-header">
+                        <div style="flex: 1;">
+                            <div class="task-title">${sanitizeInput(task.name)}${overdueTag}</div>
+                            <div class="task-description">${sanitizeInput(task.description)}</div>
+                        </div>
+                        <div style="display: flex; flex-direction: column; gap: 5px; align-items: flex-end;">
+                            <span class="badge badge-${task.urgency}">${getUrgencyText(task.urgency)}</span>
+                            <span class="badge ${statusBadgeClass}">${statusText}</span>
+                        </div>
+                    </div>
+                    <div class="task-meta">
+                        <div class="task-meta-item"><i class="fas fa-users"></i><span>${assigneesNames}</span></div>
+                        <div class="task-meta-item" style="color:${isOverdue?'var(--danger)':'inherit'}"><i class="fas fa-calendar"></i><span>${formatDate(task.dueDate)}</span></div>
+                        <div class="task-meta-item"><i class="fas fa-flag"></i><span>${getStatusText(task.status)}</span></div>
+                    </div>
+                    ${progressHtml}
+                    ${imageHtml}
+                    ${materialsHtml}
+                    <div class="task-actions">
+                        <select class="form-select task-status" data-task-id="${task.id}" style="flex: 1;">
+                            <option value="pending" ${task.status === 'pending' ? 'selected' : ''}>Pendiente</option>
+                            <option value="in-progress" ${task.status === 'in-progress' ? 'selected' : ''}>En Progreso</option>
+                            <option value="completed" ${task.status === 'completed' ? 'selected' : ''}>Terminada</option>
+                        </select>
+                        <button class="btn btn-outline report-problem-btn" data-task-id="${task.id}">
+                            <i class="fas fa-flag"></i> Reportar
+                        </button>
+                    </div>
+                `;
+                container.appendChild(card);
+            });
+
+            container.querySelectorAll('.task-status').forEach(select => {
+                select.addEventListener('change', function() {
+                    updateTaskStatus(this.getAttribute('data-task-id'), this.value);
+                });
+            });
+            container.querySelectorAll('.report-problem-btn').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    const taskId = this.getAttribute('data-task-id');
+                    switchPage('reports');
+                    const taskSelect = document.getElementById('taskSelect');
+                    if (taskSelect) taskSelect.value = taskId;
+                });
+            });
+        }
+
+        // ==================== WORKER NOTIFICATIONS ====================
+        function notifyWorkersNewTask(task) {
+            // Save a notification for each assigned worker in Firestore
+            if (!task.assignees || task.assignees.length === 0) return;
+            task.assignees.forEach(async (username) => {
+                try {
+                    await db.collection('worker_notifications').add({
+                        toUser: username,
+                        type: 'new_task',
+                        title: '📋 Nueva tarea asignada',
+                        message: `Se te asignó: "${task.name}"`,
+                        taskId: task.id,
+                        read: false,
+                        createdAt: new Date().toISOString()
+                    });
+                } catch(e) { console.warn('No se pudo notificar al trabajador:', e); }
+            });
+        }
+
+        function setupWorkerNotificationListener() {
+            if (!currentUser || currentUser.role !== 'worker') return;
+            let isFirstLoad = true;
+            db.collection('worker_notifications')
+                .where('toUser', '==', currentUser.username)
+                .where('read', '==', false)
+                .onSnapshot((snapshot) => {
+                    if (isFirstLoad) { isFirstLoad = false; return; }
+                    snapshot.docChanges().forEach(change => {
+                        if (change.type === 'added') {
+                            const notif = change.doc.data();
+                            addAdminBellNotification({
+                                id: 'wn-' + change.doc.id,
+                                title: notif.title,
+                                message: notif.message,
+                                createdAt: notif.createdAt,
+                                read: false
+                            });
+                            // Mark as read after showing
+                            setTimeout(() => {
+                                db.collection('worker_notifications').doc(change.doc.id).update({ read: true }).catch(()=>{});
+                            }, 3000);
+                        }
+                    });
+                }, (e) => console.warn('Worker notif listener error:', e));
+        }
+
+        // ==================== IMPROVED PDF EXPORT ====================
+        const _origExportToPDF = exportToPDF;
+        function exportToPDF(data, filename) {
+            try {
+                const { jsPDF } = window.jspdf;
+                const doc = new jsPDF('p', 'mm', 'a4');
+                const pageW = doc.internal.pageSize.getWidth();
+
+                // Header gradient band
+                doc.setFillColor(67, 97, 238);
+                doc.rect(0, 0, pageW, 28, 'F');
+
+                // Logo area
+                doc.setFillColor(255,255,255,0.9);
+                doc.roundedRect(8, 6, 16, 16, 2, 2, 'F');
+                doc.setTextColor(67, 97, 238);
+                doc.setFontSize(11);
+                doc.setFont('helvetica', 'bold');
+                doc.text('TM', 16, 17, { align: 'center' });
+
+                // Title
+                doc.setTextColor(255,255,255);
+                doc.setFontSize(16);
+                doc.setFont('helvetica', 'bold');
+                doc.text('TaskMaster PRO Plus', 30, 13);
+                doc.setFontSize(9);
+                doc.setFont('helvetica', 'normal');
+                doc.text(`Reporte: ${filename} | Generado: ${new Date().toLocaleDateString('es-MX', {day:'2-digit',month:'long',year:'numeric'})}`, 30, 21);
+
+                // Summary boxes
+                const summaryY = 38;
+                const statBoxes = [
+                    { label: 'Total Tareas', value: tasks.length, color: [67,97,238] },
+                    { label: 'Completadas', value: tasks.filter(t=>t.status==='completed').length, color: [6,214,160] },
+                    { label: 'En Progreso', value: tasks.filter(t=>t.status==='in-progress').length, color: [247,37,133] },
+                    { label: 'Pendientes', value: tasks.filter(t=>t.status==='pending').length, color: [230,57,70] },
+                ];
+                const boxW = (pageW - 20) / 4;
+                statBoxes.forEach((box, i) => {
+                    const x = 10 + i * (boxW + 2);
+                    doc.setFillColor(...box.color);
+                    doc.roundedRect(x, summaryY, boxW, 20, 3, 3, 'F');
+                    doc.setTextColor(255,255,255);
+                    doc.setFontSize(18);
+                    doc.setFont('helvetica','bold');
+                    doc.text(String(box.value), x + boxW/2, summaryY + 11, { align:'center' });
+                    doc.setFontSize(7.5);
+                    doc.setFont('helvetica','normal');
+                    doc.text(box.label, x + boxW/2, summaryY + 17, { align:'center' });
+                });
+
+                // Table
+                if (Array.isArray(data) && data.length > 0) {
+                    const headers = [Object.keys(data[0])];
+                    const rows = data.map(row => Object.values(row).map(v => {
+                        if (typeof v === 'string' && v.startsWith('data:image')) return '[imagen]';
+                        return v;
+                    }));
+                    doc.autoTable({
+                        head: headers,
+                        body: rows,
+                        startY: summaryY + 28,
+                        theme: 'grid',
+                        styles: { fontSize: 7.5, cellPadding: 3, textColor: [33,37,41] },
+                        headStyles: { fillColor: [67, 97, 238], textColor: 255, fontStyle: 'bold', fontSize: 8 },
+                        alternateRowStyles: { fillColor: [245, 247, 250] },
+                        margin: { left: 10, right: 10 }
+                    });
+                }
+
+                // Footer
+                const pageCount = doc.internal.getNumberOfPages();
+                for (let i = 1; i <= pageCount; i++) {
+                    doc.setPage(i);
+                    doc.setFontSize(7);
+                    doc.setTextColor(150);
+                    doc.text(`TaskMaster PRO Plus | Página ${i} de ${pageCount}`, pageW / 2, doc.internal.pageSize.getHeight() - 6, { align: 'center' });
+                }
+
+                doc.save(`${filename}.pdf`);
+                showNotification('PDF exportado con diseño profesional ✅', 'success');
+            } catch (error) {
+                console.error('Error al exportar PDF:', error);
+                showNotification('Error al exportar el archivo PDF', 'danger');
+            }
+        }
+    </script>
+
+    <!-- PWA Service Worker Registration -->
+    <script>
+    if ('serviceWorker' in navigator) {
+        // Register a minimal inline service worker via blob
+        const swCode = `
+self.addEventListener('fetch', function(event) {
+    // Network-first strategy for Firebase, cache-first for assets
+    if (event.request.url.includes('firebase') || event.request.url.includes('gstatic')) {
+        event.respondWith(fetch(event.request).catch(() => caches.match(event.request)));
+    }
+});
+self.addEventListener('install', () => self.skipWaiting());
+self.addEventListener('activate', () => self.clients.claim());
+        `;
+        const blob = new Blob([swCode], { type: 'application/javascript' });
+        const swURL = URL.createObjectURL(blob);
+        navigator.serviceWorker.register(swURL).then(() => {
+            console.log('✅ Service Worker registrado');
+        }).catch(e => console.warn('Service Worker no disponible:', e));
+    }
+    </script>
+
+    <!-- Historial de tarea modal -->
+    <div class="modal-overlay" id="taskHistoryModal" style="display:none; z-index:2000;">
+        <div class="modal-content" style="max-width:600px; width:90%;">
+            <div class="modal-header">
+                <h3 id="taskHistoryTitle"><i class="fas fa-history"></i> Historial de Cambios</h3>
+                <button class="modal-close" id="closeHistoryModal">&times;</button>
+            </div>
+            <div id="taskHistoryBody" style="max-height:400px;overflow-y:auto;padding:1rem 0;">
+                <p style="color:var(--gray);text-align:center;padding:2rem;">Cargando historial...</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+    // ==================== TASK HISTORY MODAL ====================
+    document.addEventListener('click', function(e) {
+        const btn = e.target.closest('.view-history-btn');
+        if (btn) {
+            const taskId = btn.getAttribute('data-task-id');
+            const task = tasks.find(t => t.id === taskId);
+            const modal = document.getElementById('taskHistoryModal');
+            const title = document.getElementById('taskHistoryTitle');
+            const body = document.getElementById('taskHistoryBody');
+            if (!modal || !body) return;
+            title.innerHTML = `<i class="fas fa-history"></i> Historial: ${task ? task.name : taskId}`;
+            body.innerHTML = '<p style="color:var(--gray);text-align:center;padding:2rem;"><i class="fas fa-spinner fa-spin"></i> Cargando...</p>';
+            modal.style.display = 'flex';
+            db.collection('task_history').where('taskId','==',taskId).orderBy('timestamp','desc').limit(30).get()
+                .then(snap => {
+                    if (snap.empty) {
+                        body.innerHTML = '<p style="color:var(--gray);text-align:center;padding:2rem;">Sin cambios registrados aún.</p>';
+                        return;
+                    }
+                    body.innerHTML = snap.docs.map(doc => {
+                        const h = doc.data();
+                        const oldLabel = h.field === 'status' ? getStatusText(h.oldValue) : h.oldValue;
+                        const newLabel = h.field === 'status' ? getStatusText(h.newValue) : h.newValue;
+                        const ts = h.timestamp ? new Date(h.timestamp).toLocaleString('es-MX') : '';
+                        return `<div style="padding:0.8rem;border-bottom:1px solid var(--border-color);display:flex;gap:12px;align-items:center;">
+                            <div style="width:36px;height:36px;border-radius:50%;background:var(--primary);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                                <i class="fas fa-exchange-alt" style="color:white;font-size:0.8rem;"></i>
+                            </div>
+                            <div>
+                                <div style="font-weight:600;font-size:0.9rem;">${h.changedByName || h.changedBy} cambió <em>${h.field}</em></div>
+                                <div style="font-size:0.85rem;color:var(--gray);">"${oldLabel}" → "${newLabel}"</div>
+                                <div style="font-size:0.75rem;color:var(--text-muted);">${ts}</div>
+                            </div>
+                        </div>`;
+                    }).join('');
+                })
+                .catch(err => {
+                    body.innerHTML = `<p style="color:var(--danger);text-align:center;padding:2rem;">Error al cargar historial.<br><small>${err.message}</small></p>`;
+                });
+        }
+
+        // Close history modal
+        if (e.target.closest('#closeHistoryModal') || e.target.id === 'taskHistoryModal') {
+            document.getElementById('taskHistoryModal').style.display = 'none';
+        }
+    });
     </script>
 </body>
 </html>
