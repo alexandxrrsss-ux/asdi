@@ -4098,14 +4098,99 @@
         alertContainer.style.display = 'none';
     }
 }
+        // ==================== CHART RENDERING ====================
+        let _chartInstances = [];
+
+        function renderDashboardCharts() {
+            const isDark = document.body.classList.contains('dark-mode');
+            const textColor = isDark ? '#e2e2e2' : '#212529';
+            const gridColor = isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)';
+            Chart.defaults.color = textColor;
+
+            if (window._dashCharts) {
+                window._dashCharts.forEach(c => { try { c.destroy(); } catch(e){} });
+            }
+            window._dashCharts = [];
+
+            // Chart 1: Task Status Donut
+            const ctx1 = document.getElementById('chartTaskStatus');
+            if (ctx1) {
+                const pending = tasks.filter(t => t.status === 'pending').length;
+                const inProg = tasks.filter(t => t.status === 'in-progress').length;
+                const completed = tasks.filter(t => t.status === 'completed').length;
+                const c1 = new Chart(ctx1, {
+                    type: 'doughnut',
+                    data: {
+                        labels: ['Pendientes', 'En Progreso', 'Completadas'],
+                        datasets: [{
+                            data: [pending, inProg, completed],
+                            backgroundColor: ['#f72585','#4361ee','#06d6a0'],
+                            borderWidth: 2,
+                            borderColor: isDark ? '#1e1e2e' : '#fff'
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: { position: 'bottom', labels: { color: textColor, padding: 12, font: { size: 12 } } }
+                        },
+                        cutout: '65%'
+                    }
+                });
+                window._dashCharts.push(c1);
+            }
+
+            // Chart 2: Progress per worker (bar)
+            const ctx2 = document.getElementById('chartWorkerProgress');
+            if (ctx2) {
+                const workers = users.filter(u => u.role === 'worker').slice(0, 6);
+                const workerLabels = workers.map(w => w.name ? w.name.split(' ')[0] : w.username);
+                const workerCompleted = workers.map(w => tasks.filter(t => t.assignees && t.assignees.includes(w.username) && t.status === 'completed').length);
+                const workerTotal = workers.map(w => tasks.filter(t => t.assignees && t.assignees.includes(w.username)).length);
+                const c2 = new Chart(ctx2, {
+                    type: 'bar',
+                    data: {
+                        labels: workerLabels,
+                        datasets: [
+                            {
+                                label: 'Completadas',
+                                data: workerCompleted,
+                                backgroundColor: '#06d6a0',
+                                borderRadius: 6
+                            },
+                            {
+                                label: 'Total',
+                                data: workerTotal,
+                                backgroundColor: isDark ? 'rgba(67,97,238,0.3)' : 'rgba(67,97,238,0.15)',
+                                borderRadius: 6
+                            }
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: { position: 'bottom', labels: { color: textColor, font: { size: 12 } } }
+                        },
+                        scales: {
+                            x: { ticks: { color: textColor }, grid: { color: gridColor } },
+                            y: { ticks: { color: textColor, stepSize: 1 }, grid: { color: gridColor }, beginAtZero: true }
+                        }
+                    }
+                });
+                window._dashCharts.push(c2);
+            }
+        }
+
+
+        
+
         function updateDashboard() {
             if (!currentUser) return;
             
-            // ✅ MODIFICADO: Ahora considera múltiples asignados
             const userTasks = currentUser.role === 'worker' 
-                ? tasks.filter(task => 
-                    task.assignees && task.assignees.includes(currentUser.username)
-                )
+                ? tasks.filter(task => task.assignees && task.assignees.includes(currentUser.username))
                 : tasks;
 
             const totalTasksEl = document.getElementById('totalTasks');
@@ -4122,7 +4207,6 @@
             if (totalReportsEl) totalReportsEl.textContent = reports.filter(r => r.status === 'pending').length;
             if (totalMaterialsEl) totalMaterialsEl.textContent = inventory.length;
 
-            // Actualizar alertas de stock bajo - SOLO PARA ADMIN
             if (currentUser.role === 'admin') {
                 updateLowStockAlerts();
                 updateUnassignedWorkers();
@@ -4130,40 +4214,42 @@
 
             const recentTasks = userTasks.slice(-5).reverse();
             const tbody = document.getElementById('recentTasksTable');
-            if (!tbody) return;
-            
-            tbody.innerHTML = '';
-            
-            if (recentTasks.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 2rem; color: var(--gray);">No hay tareas registradas</td></tr>';
-                return;
+            if (tbody) {
+                tbody.innerHTML = '';
+                if (recentTasks.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 2rem; color: var(--gray);">No hay tareas registradas</td></tr>';
+                } else {
+                    recentTasks.forEach(task => {
+                        const assigneesNames = task.assignees ? task.assignees.map(username => {
+                            const user = users.find(u => u.username === username);
+                            return user ? user.name : username;
+                        }).join(', ') : 'Sin asignar';
+                        const materialsText = task.materials && task.materials.length > 0 
+                            ? task.materials.map(m => {
+                                const material = inventory.find(mat => mat.id === m.materialId);
+                                return material ? `${material.name} (${m.quantity} ${material.unit})` : '';
+                            }).filter(Boolean).join(', ')
+                            : 'Ninguno';
+                        const today = new Date(); today.setHours(0,0,0,0);
+                        const due = task.dueDate ? new Date(task.dueDate) : null;
+                        const isOverdue = due && due < today && task.status !== 'completed';
+                        const overdueTag = isOverdue ? '<span class="badge badge-overdue" style="font-size:0.7rem;margin-left:4px;">Vencida</span>' : '';
+                        const row = document.createElement('tr');
+                        row.innerHTML = `
+                            <td>${sanitizeInput(task.name)}${overdueTag}</td>
+                            <td>${assigneesNames}</td>
+                            <td style="color:${isOverdue?'var(--danger)':'inherit'}">${formatDate(task.dueDate)}</td>
+                            <td><span class="badge badge-${task.status}">${getStatusText(task.status)}</span></td>
+                            <td><span class="badge badge-${task.urgency}">${getUrgencyText(task.urgency)}</span></td>
+                            <td>${materialsText}</td>
+                        `;
+                        tbody.appendChild(row);
+                    });
+                }
             }
-            
-            recentTasks.forEach(task => {
-                // ✅ MODIFICADO: Ahora muestra múltiples asignados
-                const assigneesNames = task.assignees ? task.assignees.map(username => {
-                    const user = users.find(u => u.username === username);
-                    return user ? user.name : username;
-                }).join(', ') : 'Sin asignar';
-                
-                const materialsText = task.materials && task.materials.length > 0 
-                    ? task.materials.map(m => {
-                        const material = inventory.find(mat => mat.id === m.materialId);
-                        return material ? `${material.name} (${m.quantity} ${material.unit})` : '';
-                    }).filter(Boolean).join(', ')
-                    : 'Ninguno';
-                
-                const row = document.createElement('tr');
-                row.innerHTML = `
-                    <td>${sanitizeInput(task.name)}</td>
-                    <td>${assigneesNames}</td>
-                    <td>${formatDate(task.dueDate)}</td>
-                    <td><span class="badge badge-${task.status}">${getStatusText(task.status)}</span></td>
-                    <td><span class="badge badge-${task.urgency}">${getUrgencyText(task.urgency)}</span></td>
-                    <td>${materialsText}</td>
-                `;
-                tbody.appendChild(row);
-            });
+
+            // Render dashboard charts
+            try { renderDashboardCharts(); } catch(e) { console.warn('Chart error:', e); }
         }
 
         function updateLowStockAlerts() {
@@ -4214,12 +4300,7 @@
 
         function updateMyTasksCards(taskList, currentFilter = 'all') {
             const container = document.getElementById(`tab-${currentFilter}`);
-            
-            if (!container) {
-                console.error(`❌ Contenedor no encontrado: tab-${currentFilter}`);
-                return;
-            }
-            
+            if (!container) return;
             container.innerHTML = '';
 
             if (taskList.length === 0) {
@@ -4227,72 +4308,59 @@
                 if (currentFilter === 'pending') message = 'No hay tareas pendientes';
                 else if (currentFilter === 'in-progress') message = 'No hay tareas en progreso';
                 else if (currentFilter === 'completed') message = 'No hay tareas completadas';
-                
                 container.innerHTML = `<div class="card" style="text-align: center; padding: 2rem; color: var(--gray);">${message}</div>`;
                 return;
             }
 
+            const today = new Date(); today.setHours(0,0,0,0);
+
             taskList.forEach(task => {
-                // ✅ MODIFICADO: Ahora muestra múltiples asignados
                 const assigneesNames = task.assignees ? task.assignees.map(username => {
                     const user = users.find(u => u.username === username);
                     return user ? user.name : username;
                 }).join(', ') : 'Sin asignar';
 
-                // Determinar el color del badge según el estado
-                let statusBadgeClass = 'badge-pending';
-                let statusText = 'Pendiente';
-                
-                if (task.status === 'in-progress') {
-                    statusBadgeClass = 'badge-in-progress';
-                    statusText = 'En Progreso';
-                } else if (task.status === 'completed') {
-                    statusBadgeClass = 'badge-completed';
-                    statusText = 'Terminada';
-                }
+                let statusBadgeClass = 'badge-pending', statusText = 'Pendiente';
+                if (task.status === 'in-progress') { statusBadgeClass = 'badge-in-progress'; statusText = 'En Progreso'; }
+                else if (task.status === 'completed') { statusBadgeClass = 'badge-completed'; statusText = 'Terminada'; }
 
-                // Mostrar materiales asignados
+                const due = task.dueDate ? new Date(task.dueDate) : null;
+                const isOverdue = due && due < today && task.status !== 'completed';
+                const overdueTag = isOverdue ? '<span class="badge badge-overdue" style="font-size:0.7rem;margin-left:4px;">Vencida</span>' : '';
+
+                // Progress bar from trackings
+                const taskTrackings = trackings.filter(t => t.taskId === task.id);
+                const progress = taskTrackings.length > 0 ? Math.max(...taskTrackings.map(t => t.percentage || 0)) : 0;
+                const progressHtml = `
+                    <div class="task-progress-bar-wrap">
+                        <div class="task-progress-label">
+                            <span><i class="fas fa-chart-line"></i> Avance</span>
+                            <span>${progress}%</span>
+                        </div>
+                        <div class="task-progress-track">
+                            <div class="task-progress-fill ${isOverdue ? 'overdue' : ''}" style="width:${progress}%"></div>
+                        </div>
+                    </div>`;
+
                 let materialsHtml = '';
                 if (task.materials && task.materials.length > 0) {
-                    materialsHtml = `
-                        <div class="material-assignment">
-                            <strong>Materiales asignados:</strong>
-                            ${task.materials.map(material => {
-                                const mat = inventory.find(m => m.id === material.materialId);
-                                return mat ? `
-                                    <div class="assignment-item">
-                                        <span>${mat.name} - ${material.quantity} ${mat.unit}</span>
-                                        <span class="badge ${material.delivered ? 'badge-success' : 'badge-pending'}">
-                                            ${material.delivered ? 'Entregado' : 'Pendiente'}
-                                        </span>
-                                    </div>
-                                ` : '';
-                            }).join('')}
-                        </div>
-                    `;
+                    materialsHtml = `<div class="material-assignment"><strong>Materiales asignados:</strong>${task.materials.map(material => {
+                        const mat = inventory.find(m => m.id === material.materialId);
+                        return mat ? `<div class="assignment-item"><span>${mat.name} - ${material.quantity} ${mat.unit}</span><span class="badge ${material.delivered ? 'badge-success' : 'badge-pending'}">${material.delivered ? 'Entregado' : 'Pendiente'}</span></div>` : '';
+                    }).join('')}</div>`;
                 }
 
-                // Mostrar imagen si existe
                 let imageHtml = '';
                 if (task.imageUrl && task.imageUrl !== 'null' && task.imageUrl !== '' && (task.imageUrl.startsWith('http') || task.imageUrl.startsWith('data:image'))) {
-                    imageHtml = `
-                        <div class="image-container" style="margin: 1rem 0; text-align: center;">
-                            <p style="font-weight: 600; margin-bottom: 0.5rem; color: var(--primary);">
-                                <i class="fas fa-image"></i> Imagen de la tarea:
-                            </p>
-                            <img src="${task.imageUrl}" alt="Imagen de la tarea" class="image-preview active"
-                                 style="max-width: 100%; max-height: 200px; border-radius: 8px; border: 2px solid #eee; box-shadow: 0 3px 10px rgba(0,0,0,0.1);">
-                        </div>
-                    `;
+                    imageHtml = `<div class="image-container" style="margin: 1rem 0; text-align: center;"><p style="font-weight: 600; margin-bottom: 0.5rem; color: var(--primary);"><i class="fas fa-image"></i> Imagen de la tarea:</p><img src="${task.imageUrl}" alt="Imagen de la tarea" class="image-preview active" style="max-width: 100%; max-height: 200px; border-radius: 8px; border: 2px solid #eee; box-shadow: 0 3px 10px rgba(0,0,0,0.1);"></div>`;
                 }
 
                 const card = document.createElement('div');
                 card.className = `task-card ${task.urgency}`;
-                
                 card.innerHTML = `
                     <div class="task-header">
                         <div style="flex: 1;">
-                            <div class="task-title">${sanitizeInput(task.name)}</div>
+                            <div class="task-title">${sanitizeInput(task.name)}${overdueTag}</div>
                             <div class="task-description">${sanitizeInput(task.description)}</div>
                         </div>
                         <div style="display: flex; flex-direction: column; gap: 5px; align-items: flex-end;">
@@ -4301,19 +4369,11 @@
                         </div>
                     </div>
                     <div class="task-meta">
-                        <div class="task-meta-item">
-                            <i class="fas fa-users"></i>
-                            <span>${assigneesNames}</span>
-                        </div>
-                        <div class="task-meta-item">
-                            <i class="fas fa-calendar"></i>
-                            <span>${formatDate(task.dueDate)}</span>
-                        </div>
-                        <div class="task-meta-item">
-                            <i class="fas fa-flag"></i>
-                            <span>${getStatusText(task.status)}</span>
-                        </div>
+                        <div class="task-meta-item"><i class="fas fa-users"></i><span>${assigneesNames}</span></div>
+                        <div class="task-meta-item" style="color:${isOverdue ? 'var(--danger)' : 'inherit'}"><i class="fas fa-calendar"></i><span>${formatDate(task.dueDate)}</span></div>
+                        <div class="task-meta-item"><i class="fas fa-flag"></i><span>${getStatusText(task.status)}</span></div>
                     </div>
+                    ${progressHtml}
                     ${imageHtml}
                     ${materialsHtml}
                     <div class="task-actions">
@@ -4330,14 +4390,11 @@
                 container.appendChild(card);
             });
 
-            // Agregar event listeners
             container.querySelectorAll('.task-status').forEach(select => {
                 select.addEventListener('change', function() {
-                    const taskId = this.getAttribute('data-task-id');
-                    updateTaskStatus(taskId, this.value);
+                    updateTaskStatus(this.getAttribute('data-task-id'), this.value);
                 });
             });
-
             container.querySelectorAll('.report-problem-btn').forEach(btn => {
                 btn.addEventListener('click', function() {
                     const taskId = this.getAttribute('data-task-id');
@@ -4348,7 +4405,7 @@
             });
         }
 
-        async function updateTaskStatus(taskId, newStatus) {
+                async function updateTaskStatus(taskId, newStatus) {
             const taskIndex = tasks.findIndex(t => t.id === taskId);
             if (taskIndex !== -1) {
                 const oldStatus = tasks[taskIndex].status;
@@ -4385,47 +4442,74 @@
         }
 
         function loadAllTasks() {
-            console.log('📋 Cargando todas las tareas...');
-            
+            updateTaskFilterWorkers();
+            loadAllTasksFiltered();
+        }
+
+        function updateTaskFilterWorkers() {
+            const sel = document.getElementById('filterTaskWorker');
+            if (!sel) return;
+            const current = sel.value;
+            sel.innerHTML = '<option value="">Todos los trabajadores</option>';
+            users.filter(u => u.role === 'worker').forEach(u => {
+                const opt = document.createElement('option');
+                opt.value = u.username;
+                opt.textContent = u.name || u.username;
+                sel.appendChild(opt);
+            });
+            sel.value = current;
+        }
+
+        function loadAllTasksFiltered() {
+            const search = (document.getElementById('filterTaskSearch')?.value || '').toLowerCase();
+            const status = document.getElementById('filterTaskStatus')?.value || '';
+            const urgency = document.getElementById('filterTaskUrgency')?.value || '';
+            const worker = document.getElementById('filterTaskWorker')?.value || '';
+
+            let filtered = tasks.filter(task => {
+                if (search && !task.name.toLowerCase().includes(search) && !(task.description||'').toLowerCase().includes(search)) return false;
+                if (status && task.status !== status) return false;
+                if (urgency && task.urgency !== urgency) return false;
+                if (worker && !(task.assignees && task.assignees.includes(worker))) return false;
+                return true;
+            });
+
             const tbody = document.getElementById('allTasksTable');
-            if (!tbody) {
-                console.error('❌ No se encontró el elemento allTasksTable');
-                return;
-            }
-            
+            if (!tbody) return;
             tbody.innerHTML = '';
 
-            if (tasks.length === 0) {
-                console.log('ℹ️ No hay tareas registradas');
-                tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 2rem; color: var(--gray);">No hay tareas registradas</td></tr>';
+            if (filtered.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 2rem; color: var(--gray);">No hay tareas con esos filtros</td></tr>';
                 return;
             }
 
-            console.log('🎯 Mostrando', tasks.length, 'tareas en la tabla');
+            const today = new Date(); today.setHours(0,0,0,0);
 
-            tasks.forEach(task => {
-                // ✅ MODIFICADO: Ahora muestra múltiples asignados
+            filtered.forEach(task => {
+                const due = task.dueDate ? new Date(task.dueDate) : null;
+                const isOverdue = due && due < today && task.status !== 'completed';
+                const overdueTag = isOverdue ? '<span class="badge badge-overdue" style="margin-left:4px;font-size:0.7rem;">Vencida</span>' : '';
+
                 const assigneesNames = task.assignees ? task.assignees.map(username => {
-                    const user = users.find(u => u.username === username);
-                    return user ? user.name : username;
+                    const u = users.find(x => x.username === username);
+                    return u ? u.name : username;
                 }).join(', ') : 'Sin asignar';
-                
-                // Obtener información de materiales
-                const materialsText = task.materials && task.materials.length > 0 
+
+                const materialsText = task.materials && task.materials.length > 0
                     ? task.materials.map(m => {
-                        const material = inventory.find(mat => mat.id === m.materialId);
-                        return material ? `${material.name} (${m.quantity} ${material.unit})` : '';
+                        const mat = inventory.find(x => x.id === m.materialId);
+                        return mat ? `${mat.name} (${m.quantity} ${mat.unit})` : '';
                     }).filter(Boolean).join(', ')
                     : 'Ninguno';
 
                 const row = document.createElement('tr');
                 row.innerHTML = `
                     <td>
-                        <div><strong>${sanitizeInput(task.name)}</strong></div>
-                        <div style="font-size: 0.9rem; color: var(--gray);">${sanitizeInput(task.description).substring(0, 50)}...</div>
+                        <div><strong>${sanitizeInput(task.name)}</strong>${overdueTag}</div>
+                        <div style="font-size: 0.9rem; color: var(--gray);">${sanitizeInput((task.description||'').substring(0, 50))}...</div>
                     </td>
                     <td>${assigneesNames}</td>
-                    <td>${formatDate(task.dueDate)}</td>
+                    <td style="color:${isOverdue ? 'var(--danger)' : 'inherit'}">${formatDate(task.dueDate)}</td>
                     <td><span class="badge badge-${task.status}">${getStatusText(task.status)}</span></td>
                     <td><span class="badge badge-${task.urgency}">${getUrgencyText(task.urgency)}</span></td>
                     <td>${materialsText}</td>
@@ -4433,26 +4517,26 @@
                         <button class="btn btn-outline edit-task-btn" data-task-id="${task.id}" style="margin-bottom: 5px;">
                             <i class="fas fa-edit"></i> Editar
                         </button>
-                        ${currentUser.role === 'admin' ? `
+                        ${currentUser && currentUser.role === 'admin' ? `
                         <button class="btn btn-outline assign-materials-btn" data-task-id="${task.id}" style="margin-bottom: 5px;">
                             <i class="fas fa-boxes"></i> Materiales
                         </button>
-                        <button class="btn btn-danger delete-task-btn" data-task-id="${task.id}">
+                        <button class="btn btn-danger delete-task-btn" data-task-id="${task.id}" style="margin-bottom: 5px;">
                             <i class="fas fa-trash"></i> Eliminar
                         </button>
                         ` : ''}
+                        <button class="btn btn-outline view-history-btn" data-task-id="${task.id}" style="font-size:0.8rem;">
+                            <i class="fas fa-history"></i> Historial
+                        </button>
                     </td>
                 `;
                 tbody.appendChild(row);
             });
 
-            console.log('✅ Tabla de tareas actualizada correctamente');
-
-            // Agregar event listeners
             addTaskTableEventListeners();
         }
 
-        function addTaskTableEventListeners() {
+                function addTaskTableEventListeners() {
             console.log('🎯 Agregando event listeners a la tabla de tareas');
             
             // Limpiar event listeners anteriores
@@ -7289,31 +7373,7 @@
             }
         }
 
-        function exportToPDF(data, filename) {
-            try {
-                const { jsPDF } = window.jspdf;
-                const doc = new jsPDF();
-                
-                if (Array.isArray(data) && data.length > 0) {
-                    const headers = [Object.keys(data[0])];
-                    const rows = data.map(row => Object.values(row));
-                    
-                    doc.autoTable({
-                        head: headers,
-                        body: rows,
-                        theme: 'grid',
-                        styles: { fontSize: 8 },
-                        headStyles: { fillColor: [67, 97, 238] }
-                    });
-                }
-                
-                doc.save(`${filename}.pdf`);
-                showNotification('Archivo PDF exportado correctamente', 'success');
-            } catch (error) {
-                console.error('❌ Error al exportar PDF:', error);
-                showNotification('Error al exportar el archivo PDF', 'danger');
-            }
-        }
+
 
         function handleExportData() {
             const exportType = document.getElementById('exportType').value;
@@ -8150,313 +8210,6 @@
             // This is an enhancement patch — new trackings will use Storage URLs when available
         });
 
-        // ==================== CHART RENDERING ====================
-        let _chartInstances = [];
-
-        function renderDashboardCharts() {
-            const isDark = document.body.classList.contains('dark-mode');
-            const textColor = isDark ? '#e2e2e2' : '#212529';
-            const gridColor = isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)';
-            Chart.defaults.color = textColor;
-
-            if (window._dashCharts) {
-                window._dashCharts.forEach(c => { try { c.destroy(); } catch(e){} });
-            }
-            window._dashCharts = [];
-
-            // Chart 1: Task Status Donut
-            const ctx1 = document.getElementById('chartTaskStatus');
-            if (ctx1) {
-                const pending = tasks.filter(t => t.status === 'pending').length;
-                const inProg = tasks.filter(t => t.status === 'in-progress').length;
-                const completed = tasks.filter(t => t.status === 'completed').length;
-                const c1 = new Chart(ctx1, {
-                    type: 'doughnut',
-                    data: {
-                        labels: ['Pendientes', 'En Progreso', 'Completadas'],
-                        datasets: [{
-                            data: [pending, inProg, completed],
-                            backgroundColor: ['#f72585','#4361ee','#06d6a0'],
-                            borderWidth: 2,
-                            borderColor: isDark ? '#1e1e2e' : '#fff'
-                        }]
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        plugins: {
-                            legend: { position: 'bottom', labels: { color: textColor, padding: 12, font: { size: 12 } } }
-                        },
-                        cutout: '65%'
-                    }
-                });
-                window._dashCharts.push(c1);
-            }
-
-            // Chart 2: Progress per worker (bar)
-            const ctx2 = document.getElementById('chartWorkerProgress');
-            if (ctx2) {
-                const workers = users.filter(u => u.role === 'worker').slice(0, 6);
-                const workerLabels = workers.map(w => w.name ? w.name.split(' ')[0] : w.username);
-                const workerCompleted = workers.map(w => tasks.filter(t => t.assignees && t.assignees.includes(w.username) && t.status === 'completed').length);
-                const workerTotal = workers.map(w => tasks.filter(t => t.assignees && t.assignees.includes(w.username)).length);
-                const c2 = new Chart(ctx2, {
-                    type: 'bar',
-                    data: {
-                        labels: workerLabels,
-                        datasets: [
-                            {
-                                label: 'Completadas',
-                                data: workerCompleted,
-                                backgroundColor: '#06d6a0',
-                                borderRadius: 6
-                            },
-                            {
-                                label: 'Total',
-                                data: workerTotal,
-                                backgroundColor: isDark ? 'rgba(67,97,238,0.3)' : 'rgba(67,97,238,0.15)',
-                                borderRadius: 6
-                            }
-                        ]
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        plugins: {
-                            legend: { position: 'bottom', labels: { color: textColor, font: { size: 12 } } }
-                        },
-                        scales: {
-                            x: { ticks: { color: textColor }, grid: { color: gridColor } },
-                            y: { ticks: { color: textColor, stepSize: 1 }, grid: { color: gridColor }, beginAtZero: true }
-                        }
-                    }
-                });
-                window._dashCharts.push(c2);
-            }
-        }
-
-        // Patch updateDashboard to also render charts
-        const _origUpdateDashboard = updateDashboard;
-        function updateDashboard() {
-            _origUpdateDashboard();
-            try { renderDashboardCharts(); } catch(e) { console.warn('Chart error:', e); }
-        }
-
-        // ==================== TASK FILTERS ====================
-        function loadAllTasksFiltered() {
-            const search = (document.getElementById('filterTaskSearch')?.value || '').toLowerCase();
-            const status = document.getElementById('filterTaskStatus')?.value || '';
-            const urgency = document.getElementById('filterTaskUrgency')?.value || '';
-            const worker = document.getElementById('filterTaskWorker')?.value || '';
-
-            let filtered = tasks.filter(task => {
-                if (search && !task.name.toLowerCase().includes(search) && !task.description.toLowerCase().includes(search)) return false;
-                if (status && task.status !== status) return false;
-                if (urgency && task.urgency !== urgency) return false;
-                if (worker && !(task.assignees && task.assignees.includes(worker))) return false;
-                return true;
-            });
-
-            const tbody = document.getElementById('allTasksTable');
-            if (!tbody) return;
-            tbody.innerHTML = '';
-
-            if (filtered.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 2rem; color: var(--gray);">No hay tareas con esos filtros</td></tr>';
-                return;
-            }
-
-            filtered.forEach(task => {
-                const today = new Date();
-                today.setHours(0,0,0,0);
-                const due = task.dueDate ? new Date(task.dueDate) : null;
-                const isOverdue = due && due < today && task.status !== 'completed';
-
-                const assigneesNames = task.assignees ? task.assignees.map(username => {
-                    const u = users.find(x => x.username === username);
-                    return u ? u.name : username;
-                }).join(', ') : 'Sin asignar';
-
-                const materialsText = task.materials && task.materials.length > 0
-                    ? task.materials.map(m => {
-                        const mat = inventory.find(x => x.id === m.materialId);
-                        return mat ? `${mat.name} (${m.quantity} ${mat.unit})` : '';
-                    }).filter(Boolean).join(', ')
-                    : 'Ninguno';
-
-                const overdueTag = isOverdue ? '<span class="badge badge-overdue" style="margin-left:4px;font-size:0.7rem;">Vencida</span>' : '';
-
-                const row = document.createElement('tr');
-                row.innerHTML = `
-                    <td>
-                        <div><strong>${sanitizeInput(task.name)}</strong>${overdueTag}</div>
-                        <div style="font-size: 0.9rem; color: var(--gray);">${sanitizeInput(task.description).substring(0, 50)}...</div>
-                    </td>
-                    <td>${assigneesNames}</td>
-                    <td style="color:${isOverdue?'var(--danger)':'inherit'}">${formatDate(task.dueDate)}</td>
-                    <td><span class="badge badge-${task.status}">${getStatusText(task.status)}</span></td>
-                    <td><span class="badge badge-${task.urgency}">${getUrgencyText(task.urgency)}</span></td>
-                    <td>${materialsText}</td>
-                    <td style="white-space: nowrap;">
-                        <button class="btn btn-outline edit-task-btn" data-task-id="${task.id}" style="margin-bottom: 5px;">
-                            <i class="fas fa-edit"></i> Editar
-                        </button>
-                        ${currentUser && currentUser.role === 'admin' ? `
-                        <button class="btn btn-outline assign-materials-btn" data-task-id="${task.id}" style="margin-bottom: 5px;">
-                            <i class="fas fa-boxes"></i> Materiales
-                        </button>
-                        <button class="btn btn-danger delete-task-btn" data-task-id="${task.id}" style="margin-bottom: 5px;">
-                            <i class="fas fa-trash"></i> Eliminar
-                        </button>
-                        ` : ''}
-                        <button class="btn btn-outline view-history-btn" data-task-id="${task.id}" style="font-size:0.8rem;">
-                            <i class="fas fa-history"></i> Historial
-                        </button>
-                    </td>
-                `;
-                tbody.appendChild(row);
-            });
-            addTaskTableEventListeners();
-        }
-
-        // Populate worker filter when users load
-        function updateTaskFilterWorkers() {
-            const sel = document.getElementById('filterTaskWorker');
-            if (!sel) return;
-            const current = sel.value;
-            sel.innerHTML = '<option value="">Todos los trabajadores</option>';
-            users.filter(u => u.role === 'worker').forEach(u => {
-                const opt = document.createElement('option');
-                opt.value = u.username;
-                opt.textContent = u.name || u.username;
-                sel.appendChild(opt);
-            });
-            sel.value = current;
-        }
-
-        // Patch loadAllTasks to use filtered version
-        const _origLoadAllTasks = loadAllTasks;
-        function loadAllTasks() {
-            updateTaskFilterWorkers();
-            loadAllTasksFiltered();
-        }
-
-        // ==================== PROGRESS BAR IN TASK CARDS ====================
-        function getTaskProgress(taskId) {
-            const taskTrackings = trackings.filter(t => t.taskId === taskId);
-            if (taskTrackings.length === 0) return 0;
-            return Math.max(...taskTrackings.map(t => t.percentage || 0));
-        }
-
-        // Patch updateMyTasksCards to show progress bars and overdue badges
-        const _origUpdateMyTasksCards = updateMyTasksCards;
-        function updateMyTasksCards(taskList, currentFilter = 'all') {
-            const container = document.getElementById(`tab-${currentFilter}`);
-            if (!container) return;
-            container.innerHTML = '';
-
-            if (taskList.length === 0) {
-                let message = 'No hay tareas disponibles';
-                if (currentFilter === 'pending') message = 'No hay tareas pendientes';
-                else if (currentFilter === 'in-progress') message = 'No hay tareas en progreso';
-                else if (currentFilter === 'completed') message = 'No hay tareas completadas';
-                container.innerHTML = `<div class="card" style="text-align: center; padding: 2rem; color: var(--gray);">${message}</div>`;
-                return;
-            }
-
-            const today = new Date();
-            today.setHours(0,0,0,0);
-
-            taskList.forEach(task => {
-                const assigneesNames = task.assignees ? task.assignees.map(username => {
-                    const user = users.find(u => u.username === username);
-                    return user ? user.name : username;
-                }).join(', ') : 'Sin asignar';
-
-                let statusBadgeClass = 'badge-pending';
-                let statusText = 'Pendiente';
-                if (task.status === 'in-progress') { statusBadgeClass = 'badge-in-progress'; statusText = 'En Progreso'; }
-                else if (task.status === 'completed') { statusBadgeClass = 'badge-completed'; statusText = 'Terminada'; }
-
-                const due = task.dueDate ? new Date(task.dueDate) : null;
-                const isOverdue = due && due < today && task.status !== 'completed';
-                const overdueTag = isOverdue ? '<span class="badge badge-overdue" style="font-size:0.7rem;margin-left:4px;">Vencida</span>' : '';
-
-                const progress = getTaskProgress(task.id);
-                const progressHtml = `
-                    <div class="task-progress-bar-wrap">
-                        <div class="task-progress-label">
-                            <span><i class="fas fa-chart-line"></i> Avance</span>
-                            <span>${progress}%</span>
-                        </div>
-                        <div class="task-progress-track">
-                            <div class="task-progress-fill ${isOverdue?'overdue':''}" style="width:${progress}%"></div>
-                        </div>
-                    </div>
-                `;
-
-                let materialsHtml = '';
-                if (task.materials && task.materials.length > 0) {
-                    materialsHtml = `<div class="material-assignment"><strong>Materiales asignados:</strong>${task.materials.map(material => {
-                        const mat = inventory.find(m => m.id === material.materialId);
-                        return mat ? `<div class="assignment-item"><span>${mat.name} - ${material.quantity} ${mat.unit}</span><span class="badge ${material.delivered ? 'badge-success' : 'badge-pending'}">${material.delivered ? 'Entregado' : 'Pendiente'}</span></div>` : '';
-                    }).join('')}</div>`;
-                }
-
-                let imageHtml = '';
-                if (task.imageUrl && task.imageUrl !== 'null' && task.imageUrl !== '' && (task.imageUrl.startsWith('http') || task.imageUrl.startsWith('data:image'))) {
-                    imageHtml = `<div class="image-container" style="margin: 1rem 0; text-align: center;"><p style="font-weight: 600; margin-bottom: 0.5rem; color: var(--primary);"><i class="fas fa-image"></i> Imagen de la tarea:</p><img src="${task.imageUrl}" alt="Imagen de la tarea" class="image-preview active" style="max-width: 100%; max-height: 200px; border-radius: 8px; border: 2px solid #eee; box-shadow: 0 3px 10px rgba(0,0,0,0.1);"></div>`;
-                }
-
-                const card = document.createElement('div');
-                card.className = `task-card ${task.urgency}`;
-                card.innerHTML = `
-                    <div class="task-header">
-                        <div style="flex: 1;">
-                            <div class="task-title">${sanitizeInput(task.name)}${overdueTag}</div>
-                            <div class="task-description">${sanitizeInput(task.description)}</div>
-                        </div>
-                        <div style="display: flex; flex-direction: column; gap: 5px; align-items: flex-end;">
-                            <span class="badge badge-${task.urgency}">${getUrgencyText(task.urgency)}</span>
-                            <span class="badge ${statusBadgeClass}">${statusText}</span>
-                        </div>
-                    </div>
-                    <div class="task-meta">
-                        <div class="task-meta-item"><i class="fas fa-users"></i><span>${assigneesNames}</span></div>
-                        <div class="task-meta-item" style="color:${isOverdue?'var(--danger)':'inherit'}"><i class="fas fa-calendar"></i><span>${formatDate(task.dueDate)}</span></div>
-                        <div class="task-meta-item"><i class="fas fa-flag"></i><span>${getStatusText(task.status)}</span></div>
-                    </div>
-                    ${progressHtml}
-                    ${imageHtml}
-                    ${materialsHtml}
-                    <div class="task-actions">
-                        <select class="form-select task-status" data-task-id="${task.id}" style="flex: 1;">
-                            <option value="pending" ${task.status === 'pending' ? 'selected' : ''}>Pendiente</option>
-                            <option value="in-progress" ${task.status === 'in-progress' ? 'selected' : ''}>En Progreso</option>
-                            <option value="completed" ${task.status === 'completed' ? 'selected' : ''}>Terminada</option>
-                        </select>
-                        <button class="btn btn-outline report-problem-btn" data-task-id="${task.id}">
-                            <i class="fas fa-flag"></i> Reportar
-                        </button>
-                    </div>
-                `;
-                container.appendChild(card);
-            });
-
-            container.querySelectorAll('.task-status').forEach(select => {
-                select.addEventListener('change', function() {
-                    updateTaskStatus(this.getAttribute('data-task-id'), this.value);
-                });
-            });
-            container.querySelectorAll('.report-problem-btn').forEach(btn => {
-                btn.addEventListener('click', function() {
-                    const taskId = this.getAttribute('data-task-id');
-                    switchPage('reports');
-                    const taskSelect = document.getElementById('taskSelect');
-                    if (taskSelect) taskSelect.value = taskId;
-                });
-            });
-        }
 
         // ==================== WORKER NOTIFICATIONS ====================
         function notifyWorkersNewTask(task) {
@@ -8505,7 +8258,6 @@
         }
 
         // ==================== IMPROVED PDF EXPORT ====================
-        const _origExportToPDF = exportToPDF;
         function exportToPDF(data, filename) {
             try {
                 const { jsPDF } = window.jspdf;
