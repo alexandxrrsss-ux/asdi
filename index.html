@@ -5069,8 +5069,8 @@
             
             hideLoading();
             showNotification('Reporte enviado correctamente', 'success');
-            const reportForm = document.getElementById('reportForm');
-            if (reportForm) reportForm.reset();
+            const reportFormEl = document.getElementById('reportForm');
+            if (reportFormEl) reportFormEl.reset();
             
             // Limpiar vista previa de imagen
             const reportImagePreview = document.getElementById('reportImagePreview');
@@ -8193,9 +8193,9 @@
             });
 
             // Clear draft on successful submit
-            const reportForm = document.getElementById('reportForm');
-            if (reportForm) {
-                reportForm.addEventListener('submit', () => setTimeout(clearReportDraft, 500), true);
+            const reportFormDraft = document.getElementById('reportForm');
+            if (reportFormDraft) {
+                reportFormDraft.addEventListener('submit', () => setTimeout(clearReportDraft, 500), true);
             }
 
             // ==================== TASK FILTERS FOR MANAGE-TASKS ====================
@@ -8344,26 +8344,10 @@
         }
     </script>
 
-    <!-- PWA Service Worker Registration -->
+    <!-- PWA Service Worker: blob URL not supported, skipped -->
     <script>
-    if ('serviceWorker' in navigator) {
-        // Register a minimal inline service worker via blob
-        const swCode = `
-self.addEventListener('fetch', function(event) {
-    // Network-first strategy for Firebase, cache-first for assets
-    if (event.request.url.includes('firebase') || event.request.url.includes('gstatic')) {
-        event.respondWith(fetch(event.request).catch(() => caches.match(event.request)));
-    }
-});
-self.addEventListener('install', () => self.skipWaiting());
-self.addEventListener('activate', () => self.clients.claim());
-        `;
-        const blob = new Blob([swCode], { type: 'application/javascript' });
-        const swURL = URL.createObjectURL(blob);
-        navigator.serviceWorker.register(swURL).then(() => {
-            console.log('✅ Service Worker registrado');
-        }).catch(e => console.warn('Service Worker no disponible:', e));
-    }
+    // Service Worker requires a hosted .js file, not supported in single-file mode
+    console.log('ℹ️ Service Worker omitido (modo archivo único)');
     </script>
 
     <!-- Historial de tarea modal -->
