@@ -1902,6 +1902,111 @@
             border-radius: 8px;
             color: #04a777;
         }
+
+        /* ========== NOTIFICACIONES PUSH ========== */
+        .push-notif-banner {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%) translateY(100px);
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            color: white;
+            padding: 1rem 2rem;
+            border-radius: 50px;
+            box-shadow: 0 6px 20px rgba(67,97,238,0.4);
+            z-index: 9999;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-weight: 600;
+            transition: transform 0.4s ease;
+            white-space: nowrap;
+            font-size: 0.95rem;
+        }
+        .push-notif-banner.show {
+            transform: translateX(-50%) translateY(0);
+        }
+        .push-permission-btn {
+            background: white;
+            color: var(--primary);
+            border: none;
+            padding: 0.4rem 1rem;
+            border-radius: 50px;
+            cursor: pointer;
+            font-weight: 700;
+            font-size: 0.85rem;
+        }
+
+        /* ========== TOAST STACK (múltiples notificaciones) ========== */
+        .toast-stack {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 9990;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            max-width: 380px;
+            pointer-events: none;
+        }
+        .toast-item {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 6px 20px rgba(0,0,0,0.15);
+            padding: 1rem 1.5rem;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            pointer-events: all;
+            animation: toastIn 0.4s ease;
+            border-left: 5px solid var(--primary);
+        }
+        .toast-item.toast-success { border-left-color: var(--success); }
+        .toast-item.toast-danger  { border-left-color: var(--danger); }
+        .toast-item.toast-warning { border-left-color: #ff9e00; }
+        @keyframes toastIn {
+            from { opacity: 0; transform: translateX(60px); }
+            to   { opacity: 1; transform: translateX(0); }
+        }
+        @keyframes toastOut {
+            from { opacity: 1; transform: translateX(0); }
+            to   { opacity: 0; transform: translateX(60px); }
+        }
+        .toast-icon { font-size: 1.4rem; }
+        .toast-success .toast-icon { color: var(--success); }
+        .toast-danger  .toast-icon { color: var(--danger); }
+        .toast-warning .toast-icon { color: #ff9e00; }
+        .toast-body { flex: 1; }
+        .toast-title { font-weight: 700; font-size: 0.95rem; }
+        .toast-msg   { color: var(--gray); font-size: 0.85rem; margin-top: 2px; }
+        .toast-close { cursor: pointer; color: var(--gray); font-size: 1.1rem; background: none; border: none; }
+
+        /* ========== ERRORES VISIBLES EN FORMULARIOS ========== */
+        .form-error-box {
+            background: #fff0f0;
+            border: 2px solid var(--danger);
+            border-radius: 10px;
+            padding: 1rem 1.2rem;
+            margin-bottom: 1.2rem;
+            color: var(--danger);
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            animation: shake 0.4s ease;
+        }
+        @keyframes shake {
+            0%,100% { transform: translateX(0); }
+            20%      { transform: translateX(-8px); }
+            60%      { transform: translateX(8px); }
+        }
+
+        /* ========== BADGE NOTIFICACIÓN PUSH ========== */
+        #pushToggleBtn {
+            position: relative;
+        }
+        .push-on  { color: var(--success) !important; border-color: var(--success) !important; }
+        .push-off { color: var(--gray)    !important; border-color: var(--gray)    !important; }
     </style>
 </head>
 <body>
@@ -1959,6 +2064,9 @@
                             <button class="btn btn-outline" id="notificationBtn" style="box-shadow: none; position: relative;">
                                 <i class="fas fa-bell"></i>
                                 <span id="notificationCount" class="notification-badge" style="display: none;">0</span>
+                            </button>
+                            <button class="btn btn-outline push-off" id="pushToggleBtn" title="Activar notificaciones push al teléfono" style="box-shadow: none; padding: 0.8rem 1rem;">
+                                <i class="fas fa-mobile-alt"></i>
                             </button>
                             <div class="notification-dropdown" id="notificationDropdown">
                                 <div class="notification-header">
@@ -2853,6 +2961,17 @@
         </div>
     </div>
 
+    <!-- Toast Stack para notificaciones admin en tiempo real -->
+    <div class="toast-stack" id="toastStack"></div>
+
+    <!-- Banner solicitar permisos push -->
+    <div class="push-notif-banner" id="pushBanner">
+        <i class="fas fa-bell"></i>
+        <span>Activa notificaciones para recibir alertas en tu teléfono</span>
+        <button class="push-permission-btn" id="pushPermissionBtn">Activar</button>
+        <button style="background:none;border:none;color:white;cursor:pointer;font-size:1.2rem;" id="pushBannerClose">&times;</button>
+    </div>
+
     <!-- NUEVO MODAL: Agregar Seguimiento de Avance -->
     <div class="modal-overlay" id="addTrackingModal">
         <div class="modal">
@@ -2898,7 +3017,7 @@
                         <label class="form-label">Evidencia (imágenes) *</label>
                         <input type="file" class="form-control" id="trackingImages" accept="image/*" multiple>
                         <small style="color: var(--gray); margin-top: 5px; display: block;">
-                            Puedes subir hasta 5 imágenes como evidencia del avance (máximo 5MB cada una)
+                            📸 Sube hasta 5 fotos de evidencia — se comprimen automáticamente (hasta 10MB c/u)
                         </small>
                         <div id="trackingImagesPreview" class="tracking-images" style="margin-top: 10px;"></div>
                     </div>
@@ -3005,6 +3124,117 @@
             return new Date(dateString).toLocaleString('es-ES');
         }
 
+        // ==================== 🔔 SISTEMA DE NOTIFICACIONES PUSH ====================
+        let pushEnabled = false;
+
+        function initPushNotifications() {
+            // Verificar soporte
+            if (!('Notification' in window)) return;
+            
+            // Si ya tiene permiso, marcar como activo
+            if (Notification.permission === 'granted') {
+                pushEnabled = true;
+                updatePushBtn(true);
+                return;
+            }
+            
+            // Mostrar banner si el permiso no ha sido decidido (solo para admins)
+            if (Notification.permission === 'default' && currentUser && currentUser.role === 'admin') {
+                setTimeout(() => {
+                    const banner = document.getElementById('pushBanner');
+                    if (banner) banner.classList.add('show');
+                }, 2000);
+            }
+        }
+
+        function updatePushBtn(enabled) {
+            const btn = document.getElementById('pushToggleBtn');
+            if (!btn) return;
+            if (enabled) {
+                btn.classList.remove('push-off');
+                btn.classList.add('push-on');
+                btn.title = 'Notificaciones push activas — clic para desactivar';
+                btn.innerHTML = '<i class="fas fa-mobile-alt"></i> <i class="fas fa-check" style="font-size:0.7rem;"></i>';
+            } else {
+                btn.classList.remove('push-on');
+                btn.classList.add('push-off');
+                btn.title = 'Activar notificaciones push al teléfono';
+                btn.innerHTML = '<i class="fas fa-mobile-alt"></i>';
+            }
+        }
+
+        async function requestPushPermission() {
+            if (!('Notification' in window)) {
+                showToast('Tu navegador no soporta notificaciones push', 'warning');
+                return;
+            }
+            try {
+                const permission = await Notification.requestPermission();
+                if (permission === 'granted') {
+                    pushEnabled = true;
+                    updatePushBtn(true);
+                    showToast('¡Notificaciones push activadas! Recibirás alertas en este dispositivo.', 'success');
+                    // Enviar notificación de prueba
+                    new Notification('✅ TaskMaster PRO Plus', {
+                        body: 'Notificaciones activadas. Recibirás alertas de reportes, avances y mensajes.',
+                        icon: 'https://cdn-icons-png.flaticon.com/512/1198/1198281.png'
+                    });
+                } else {
+                    showToast('Permiso denegado. Actívalo desde la configuración del navegador.', 'danger');
+                }
+            } catch (e) {
+                showToast('Error al solicitar permisos de notificación', 'danger');
+            }
+        }
+
+        function sendPushNotification(title, body) {
+            if (!pushEnabled || Notification.permission !== 'granted') return;
+            // No enviar si la página está activa y visible
+            if (document.visibilityState === 'visible') {
+                // Mostrar como toast en su lugar
+                showToast(body, 'success', title);
+                return;
+            }
+            try {
+                new Notification(title, {
+                    body: body,
+                    icon: 'https://cdn-icons-png.flaticon.com/512/1198/1198281.png',
+                    badge: 'https://cdn-icons-png.flaticon.com/512/1198/1198281.png',
+                    tag: title,
+                    renotify: true
+                });
+            } catch (e) {
+                console.warn('Error enviando push notification:', e);
+            }
+        }
+
+        // ==================== 🍞 SISTEMA DE TOASTS ====================
+        function showToast(message, type = 'success', title = null) {
+            const stack = document.getElementById('toastStack');
+            if (!stack) { showNotification(message, type); return; }
+
+            const icons = { success: 'fa-check-circle', danger: 'fa-exclamation-circle', warning: 'fa-exclamation-triangle' };
+            const titles = { success: title || 'Éxito', danger: title || 'Error', warning: title || 'Atención' };
+
+            const toast = document.createElement('div');
+            toast.className = `toast-item toast-${type}`;
+            toast.innerHTML = `
+                <div class="toast-icon"><i class="fas ${icons[type] || icons.success}"></i></div>
+                <div class="toast-body">
+                    <div class="toast-title">${titles[type]}</div>
+                    <div class="toast-msg">${message}</div>
+                </div>
+                <button class="toast-close" onclick="this.parentElement.remove()">&times;</button>
+            `;
+            stack.appendChild(toast);
+
+            // Auto-remover después de 5s
+            setTimeout(() => {
+                toast.style.animation = 'toastOut 0.4s ease forwards';
+                setTimeout(() => toast.remove(), 400);
+            }, 5000);
+        }
+
         function showNotification(message, type = 'success') {
             const notification = document.getElementById('notification');
             if (!notification) return;
@@ -3052,6 +3282,46 @@
             if (loadingOverlay) {
                 loadingOverlay.classList.remove('active');
             }
+        }
+
+        // ==================== ERRORES VISIBLES EN MODALES ====================
+        function showFormError(message, containerId) {
+            // Buscar contenedor primero; si no existe, usar toast
+            let container = containerId ? document.getElementById(containerId) : null;
+            
+            // Si el contenedor está en un modal, asegurarse de que el modal sea visible
+            if (!container) {
+                // Intentar mostrar en el modal activo
+                const activeModal = document.querySelector('.modal-overlay.active .modal-body');
+                if (activeModal) {
+                    let errBox = activeModal.querySelector('.form-error-box');
+                    if (!errBox) {
+                        errBox = document.createElement('div');
+                        errBox.className = 'form-error-box';
+                        activeModal.insertBefore(errBox, activeModal.firstChild);
+                    }
+                    errBox.innerHTML = `<i class="fas fa-exclamation-triangle"></i> ${message}`;
+                    errBox.style.display = 'flex';
+                    // Scroll al error
+                    errBox.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    return;
+                }
+                // Fallback a toast
+                showToast(message, 'danger');
+                return;
+            }
+            
+            container.innerHTML = `<i class="fas fa-exclamation-triangle"></i> ${message}`;
+            container.style.display = 'flex';
+            container.className = 'form-error-box';
+            container.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+
+        function clearFormError(containerId) {
+            const el = containerId ? document.getElementById(containerId) : null;
+            if (el) { el.style.display = 'none'; el.innerHTML = ''; }
+            // También limpiar errores en modal activo
+            document.querySelectorAll('.form-error-box').forEach(e => { e.style.display = 'none'; });
         }
 
         // ==================== GESTIÓN DE DATOS CON FIREBASE ====================
@@ -3118,12 +3388,30 @@
                     });
 
                     // Escuchar cambios en TAREAS en tiempo real
+                    let isFirstTaskLoad = true;
                     db.collection('tasks').onSnapshot((snapshot) => {
                         console.log('🔄 Cambios detectados en tareas');
+                        const prevTaskIds = new Set(tasks.map(t => t.id));
                         tasks = [];
                         snapshot.forEach(doc => {
                             tasks.push({ id: doc.id, ...doc.data() });
                         });
+                        
+                        // 🔔 Notificar al admin sobre nuevas tareas creadas por otros
+                        if (!isFirstTaskLoad && currentUser && currentUser.role === 'admin') {
+                            tasks.forEach(t => {
+                                if (!prevTaskIds.has(t.id)) {
+                                    addAdminBellNotification({
+                                        id: 'task-' + t.id,
+                                        title: '📋 Nueva tarea creada',
+                                        message: `"${t.name}" asignada a ${(t.assignees||[]).length} trabajador(es)`,
+                                        createdAt: t.createdAt,
+                                        read: false
+                                    });
+                                }
+                            });
+                        }
+                        isFirstTaskLoad = false;
                         
                         // Actualizar interfaz si es necesario
                         if (currentPage === 'dashboard') updateDashboard();
@@ -3133,12 +3421,33 @@
                     });
 
                     // Escuchar cambios en REPORTES en tiempo real
+                    let isFirstReportLoad = true;
                     db.collection('reports').onSnapshot((snapshot) => {
                         console.log('🔄 Cambios detectados en reportes');
+                        const prevReportIds = new Set(reports.map(r => r.id));
                         reports = [];
                         snapshot.forEach(doc => {
                             reports.push({ id: doc.id, ...doc.data() });
                         });
+
+                        // 🔔 Notificar al admin sobre nuevos reportes
+                        if (!isFirstReportLoad && currentUser && currentUser.role === 'admin') {
+                            reports.forEach(r => {
+                                if (!prevReportIds.has(r.id)) {
+                                    const reporter = users.find(u => u.username === r.reporter);
+                                    const reporterName = reporter ? reporter.name : r.reporter;
+                                    addAdminBellNotification({
+                                        id: 'rep-' + r.id,
+                                        title: '🚨 Nuevo reporte recibido',
+                                        message: `${reporterName}: "${r.title}" — Urgencia: ${getUrgencyText(r.urgency)}`,
+                                        createdAt: r.createdAt,
+                                        read: false
+                                    });
+                                    sendPushNotification('🚨 Nuevo Reporte', `${reporterName}: ${r.title}`);
+                                }
+                            });
+                        }
+                        isFirstReportLoad = false;
                         
                         // Actualizar interfaz si es necesario
                         if (currentPage === 'dashboard') updateDashboard();
@@ -3185,6 +3494,7 @@
                                         read: false,
                                         trackingId: t.id
                                     });
+                                    sendPushNotification('📸 Nuevo Avance', `${workerName}: ${t.percentage}% en "${taskName}"`);
                                 }
                             });
                         }
@@ -3196,12 +3506,33 @@
                     });
 
                     // Escuchar cambios en CHAT
+                    let isFirstChatLoad = true;
                     db.collection('chat').orderBy('timestamp', 'desc').limit(100).onSnapshot((snapshot) => {
                         console.log('🔄 Cambios detectados en chat');
+                        const prevChatIds = new Set(chatMessages.map(m => m.id));
                         chatMessages = [];
                         snapshot.forEach(doc => {
                             chatMessages.push({ id: doc.id, ...doc.data() });
                         });
+
+                        // 🔔 Notificar al admin sobre nuevos mensajes cuando no está en el chat
+                        if (!isFirstChatLoad && currentUser && currentUser.role === 'admin' && currentPage !== 'chat') {
+                            chatMessages.forEach(m => {
+                                if (!prevChatIds.has(m.id) && m.userId !== currentUser.username) {
+                                    const sender = users.find(u => u.username === m.userId);
+                                    const senderName = sender ? sender.name : m.userId;
+                                    addAdminBellNotification({
+                                        id: 'chat-' + m.id,
+                                        title: '💬 Nuevo mensaje en chat',
+                                        message: `${senderName}: "${m.text.substring(0,60)}${m.text.length>60?'...':''}"`,
+                                        createdAt: m.timestamp,
+                                        read: false
+                                    });
+                                    sendPushNotification('💬 Chat', `${senderName}: ${m.text.substring(0,80)}`);
+                                }
+                            });
+                        }
+                        isFirstChatLoad = false;
                         
                         if (currentPage === 'chat') {
                             loadChatMessages();
@@ -3527,6 +3858,10 @@
                 
                 loadUserData();
                 showNotification(`Bienvenido, ${user.name} 👋`, 'success');
+                // Inicializar notificaciones push para admin
+                if (user.role === 'admin') {
+                    setTimeout(() => initPushNotifications(), 1500);
+                }
             } else {
                 showNotification('Usuario o contraseña incorrectos', 'danger');
                 if (submitBtn) {
@@ -3738,6 +4073,7 @@
                         // Cargar notificaciones de campana (solo admin)
                         if (currentUser && currentUser.role === 'admin') {
                             loadBellNotifications();
+                            initPushNotifications();
                         }
                         return true;
                     } else {
@@ -4734,7 +5070,7 @@
             const reportImage = document.getElementById('reportImage').files[0];
             
             if (!reportTitle || !problemDescription) {
-                showNotification('Completa todos los campos obligatorios', 'warning');
+                showToast('Completa todos los campos obligatorios (título y descripción)', 'warning');
                 return;
             }
             
@@ -4747,8 +5083,8 @@
                     imageUrl = await uploadImage(reportImage, 'reports');
                 } catch (error) {
                     console.error('❌ Error subiendo imagen:', error);
-                    showNotification('Error al subir la imagen', 'danger');
                     hideLoading();
+                    showToast(`Error al subir la imagen: ${error.message}`, 'danger');
                     return;
                 }
             }
@@ -4786,28 +5122,35 @@
                 createdAt: new Date().toISOString()
             };
             
-            reports.push(newReport);
-            await saveReports();
-            
-            hideLoading();
-            showNotification('Reporte enviado correctamente', 'success');
-            const reportForm = document.getElementById('reportForm');
-            if (reportForm) reportForm.reset();
-            
-            // Limpiar vista previa de imagen
-            const reportImagePreview = document.getElementById('reportImagePreview');
-            const reportImagePlaceholder = document.getElementById('reportImagePlaceholder');
-            if (reportImagePreview) {
-                reportImagePreview.src = '';
-                reportImagePreview.classList.remove('active');
-            }
-            if (reportImagePlaceholder) {
-                reportImagePlaceholder.style.display = 'flex';
-            }
-            
-            // Si el usuario es admin, actualizar la página de reportes
-            if (currentUser.role === 'admin') {
-                loadReports();
+            try {
+                reports.push(newReport);
+                await saveReports();
+                
+                hideLoading();
+                showToast('Reporte enviado correctamente ✅', 'success');
+                const reportForm = document.getElementById('reportForm');
+                if (reportForm) reportForm.reset();
+                
+                // Limpiar vista previa de imagen
+                const reportImagePreview = document.getElementById('reportImagePreview');
+                const reportImagePlaceholder = document.getElementById('reportImagePlaceholder');
+                if (reportImagePreview) {
+                    reportImagePreview.src = '';
+                    reportImagePreview.classList.remove('active');
+                }
+                if (reportImagePlaceholder) {
+                    reportImagePlaceholder.style.display = 'flex';
+                }
+                
+                // Si el usuario es admin, actualizar la página de reportes
+                if (currentUser.role === 'admin') {
+                    loadReports();
+                }
+            } catch (error) {
+                console.error('❌ Error enviando reporte:', error);
+                hideLoading();
+                reports = reports.filter(r => r.id !== newReport.id);
+                showToast(`Error al enviar el reporte: ${error.message}`, 'danger');
             }
         }
 
@@ -5235,21 +5578,36 @@
             const observations = document.getElementById('trackingObservations').value;
             const imagesInput = document.getElementById('trackingImages').files;
             
-            if (!taskId || !percentage || !description) {
-                showNotification('Completa todos los campos obligatorios', 'warning');
+            // Limpiar errores previos
+            clearFormError();
+            
+            if (!taskId) {
+                showFormError('Debes seleccionar una tarea');
+                return;
+            }
+            if (!percentage) {
+                showFormError('Debes seleccionar el porcentaje de avance');
+                return;
+            }
+            if (!description || description.trim().length < 5) {
+                showFormError('La descripción del avance debe tener al menos 5 caracteres');
                 return;
             }
             
             showLoading();
             
             try {
-                // Subir imágenes
+                // Subir imágenes con compresión agresiva
                 let imageUrls = [];
                 if (imagesInput && imagesInput.length > 0) {
-                    for (let i = 0; i < Math.min(imagesInput.length, 5); i++) {
-                        const imageUrl = await uploadImage(imagesInput[i], 'trackings');
-                        if (imageUrl) {
-                            imageUrls.push(imageUrl);
+                    const totalImages = Math.min(imagesInput.length, 5);
+                    for (let i = 0; i < totalImages; i++) {
+                        try {
+                            const imageUrl = await uploadImage(imagesInput[i], 'trackings');
+                            if (imageUrl) imageUrls.push(imageUrl);
+                        } catch (imgErr) {
+                            console.warn(`⚠️ Error procesando imagen ${i+1}:`, imgErr.message);
+                            showToast(`Imagen ${i+1} omitida: ${imgErr.message}`, 'warning');
                         }
                     }
                 }
@@ -5260,8 +5618,8 @@
                     taskId: taskId,
                     userId: currentUser.username,
                     percentage: parseInt(percentage),
-                    description: description,
-                    observations: observations || '',
+                    description: description.trim(),
+                    observations: observations ? observations.trim() : '',
                     images: imageUrls,
                     createdAt: new Date().toISOString()
                 };
@@ -5279,7 +5637,8 @@
                     }
                 }
                 
-                showNotification('Avance registrado correctamente', 'success');
+                const imgCount = imageUrls.length;
+                showToast(`Avance registrado correctamente${imgCount > 0 ? ` con ${imgCount} imagen(es)` : ''} ✅`, 'success');
                 
                 // Cerrar modal y limpiar formulario
                 const modal = document.getElementById('addTrackingModal');
@@ -5288,15 +5647,20 @@
                 const form = document.getElementById('trackingForm');
                 if (form) form.reset();
                 
+                // Limpiar preview de imágenes
+                const preview = document.getElementById('trackingImagesPreview');
+                if (preview) preview.innerHTML = '';
+                
                 // Recargar seguimientos
                 applyTrackingFilters();
                 
             } catch (error) {
                 console.error('❌ Error guardando seguimiento:', error);
-                showNotification('Error al guardar el avance', 'danger');
-            } finally {
                 hideLoading();
+                showFormError(`Error al guardar el avance: ${error.message}`);
+                return;
             }
+            hideLoading();
         }
 
         // ==================== NUEVO: CHAT GRUPAL ====================
@@ -5927,8 +6291,8 @@
 
         // ==================== SISTEMA DE CARGA Y VISUALIZACIÓN DE IMÁGENES ====================
 
-        // ✅ NUEVA FUNCIÓN: Compresión de imágenes
-        function compressImage(dataUrl, quality = 0.7) {
+        // ✅ FUNCIÓN MEJORADA: Compresión de imágenes con parámetros ajustables
+        function compressImage(dataUrl, quality = 0.6, maxDimension = 900) {
             return new Promise((resolve, reject) => {
                 const img = new Image();
                 img.src = dataUrl;
@@ -5937,28 +6301,38 @@
                     const canvas = document.createElement('canvas');
                     const ctx = canvas.getContext('2d');
                     
-                    // ✅ Redimensionar si es muy grande (máximo 1200px en el lado más largo)
+                    // Redimensionar si es muy grande
                     let width = img.width;
                     let height = img.height;
-                    const maxDimension = 1200;
                     
                     if (width > height && width > maxDimension) {
-                        height = (height * maxDimension) / width;
+                        height = Math.round((height * maxDimension) / width);
                         width = maxDimension;
                     } else if (height > maxDimension) {
-                        width = (width * maxDimension) / height;
+                        width = Math.round((width * maxDimension) / height);
                         height = maxDimension;
                     }
                     
                     canvas.width = width;
                     canvas.height = height;
                     
+                    // Fondo blanco (para PNGs con transparencia)
+                    ctx.fillStyle = '#FFFFFF';
+                    ctx.fillRect(0, 0, width, height);
                     ctx.drawImage(img, 0, 0, width, height);
                     
                     try {
-                        // ✅ Comprimir con calidad ajustable
+                        // Comprimir como JPEG con calidad ajustable
                         const compressedDataUrl = canvas.toDataURL('image/jpeg', quality);
-                        resolve(compressedDataUrl);
+                        
+                        // Verificar que el resultado no sea mayor que el original
+                        if (compressedDataUrl.length > dataUrl.length && quality > 0.4) {
+                            // Re-comprimir con calidad más baja si es necesario
+                            const recompressed = canvas.toDataURL('image/jpeg', 0.4);
+                            resolve(recompressed);
+                        } else {
+                            resolve(compressedDataUrl);
+                        }
                     } catch (error) {
                         reject(error);
                     }
@@ -5968,39 +6342,40 @@
             });
         }
 
-        // ✅ NUEVA FUNCIÓN: Subir imagen optimizada
+        // ✅ FUNCIÓN MEJORADA: Subir imagen con compresión agresiva según carpeta
         async function uploadImage(file, folder) {
             return new Promise((resolve, reject) => {
-                if (!file) {
-                    resolve(null);
-                    return;
-                }
+                if (!file) { resolve(null); return; }
                 
-                // ✅ Validar tipo de archivo
+                // Validar tipo de archivo
                 const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
                 if (!validTypes.includes(file.type)) {
                     reject(new Error('Tipo de archivo no válido. Use JPEG, PNG, GIF o WebP.'));
                     return;
                 }
                 
-                // ✅ Limitar tamaño (5MB máximo)
-                const maxSize = 5 * 1024 * 1024; // 5MB
+                // Para avances (trackings) permitir hasta 10MB porque se van a comprimir
+                const maxSize = folder === 'trackings' ? 10 * 1024 * 1024 : 8 * 1024 * 1024;
                 if (file.size > maxSize) {
-                    reject(new Error('La imagen es muy grande. Máximo 5MB.'));
+                    reject(new Error(`La imagen es muy grande. Máximo ${folder === 'trackings' ? '10' : '8'}MB.`));
                     return;
                 }
                 
                 const reader = new FileReader();
                 
                 reader.onload = function(e) {
-                    // ✅ Comprimir imagen antes de guardar
-                    compressImage(e.target.result, 0.7)
+                    // Comprimir más agresivamente para avances (múltiples fotos)
+                    const quality = folder === 'trackings' ? 0.45 : 0.6;
+                    const maxDim  = folder === 'trackings' ? 800  : 1000;
+                    
+                    compressImage(e.target.result, quality, maxDim)
                         .then(compressedImage => {
+                            console.log(`✅ Imagen comprimida para ${folder}: ${Math.round(compressedImage.length/1024)}KB`);
                             resolve(compressedImage);
                         })
                         .catch(error => {
                             console.warn('⚠️ Error en compresión, usando imagen original:', error);
-                            resolve(e.target.result); // Fallback a imagen original
+                            resolve(e.target.result);
                         });
                 };
                 
@@ -6076,7 +6451,7 @@
                             return;
                         }
                         
-                        // Para imágenes múltiples (tracking)
+                        // Para imágenes múltiples (tracking) - Validar con límite mayor
                         if (config.input === 'trackingImages') {
                             handleMultipleImages(files, preview);
                             return;
@@ -6089,16 +6464,16 @@
                         // Validar tipo de archivo
                         const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
                         if (!validTypes.includes(file.type)) {
-                            showNotification('Tipo de archivo no válido. Use JPEG, PNG, GIF o WebP.', 'danger');
-                            e.target.value = ''; // Limpiar input
+                            showToast('Tipo de archivo no válido. Use JPEG, PNG, GIF o WebP.', 'danger');
+                            e.target.value = '';
                             return;
                         }
                         
-                        // Validar tamaño (5MB máximo)
-                        const maxSize = 5 * 1024 * 1024;
+                        // Validar tamaño (8MB máximo — se comprimirá)
+                        const maxSize = 8 * 1024 * 1024;
                         if (file.size > maxSize) {
-                            showNotification('La imagen es muy grande. Máximo 5MB.', 'danger');
-                            e.target.value = ''; // Limpiar input
+                            showToast('La imagen es muy grande. Máximo 8MB.', 'danger');
+                            e.target.value = '';
                             return;
                         }
                         
@@ -6114,7 +6489,7 @@
             console.log('✅ Todos los handlers de imagen configurados');
         }
 
-        // ✅ NUEVA FUNCIÓN: Manejar múltiples imágenes
+        // ✅ FUNCIÓN MEJORADA: Manejar múltiples imágenes con compresión agresiva
         function handleMultipleImages(files, previewContainer) {
             if (!previewContainer) return;
             
@@ -6126,44 +6501,67 @@
             const filesToProcess = Array.from(files).slice(0, maxFiles);
             
             if (files.length > maxFiles) {
-                showNotification(`Solo se procesarán las primeras ${maxFiles} imágenes`, 'warning');
+                showToast(`Solo se procesarán las primeras ${maxFiles} imágenes`, 'warning');
             }
             
+            let processed = 0;
             filesToProcess.forEach((file, index) => {
                 // Validar tipo de archivo
                 const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
                 if (!validTypes.includes(file.type)) {
-                    showNotification(`La imagen ${file.name} tiene un tipo no válido`, 'warning');
+                    showToast(`La imagen ${file.name} tiene un tipo no válido`, 'warning');
                     return;
                 }
                 
-                // Validar tamaño
-                const maxSize = 5 * 1024 * 1024;
+                // Permitir hasta 10MB (se va a comprimir fuertemente)
+                const maxSize = 10 * 1024 * 1024;
                 if (file.size > maxSize) {
-                    showNotification(`La imagen ${file.name} es muy grande (máximo 5MB)`, 'warning');
+                    showToast(`La imagen ${file.name} es muy grande (máximo 10MB)`, 'warning');
                     return;
                 }
+
+                // Placeholder mientras carga
+                const wrapper = document.createElement('div');
+                wrapper.style.cssText = 'position:relative; width:100%; height:120px; background:#f0f0f0; border-radius:8px; display:flex; align-items:center; justify-content:center;';
+                wrapper.innerHTML = '<i class="fas fa-spinner fa-spin" style="font-size:1.5rem; color:var(--primary);"></i>';
+                previewContainer.appendChild(wrapper);
                 
                 const reader = new FileReader();
-                
                 reader.onload = function(e) {
-                    const img = document.createElement('img');
-                    img.src = e.target.result;
-                    img.className = 'tracking-image';
-                    img.alt = `Evidencia ${index + 1}`;
-                    img.style.width = '100%';
-                    img.style.height = '120px';
-                    img.style.objectFit = 'cover';
-                    img.style.borderRadius = '8px';
-                    img.style.cursor = 'pointer';
-                    
-                    img.addEventListener('click', function() {
-                        openImageModal(e.target.result);
-                    });
-                    
-                    previewContainer.appendChild(img);
+                    // Comprimir antes de mostrar
+                    compressImage(e.target.result, 0.45, 800)
+                        .then(compressed => {
+                            const img = document.createElement('img');
+                            img.src = compressed;
+                            img.className = 'tracking-image';
+                            img.alt = `Evidencia ${index + 1}`;
+                            img.style.cssText = 'width:100%; height:120px; object-fit:cover; border-radius:8px; cursor:pointer;';
+                            img.addEventListener('click', function() {
+                                openImageModal(compressed);
+                            });
+                            wrapper.innerHTML = '';
+                            wrapper.appendChild(img);
+                            
+                            const sizeKB = Math.round(compressed.length * 0.75 / 1024);
+                            const badge = document.createElement('div');
+                            badge.style.cssText = 'position:absolute; bottom:4px; right:4px; background:rgba(0,0,0,0.6); color:white; font-size:0.7rem; padding:2px 6px; border-radius:10px;';
+                            badge.textContent = `~${sizeKB}KB`;
+                            wrapper.appendChild(badge);
+                            
+                            processed++;
+                            if (processed === 1) {
+                                showToast(`Imágenes comprimidas y listas para subir`, 'success');
+                            }
+                        })
+                        .catch(() => {
+                            const img = document.createElement('img');
+                            img.src = e.target.result;
+                            img.className = 'tracking-image';
+                            img.style.cssText = 'width:100%; height:120px; object-fit:cover; border-radius:8px; cursor:pointer;';
+                            wrapper.innerHTML = '';
+                            wrapper.appendChild(img);
+                        });
                 };
-                
                 reader.readAsDataURL(file);
             });
         }
@@ -6214,10 +6612,15 @@
             reader.onload = function(e) {
                 console.log('✅ Archivo leído, comprimiendo...');
                 
-                // Comprimir imagen
-                compressImage(e.target.result, 0.7)
+                // Comprimir imagen con parámetros mejorados
+                compressImage(e.target.result, 0.6, 1000)
                     .then(compressedImage => {
-                        console.log('✅ Imagen comprimida, mostrando vista previa...');
+                        console.log('✅ Imagen comprimida');
+                        
+                        // Calcular tamaño comprimido aproximado
+                        const originalKB = Math.round(file.size / 1024);
+                        const compressedKB = Math.round(compressedImage.length * 0.75 / 1024);
+                        const reduction = originalKB > 0 ? Math.round((1 - compressedKB/originalKB)*100) : 0;
                         
                         // Mostrar vista previa
                         if (preview) {
@@ -6229,8 +6632,10 @@
                         setTimeout(() => {
                             fileInfo.remove();
                             showImageUploadProgress(false);
-                            console.log('🎉 Imagen procesada correctamente');
-                        }, 1000);
+                            if (reduction > 5) {
+                                showToast(`Imagen lista: ${originalKB}KB → ~${compressedKB}KB (${reduction}% menos peso) ✅`, 'success');
+                            }
+                        }, 800);
                         
                     })
                     .catch(error => {
@@ -6244,7 +6649,7 @@
                         
                         fileInfo.remove();
                         showImageUploadProgress(false);
-                        showNotification('Imagen cargada (sin compresión)', 'warning');
+                        showToast('Imagen cargada (sin compresión)', 'warning');
                     });
             };
             
@@ -6252,7 +6657,7 @@
                 console.error('❌ Error leyendo archivo:', error);
                 fileInfo.remove();
                 showImageUploadProgress(false);
-                showNotification('Error al cargar la imagen', 'danger');
+                showToast('Error al cargar la imagen. Intenta con otro archivo.', 'danger');
                 if (placeholder) {
                     placeholder.style.display = 'flex';
                 }
@@ -7880,6 +8285,37 @@
                 }
                 loadData();
             });
+
+            // ========== BOTÓN PUSH MÓVIL ==========
+            const pushToggleBtn = document.getElementById('pushToggleBtn');
+            if (pushToggleBtn) {
+                pushToggleBtn.addEventListener('click', async function() {
+                    if (pushEnabled) {
+                        pushEnabled = false;
+                        updatePushBtn(false);
+                        showToast('Notificaciones push desactivadas', 'warning');
+                    } else {
+                        await requestPushPermission();
+                    }
+                });
+            }
+
+            // ========== BANNER PUSH ==========
+            const pushPermissionBtn = document.getElementById('pushPermissionBtn');
+            if (pushPermissionBtn) {
+                pushPermissionBtn.addEventListener('click', async function() {
+                    const banner = document.getElementById('pushBanner');
+                    if (banner) banner.classList.remove('show');
+                    await requestPushPermission();
+                });
+            }
+            const pushBannerClose = document.getElementById('pushBannerClose');
+            if (pushBannerClose) {
+                pushBannerClose.addEventListener('click', function() {
+                    const banner = document.getElementById('pushBanner');
+                    if (banner) banner.classList.remove('show');
+                });
+            }
             
             console.log('✅ Sistema TaskMaster PRO Plus completamente inicializado y listo para usar 🚀');
         });
