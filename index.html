@@ -2084,6 +2084,13 @@
         @media (hover: hover) {
             .card:hover { transform: translateY(-4px); }
         }
+        @keyframes slideInRight {
+            from { opacity: 0; transform: translateX(60px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+
+        /* Resolve report modal: ensure it stacks above others */
+        #resolveReportModal { z-index: 3500; }
     </style>
 </head>
 <body>
@@ -2609,6 +2616,14 @@
                                 </small>
                             </div>
 
+                            <div id="reportFormError" style="display:none;background:#fff0f0;border:2px solid var(--danger);border-radius:12px;padding:1rem 1.2rem;margin-bottom:1rem;">
+                                <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;">
+                                    <i class="fas fa-exclamation-circle" style="color:var(--danger);font-size:1.2rem;"></i>
+                                    <strong style="color:var(--danger);font-size:1rem;">No se pudo enviar el reporte</strong>
+                                </div>
+                                <p id="reportFormErrorMsg" style="margin:0;color:var(--danger);font-size:0.9rem;">Completa todos los campos obligatorios.</p>
+                            </div>
+
                             <button type="submit" class="btn btn-primary">
                                 <i class="fas fa-paper-plane"></i> Enviar Reporte
                             </button>
@@ -2851,6 +2866,35 @@
         <div class="loading-spinner">
             <div class="spinner"></div>
             <p>Procesando...</p>
+        </div>
+    </div>
+
+    <!-- Resolve Report Modal -->
+    <div class="modal-overlay" id="resolveReportModal" style="display:none;">
+        <div class="modal" style="max-width:500px;">
+            <div class="modal-header">
+                <div class="modal-title"><i class="fas fa-check-circle" style="color:var(--success);"></i> Resolver Reporte</div>
+                <button class="modal-close" onclick="closeResolveModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p style="color:var(--text-muted);margin-bottom:1.2rem;">Al resolver el reporte, el trabajador verá la nota que escribas aquí. Explica qué acción se tomó.</p>
+                <div class="form-group">
+                    <label class="form-label"><i class="fas fa-comment-dots"></i> Nota de resolución <span style="color:var(--danger);">*</span></label>
+                    <textarea class="form-control" id="resolveNoteInput" rows="4" placeholder="Ej: Se consiguieron los materiales solicitados y se enviaron al área. / El problema fue revisado y corregido por el equipo técnico..." maxlength="500"></textarea>
+                    <small style="color:var(--text-muted);display:block;margin-top:5px;">Máximo 500 caracteres. Esta nota es obligatoria para informar al trabajador.</small>
+                </div>
+                <div id="resolveNoteError" style="display:none;background:#fff0f0;border:2px solid var(--danger);border-radius:10px;padding:1rem;margin-top:0.5rem;">
+                    <i class="fas fa-exclamation-triangle" style="color:var(--danger);"></i>
+                    <strong style="color:var(--danger);"> Debes escribir una nota de resolución</strong>
+                    <p style="color:var(--danger);margin:0.3rem 0 0;font-size:0.9rem;">El trabajador necesita saber qué acción se tomó con su reporte.</p>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-outline" onclick="closeResolveModal()">Cancelar</button>
+                <button class="btn btn-success" onclick="confirmResolveReport()">
+                    <i class="fas fa-check"></i> Marcar como Resuelto
+                </button>
+            </div>
         </div>
     </div>
 
@@ -3422,6 +3466,11 @@
                             });
                         }
 
+                        // 🔔 ALERTA DE TAREAS VENCIDAS — solo en la primera carga
+                        if (isFirstTaskLoad && currentUser) {
+                            setTimeout(() => checkOverdueTasks(), 1500);
+                        }
+
                         isFirstTaskLoad = false;
                         
                         // Actualizar interfaz si es necesario
@@ -3487,10 +3536,11 @@
                                     const prev = prevReportsMap[r.id];
                                     if (prev && prev.status !== r.status) {
                                         const statusLabel = r.status === 'resolved' ? '✅ Resuelto' : r.status === 'rejected' ? '❌ Rechazado' : r.status === 'in-progress' ? '🔧 En progreso' : r.status;
+                                        const noteMsg = r.resolveNote ? ` — ${r.resolveNote}` : '';
                                         addAdminBellNotification({
                                             id: 'myreport-status-' + r.id + '-' + r.status,
                                             title: `Tu reporte fue actualizado`,
-                                            message: `"${r.title}" → ${statusLabel}`,
+                                            message: `"${r.title}" → ${statusLabel}${noteMsg}`,
                                             createdAt: new Date().toISOString(),
                                             read: false
                                         });
@@ -5215,9 +5265,24 @@
             const reportImage = document.getElementById('reportImage').files[0];
             
             if (!reportTitle || !problemDescription) {
-                showNotification('Completa todos los campos obligatorios', 'warning');
+                // Mostrar error visible dentro del formulario
+                const errBox = document.getElementById('reportFormError');
+                const errMsg = document.getElementById('reportFormErrorMsg');
+                if (errBox && errMsg) {
+                    let missing = [];
+                    if (!reportTitle) missing.push('Título del reporte');
+                    if (!problemDescription) missing.push('Descripción detallada');
+                    errMsg.textContent = `Falta completar: ${missing.join(' y ')}.`;
+                    errBox.style.display = 'block';
+                    errBox.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                } else {
+                    showNotification('Completa todos los campos obligatorios', 'warning');
+                }
                 return;
             }
+            // Ocultar error si todo está bien
+            const errBox = document.getElementById('reportFormError');
+            if (errBox) errBox.style.display = 'none';
             
             showLoading();
             updateLoadingText('Enviando reporte...');
@@ -5283,6 +5348,9 @@
             showNotification('Reporte enviado correctamente', 'success');
             const reportFormEl = document.getElementById('reportForm');
             if (reportFormEl) reportFormEl.reset();
+            // Ocultar banner de error al enviar exitosamente
+            const errBoxReset = document.getElementById('reportFormError');
+            if (errBoxReset) errBoxReset.style.display = 'none';
             
             // Limpiar vista previa de imagen
             const reportImagePreview = document.getElementById('reportImagePreview');
@@ -5399,6 +5467,15 @@
                         <button class="btn btn-success resolve-report-btn" data-report-id="${report.id}">
                             <i class="fas fa-check"></i> Marcar como Resuelto
                         </button>
+                        ` : report.resolveNote ? `
+                        <div style="background:linear-gradient(135deg,rgba(6,214,160,0.1),rgba(4,167,119,0.05));border:2px solid var(--success);border-radius:10px;padding:1rem;margin-top:0.5rem;">
+                            <div style="display:flex;align-items:center;gap:8px;margin-bottom:0.4rem;">
+                                <i class="fas fa-comment-check" style="color:var(--success);"></i>
+                                <strong style="color:var(--success);font-size:0.9rem;">Nota del administrador:</strong>
+                            </div>
+                            <p style="margin:0;color:var(--text-main);font-size:0.9rem;">${sanitizeInput(report.resolveNote)}</p>
+                            ${report.resolvedAt ? `<small style="color:var(--text-muted);margin-top:0.4rem;display:block;">Resuelto el ${formatDate(report.resolvedAt)}</small>` : ''}
+                        </div>
                         ` : ''}
                         <button class="btn btn-danger delete-report-btn" data-report-id="${report.id}">
                             <i class="fas fa-trash"></i> Eliminar
@@ -5412,7 +5489,7 @@
             document.querySelectorAll('.resolve-report-btn').forEach(btn => {
                 btn.addEventListener('click', function() {
                     const reportId = this.getAttribute('data-report-id');
-                    resolveReport(reportId);
+                    openResolveModal(reportId);
                 });
             });
 
@@ -5424,12 +5501,135 @@
             });
         }
 
-        async function resolveReport(reportId) {
+        // ==================== ALERTA DE TAREAS VENCIDAS ====================
+        function checkOverdueTasks() {
+            if (!currentUser) return;
+            const today = new Date(); today.setHours(0,0,0,0);
+            const isAdmin = currentUser.role === 'admin';
+
+            const overdueTasks = tasks.filter(t => {
+                if (t.status === 'completed') return false;
+                if (!t.dueDate) return false;
+                const due = new Date(t.dueDate); due.setHours(0,0,0,0);
+                if (due >= today) return false;
+                if (!isAdmin) {
+                    // Para trabajadores: solo sus tareas
+                    return (t.assignees && t.assignees.includes(currentUser.username)) ||
+                           t.assignedTo === currentUser.username ||
+                           (Array.isArray(t.assignedTo) && t.assignedTo.includes(currentUser.username));
+                }
+                return true; // admin ve todas
+            });
+
+            if (overdueTasks.length === 0) return;
+
+            // Crear notificaciones en la campana para cada tarea vencida
+            overdueTasks.forEach(t => {
+                const daysLate = Math.floor((today - new Date(t.dueDate)) / 86400000);
+                addAdminBellNotification({
+                    id: 'overdue-' + t.id + '-' + today.toDateString(),
+                    title: `⏰ Tarea vencida hace ${daysLate} día${daysLate !== 1 ? 's' : ''}`,
+                    message: `"${t.name}" venció el ${formatDate(t.dueDate)} y aún no está completada.`,
+                    createdAt: new Date().toISOString(),
+                    read: false
+                });
+            });
+
+            // También mostrar un banner flotante resumen
+            showOverdueBanner(overdueTasks, isAdmin);
+        }
+
+        function showOverdueBanner(overdueTasks, isAdmin) {
+            // Evitar banner duplicado
+            const existingBanner = document.getElementById('overdueBanner');
+            if (existingBanner) existingBanner.remove();
+
+            const banner = document.createElement('div');
+            banner.id = 'overdueBanner';
+            const count = overdueTasks.length;
+            banner.style.cssText = `
+                position: fixed; bottom: 80px; right: 20px; z-index: 2000;
+                background: linear-gradient(135deg, #e63946, #d00000);
+                color: white; border-radius: 14px; padding: 1rem 1.2rem;
+                box-shadow: 0 8px 25px rgba(230,57,70,0.4);
+                max-width: 320px; animation: slideInRight 0.4s ease;
+                border-left: 5px solid rgba(255,255,255,0.4);
+            `;
+            banner.innerHTML = `
+                <div style="display:flex;align-items:flex-start;gap:10px;">
+                    <i class="fas fa-exclamation-triangle" style="font-size:1.4rem;margin-top:2px;flex-shrink:0;"></i>
+                    <div style="flex:1;">
+                        <strong style="font-size:1rem;display:block;margin-bottom:4px;">
+                            ${count} tarea${count !== 1 ? 's' : ''} vencida${count !== 1 ? 's' : ''}
+                        </strong>
+                        <p style="margin:0;font-size:0.85rem;opacity:0.92;">
+                            ${count === 1
+                                ? `"${overdueTasks[0].name}" lleva ${Math.floor((new Date().setHours(0,0,0,0) - new Date(overdueTasks[0].dueDate)) / 86400000)} día(s) de retraso.`
+                                : `Hay ${count} tareas sin completar con fecha límite vencida.`}
+                        </p>
+                        <button onclick="this.closest('#overdueBanner').remove();switchPage(${isAdmin ? "'manage-tasks'" : "'tasks'"})"
+                            style="margin-top:8px;background:rgba(255,255,255,0.2);border:1px solid rgba(255,255,255,0.4);color:white;padding:5px 12px;border-radius:20px;cursor:pointer;font-size:0.82rem;font-weight:600;">
+                            <i class="fas fa-eye"></i> Ver tareas
+                        </button>
+                    </div>
+                    <button onclick="this.closest('#overdueBanner').remove()"
+                        style="background:none;border:none;color:white;font-size:1.2rem;cursor:pointer;opacity:0.7;line-height:1;flex-shrink:0;">×</button>
+                </div>
+            `;
+            document.body.appendChild(banner);
+
+            // Auto-cerrar después de 12 segundos
+            setTimeout(() => { if (banner.parentNode) banner.remove(); }, 12000);
+        }
+
+        let _resolveReportId = null;
+
+        function openResolveModal(reportId) {
+            _resolveReportId = reportId;
+            document.getElementById('resolveNoteInput').value = '';
+            document.getElementById('resolveNoteError').style.display = 'none';
+            document.getElementById('resolveReportModal').style.display = 'flex';
+            setTimeout(() => document.getElementById('resolveNoteInput').focus(), 100);
+        }
+
+        function closeResolveModal() {
+            document.getElementById('resolveReportModal').style.display = 'none';
+            _resolveReportId = null;
+        }
+
+        async function confirmResolveReport() {
+            const note = document.getElementById('resolveNoteInput').value.trim();
+            if (!note) {
+                document.getElementById('resolveNoteError').style.display = 'block';
+                document.getElementById('resolveNoteInput').focus();
+                return;
+            }
+            document.getElementById('resolveNoteError').style.display = 'none';
+            await resolveReport(_resolveReportId, note);
+            closeResolveModal();
+        }
+
+        async function resolveReport(reportId, resolveNote) {
             const reportIndex = reports.findIndex(r => r.id === reportId);
             if (reportIndex !== -1) {
                 reports[reportIndex].status = 'resolved';
                 reports[reportIndex].resolvedAt = new Date().toISOString();
+                reports[reportIndex].resolveNote = resolveNote || '';
                 await saveSingleReport(reports[reportIndex]);
+
+                // Notificar al trabajador que su reporte fue resuelto
+                try {
+                    const rep = reports[reportIndex];
+                    await db.collection('notifications').add({
+                        targetUser: rep.reporter,
+                        title: '✅ Tu reporte fue resuelto',
+                        message: `"${rep.title}" — ${resolveNote}`,
+                        createdAt: new Date().toISOString(),
+                        read: false,
+                        type: 'report_resolved'
+                    });
+                } catch(e) { console.warn('No se pudo enviar notificación al trabajador:', e); }
+
                 showNotification('Reporte marcado como resuelto', 'success');
                 loadReports();
                 updateDashboard();
