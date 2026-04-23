@@ -3358,12 +3358,71 @@
                     });
 
                     // Escuchar cambios en TAREAS en tiempo real
+                    let isFirstTaskLoad = true;
                     db.collection('tasks').onSnapshot((snapshot) => {
                         console.log('🔄 Cambios detectados en tareas');
+
+                        const prevTasksMap = {};
+                        tasks.forEach(t => { prevTasksMap[t.id] = t; });
+
                         tasks = [];
                         snapshot.forEach(doc => {
                             tasks.push({ id: doc.id, ...doc.data() });
                         });
+
+                        // 🔔 Notificar al trabajador cuando una tarea asignada cambia de estado
+                        if (!isFirstTaskLoad && currentUser && currentUser.role !== 'admin') {
+                            tasks.forEach(t => {
+                                const isAssigned = t.assignedTo === currentUser.username ||
+                                    (Array.isArray(t.assignedTo) && t.assignedTo.includes(currentUser.username));
+                                if (isAssigned) {
+                                    const prev = prevTasksMap[t.id];
+                                    if (prev && prev.status !== t.status) {
+                                        const statusLabel = t.status === 'completed' ? '✅ Completada' : t.status === 'in-progress' ? '🔧 En progreso' : t.status === 'pending' ? '⏳ Pendiente' : t.status;
+                                        addAdminBellNotification({
+                                            id: 'task-status-' + t.id + '-' + t.status,
+                                            title: `Tu tarea fue actualizada`,
+                                            message: `"${t.name}" → ${statusLabel}`,
+                                            createdAt: new Date().toISOString(),
+                                            read: false
+                                        });
+                                    }
+                                    // Notificar si se asignó una tarea nueva
+                                    if (!prev) {
+                                        addAdminBellNotification({
+                                            id: 'task-assigned-' + t.id,
+                                            title: `📌 Nueva tarea asignada`,
+                                            message: `Se te asignó: "${t.name}"`,
+                                            createdAt: t.createdAt || new Date().toISOString(),
+                                            read: false
+                                        });
+                                    }
+                                }
+                            });
+                        }
+
+                        // 🔔 Notificar al admin cuando cambia el estado de una tarea
+                        if (!isFirstTaskLoad && currentUser && currentUser.role === 'admin') {
+                            tasks.forEach(t => {
+                                const prev = prevTasksMap[t.id];
+                                if (prev && prev.status !== t.status) {
+                                    const workerName = (() => {
+                                        const u = users.find(u => u.username === t.assignedTo || (Array.isArray(t.assignedTo) && t.assignedTo[0] === u.username));
+                                        return u ? u.name : (t.assignedTo || 'Trabajador');
+                                    })();
+                                    const statusLabel = t.status === 'completed' ? '✅ Completada' : t.status === 'in-progress' ? '🔧 En progreso' : t.status === 'pending' ? '⏳ Pendiente' : t.status;
+                                    addAdminBellNotification({
+                                        id: 'admin-task-status-' + t.id + '-' + t.status,
+                                        title: `Tarea actualizada`,
+                                        message: `"${t.name}" → ${statusLabel} (${workerName})`,
+                                        createdAt: new Date().toISOString(),
+                                        read: false
+                                    });
+                                }
+                            });
+                        }
+
+                        isFirstTaskLoad = false;
                         
                         // Actualizar interfaz si es necesario
                         if (currentPage === 'dashboard') updateDashboard();
@@ -3373,12 +3432,74 @@
                     });
 
                     // Escuchar cambios en REPORTES en tiempo real
+                    let isFirstReportLoad = true;
                     db.collection('reports').onSnapshot((snapshot) => {
                         console.log('🔄 Cambios detectados en reportes');
+
+                        const prevReportsMap = {};
+                        reports.forEach(r => { prevReportsMap[r.id] = r; });
+                        const prevIds = new Set(reports.map(r => r.id));
+
                         reports = [];
                         snapshot.forEach(doc => {
                             reports.push({ id: doc.id, ...doc.data() });
                         });
+
+                        if (!isFirstReportLoad && currentUser && currentUser.role === 'admin') {
+                            reports.forEach(r => {
+                                if (!prevIds.has(r.id)) {
+                                    // 🔔 Nuevo reporte enviado
+                                    const reporter = users.find(u => u.username === r.reporter);
+                                    const reporterName = reporter ? reporter.name : r.reporter;
+                                    const task = r.taskId ? tasks.find(tk => tk.id === r.taskId) : null;
+                                    const taskName = task ? ` en "${task.name}"` : '';
+                                    const urgencyEmoji = r.urgency === 'urgent' ? '🚨' : r.urgency === 'high' ? '⚠️' : '📋';
+                                    addAdminBellNotification({
+                                        id: 'report-new-' + r.id,
+                                        title: `${urgencyEmoji} Nuevo reporte: ${r.type || 'general'}`,
+                                        message: `${reporterName} reportó: "${r.title}"${taskName}`,
+                                        createdAt: r.createdAt,
+                                        read: false
+                                    });
+                                } else {
+                                    // 🔔 Cambio de estado de un reporte existente (lo detecta el admin también)
+                                    const prev = prevReportsMap[r.id];
+                                    if (prev && prev.status !== r.status) {
+                                        const reporter = users.find(u => u.username === r.reporter);
+                                        const reporterName = reporter ? reporter.name : r.reporter;
+                                        const statusLabel = r.status === 'resolved' ? '✅ Resuelto' : r.status === 'rejected' ? '❌ Rechazado' : r.status === 'in-progress' ? '🔧 En progreso' : r.status;
+                                        addAdminBellNotification({
+                                            id: 'report-status-' + r.id + '-' + r.status,
+                                            title: `${statusLabel}: reporte actualizado`,
+                                            message: `El reporte "${r.title}" de ${reporterName} cambió a: ${statusLabel}`,
+                                            createdAt: new Date().toISOString(),
+                                            read: false
+                                        });
+                                    }
+                                }
+                            });
+                        }
+
+                        // 🔔 Notificar al TRABAJADOR cuando su reporte cambia de estado
+                        if (!isFirstReportLoad && currentUser && currentUser.role !== 'admin') {
+                            reports.forEach(r => {
+                                if (r.reporter === currentUser.username) {
+                                    const prev = prevReportsMap[r.id];
+                                    if (prev && prev.status !== r.status) {
+                                        const statusLabel = r.status === 'resolved' ? '✅ Resuelto' : r.status === 'rejected' ? '❌ Rechazado' : r.status === 'in-progress' ? '🔧 En progreso' : r.status;
+                                        addAdminBellNotification({
+                                            id: 'myreport-status-' + r.id + '-' + r.status,
+                                            title: `Tu reporte fue actualizado`,
+                                            message: `"${r.title}" → ${statusLabel}`,
+                                            createdAt: new Date().toISOString(),
+                                            read: false
+                                        });
+                                    }
+                                }
+                            });
+                        }
+
+                        isFirstReportLoad = false;
                         
                         // Actualizar interfaz si es necesario
                         if (currentPage === 'dashboard') updateDashboard();
