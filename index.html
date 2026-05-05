@@ -9036,6 +9036,354 @@
         setTimeout(updateHeaderAvatar, 800);
     });
     </script>
+<script>
+// =====================================================================
+// FIX COMPLETO: Imágenes múltiples en Seguimiento de Avances
+// 
+// BUGS CORREGIDOS:
+// 1. WeakMap con FileList se invalida en móviles → ahora usa array global
+// 2. Promise.race timeout cancelaba uploads → upload secuencial sin race
+// 3. FileList no disponible al guardar → imágenes guardadas en memoria RAM
+// =====================================================================
 
+// Variable global: guarda imágenes comprimidas en memoria
+var _trackingImagesMemory = [];
+
+// Handler del input de imágenes CORREGIDO
+function setupTrackingImageHandler() {
+    var input = document.getElementById('trackingImages');
+    if (!input) return;
+
+    // Clonar para eliminar listeners anteriores rotos
+    var newInput = input.cloneNode(true);
+    input.parentNode.replaceChild(newInput, input);
+
+    newInput.addEventListener('change', function(e) {
+        _trackingImagesMemory = [];
+        var preview = document.getElementById('trackingImagesPreview');
+        if (preview) preview.innerHTML = '';
+
+        var files = Array.from(e.target.files || []);
+        if (files.length === 0) return;
+
+        var validTypes = ['image/jpeg','image/jpg','image/png','image/gif','image/webp'];
+        var validFiles = files.filter(function(f) {
+            if (!validTypes.includes(f.type)) {
+                showNotification('Tipo no válido: ' + f.name, 'warning');
+                return false;
+            }
+            if (f.size > 20 * 1024 * 1024) {
+                showNotification(f.name + ' supera 20MB, se omitirá', 'warning');
+                return false;
+            }
+            return true;
+        }).slice(0, 10);
+
+        if (validFiles.length === 0) return;
+        if (files.length > 10) showNotification('Solo se usarán las primeras 10 imágenes', 'warning');
+
+        if (preview) {
+            preview.innerHTML = '<div id="_imgProgressMsg" style="font-size:0.85rem;color:var(--text-muted);margin-bottom:8px;grid-column:1/-1;">📷 Comprimiendo ' + validFiles.length + ' imagen(es)...</div>';
+        }
+
+        var processed = 0;
+
+        validFiles.forEach(function(file, index) {
+            // Skeleton placeholder
+            if (preview) {
+                var ph = document.createElement('div');
+                ph.id = '_imgPH_' + index;
+                ph.className = 'skeleton';
+                ph.style.cssText = 'height:120px;border-radius:8px;';
+                preview.appendChild(ph);
+            }
+
+            var reader = new FileReader();
+
+            reader.onload = function(ev) {
+                var img = new Image();
+
+                img.onload = function() {
+                    try {
+                        var canvas = document.createElement('canvas');
+                        var ctx = canvas.getContext('2d');
+                        var w = img.width, h = img.height;
+                        var maxDim = 1400;
+                        if (w > h && w > maxDim) { h = Math.round(h * maxDim / w); w = maxDim; }
+                        else if (h > maxDim) { w = Math.round(w * maxDim / h); h = maxDim; }
+                        canvas.width = w;
+                        canvas.height = h;
+                        ctx.imageSmoothingEnabled = true;
+                        ctx.imageSmoothingQuality = 'high';
+                        ctx.drawImage(img, 0, 0, w, h);
+
+                        // Comprimir hasta < ~500KB
+                        var quality = 0.72, dataUrl, attempt = 0;
+                        do {
+                            dataUrl = canvas.toDataURL('image/jpeg', quality);
+                            quality = Math.max(0.25, quality - 0.12);
+                            attempt++;
+                        } while (dataUrl.length > 680000 && attempt < 6);
+
+                        // ✅ GUARDAR EN MEMORIA — así no depende del FileList al enviar
+                        _trackingImagesMemory[index] = { dataUrl: dataUrl, name: file.name };
+
+                        // Mostrar thumbnail clicable
+                        var ph = document.getElementById('_imgPH_' + index);
+                        if (ph) {
+                            var thumbImg = document.createElement('img');
+                            thumbImg.src = dataUrl;
+                            thumbImg.className = 'tracking-image';
+                            thumbImg.alt = 'Evidencia ' + (index + 1);
+                            thumbImg.style.cssText = 'width:100%;height:120px;object-fit:cover;border-radius:8px;cursor:pointer;border:2px solid transparent;transition:border-color 0.2s;';
+                            thumbImg.addEventListener('mouseenter', function() { this.style.borderColor = 'var(--primary)'; });
+                            thumbImg.addEventListener('mouseleave', function() { this.style.borderColor = 'transparent'; });
+                            thumbImg.addEventListener('click', function() { openImageModal(dataUrl); });
+                            ph.replaceWith(thumbImg);
+                        }
+
+                    } catch(compressErr) {
+                        console.warn('Compresión falló para ' + file.name + ', usando original');
+                        if (ev.target.result && ev.target.result.length < 900000) {
+                            _trackingImagesMemory[index] = { dataUrl: ev.target.result, name: file.name };
+                        }
+                        var ph2 = document.getElementById('_imgPH_' + index);
+                        if (ph2) {
+                            var fallbackImg = document.createElement('img');
+                            fallbackImg.src = ev.target.result;
+                            fallbackImg.style.cssText = 'width:100%;height:120px;object-fit:cover;border-radius:8px;';
+                            ph2.replaceWith(fallbackImg);
+                        }
+                    }
+
+                    processed++;
+                    var msg = document.getElementById('_imgProgressMsg');
+                    if (msg) {
+                        if (processed === validFiles.length) {
+                            msg.innerHTML = '✅ ' + processed + ' imagen(es) listas';
+                            msg.style.color = 'var(--success)';
+                            setTimeout(function() { if (msg.parentNode) msg.remove(); }, 3000);
+                        } else {
+                            msg.textContent = '⏳ Procesando... (' + processed + '/' + validFiles.length + ')';
+                        }
+                    }
+                };
+
+                img.onerror = function() {
+                    console.error('No se pudo leer imagen: ' + file.name);
+                    processed++;
+                    var ph3 = document.getElementById('_imgPH_' + index);
+                    if (ph3) {
+                        ph3.style.cssText = 'height:120px;border-radius:8px;background:#fee;display:flex;align-items:center;justify-content:center;font-size:0.75rem;color:var(--danger);';
+                        ph3.textContent = '❌ ' + file.name;
+                    }
+                };
+
+                img.src = ev.target.result;
+            };
+
+            reader.onerror = function() {
+                console.error('FileReader error para: ' + file.name);
+                processed++;
+            };
+
+            reader.readAsDataURL(file);
+        });
+    });
+}
+
+// saveTracking CORREGIDO — usa _trackingImagesMemory, NO el FileList
+async function saveTracking() {
+    var taskId = document.getElementById('trackingTask') ? document.getElementById('trackingTask').value : '';
+    var percentage = document.getElementById('trackingPercentage') ? document.getElementById('trackingPercentage').value : '';
+    var description = document.getElementById('trackingDescription') ? document.getElementById('trackingDescription').value : '';
+    var observations = document.getElementById('trackingObservations') ? document.getElementById('trackingObservations').value : '';
+
+    if (!taskId || !percentage || !description) {
+        showNotification('Completa: tarea, porcentaje y descripción', 'warning');
+        return;
+    }
+
+    showLoading();
+    updateLoadingText('Preparando avance...');
+
+    try {
+        var imageUrls = [];
+        var imagesToUpload = (_trackingImagesMemory || []).filter(Boolean);
+
+        if (imagesToUpload.length > 0) {
+            // Upload SECUENCIAL — evita saturar la red en móvil
+            for (var i = 0; i < imagesToUpload.length; i++) {
+                var imgData = imagesToUpload[i];
+                updateLoadingText('Subiendo imagen ' + (i + 1) + ' de ' + imagesToUpload.length + '...');
+
+                var url = null;
+
+                // Intentar Firebase Storage
+                if (typeof storage !== 'undefined' && storage) {
+                    try {
+                        var response = await fetch(imgData.dataUrl);
+                        var blob = await response.blob();
+                        var fileName = 'trackings/' + Date.now() + '_' + i + '_' + Math.random().toString(36).slice(2) + '.jpg';
+                        var storageRef = storage.ref(fileName);
+                        var snap = await storageRef.put(blob, { contentType: 'image/jpeg' });
+                        url = await snap.ref.getDownloadURL();
+                        console.log('✅ Imagen ' + (i+1) + ' subida a Storage');
+                    } catch(storageErr) {
+                        console.warn('Storage falló imagen ' + (i+1) + ':', storageErr.message, '→ usando base64');
+                        url = null;
+                    }
+                }
+
+                // Fallback: base64 en Firestore
+                if (!url) {
+                    // Firestore tiene límite de ~1MB por documento
+                    // Con múltiples imágenes base64 se supera fácil → omitir si muy grande
+                    if (imgData.dataUrl.length > 750000) {
+                        showNotification('Imagen ' + (i+1) + ' muy grande para guardar sin Storage, se omitió', 'warning');
+                        console.warn('Imagen ' + (i+1) + ' omitida: ' + Math.round(imgData.dataUrl.length/1024) + 'KB');
+                        continue;
+                    }
+                    url = imgData.dataUrl;
+                    console.log('ℹ️ Imagen ' + (i+1) + ' guardada como base64 (' + Math.round(url.length/1024) + 'KB)');
+                }
+
+                if (url) imageUrls.push(url);
+            }
+        }
+
+        updateLoadingText('Guardando en base de datos...');
+
+        var newTracking = {
+            id: generateId(),
+            taskId: taskId,
+            userId: currentUser.username,
+            percentage: parseInt(percentage),
+            description: description,
+            observations: observations || '',
+            images: imageUrls,
+            createdAt: new Date().toISOString()
+        };
+
+        await db.collection('trackings').doc(newTracking.id).set(newTracking);
+        console.log('✅ Avance guardado con', imageUrls.length, 'imágenes');
+
+        // Marcar tarea como completada al 100%
+        if (percentage === '100') {
+            var taskIndex = tasks.findIndex(function(t) { return t.id === taskId; });
+            if (taskIndex !== -1) {
+                tasks[taskIndex].status = 'completed';
+                tasks[taskIndex].updatedAt = new Date().toISOString();
+                await saveSingleTask(taskId);
+            }
+        }
+
+        // Limpiar todo
+        _trackingImagesMemory = [];
+
+        var msg = imageUrls.length > 0
+            ? 'Avance guardado con ' + imageUrls.length + ' imagen(es) ✅'
+            : 'Avance guardado correctamente ✅';
+        showNotification(msg, 'success');
+
+        var modal = document.getElementById('addTrackingModal');
+        if (modal) modal.classList.remove('active');
+
+        var form = document.getElementById('trackingForm');
+        if (form) form.reset();
+
+        var previewContainer = document.getElementById('trackingImagesPreview');
+        if (previewContainer) previewContainer.innerHTML = '';
+
+        // Re-inicializar input limpio
+        setupTrackingImageHandler();
+
+        applyTrackingFilters();
+
+    } catch (error) {
+        console.error('❌ Error guardando avance:', error);
+        showNotification('Error al guardar: ' + error.message, 'danger');
+    } finally {
+        hideLoading();
+    }
+}
+
+// openAddTrackingModal CORREGIDO — inicializa el handler de imágenes
+function openAddTrackingModal() {
+    var taskSelect = document.getElementById('trackingTask');
+    if (!taskSelect) return;
+
+    // Limpiar estado previo
+    _trackingImagesMemory = [];
+
+    taskSelect.innerHTML = '<option value="">Selecciona una tarea</option>';
+
+    var userTasks = tasks.filter(function(task) {
+        return task.assignees && task.assignees.includes(currentUser.username);
+    });
+
+    userTasks.forEach(function(task) {
+        var option = document.createElement('option');
+        option.value = task.id;
+        option.textContent = task.name;
+        taskSelect.appendChild(option);
+    });
+
+    setupProgressTracker();
+
+    // ✅ Inicializar handler corregido CADA VEZ que se abre el modal
+    setTimeout(setupTrackingImageHandler, 50);
+
+    // Limpiar previews previas
+    var previewContainer = document.getElementById('trackingImagesPreview');
+    if (previewContainer) previewContainer.innerHTML = '';
+
+    var modal = document.getElementById('addTrackingModal');
+    if (modal) modal.classList.add('active');
+}
+
+// Aplicar patch cuando la página cargue
+document.addEventListener('DOMContentLoaded', function() {
+    // Reemplazar listener del botón Guardar Avance
+    var saveBtn = document.getElementById('saveTrackingBtn');
+    if (saveBtn) {
+        var newSaveBtn = saveBtn.cloneNode(true);
+        saveBtn.parentNode.replaceChild(newSaveBtn, saveBtn);
+        newSaveBtn.addEventListener('click', saveTracking);
+    }
+
+    // Reemplazar listener del botón Nuevo Avance
+    var addBtn = document.getElementById('addTrackingBtn');
+    if (addBtn) {
+        var newAddBtn = addBtn.cloneNode(true);
+        addBtn.parentNode.replaceChild(newAddBtn, addBtn);
+        newAddBtn.addEventListener('click', openAddTrackingModal);
+    }
+
+    // Reemplazar listener del botón Cancelar en modal tracking
+    var cancelBtn = document.getElementById('cancelTrackingBtn');
+    if (cancelBtn) {
+        cancelBtn.addEventListener('click', function() {
+            _trackingImagesMemory = [];
+            var modal = document.getElementById('addTrackingModal');
+            if (modal) modal.classList.remove('active');
+        });
+    }
+
+    var closeBtn = document.getElementById('closeTrackingModal');
+    if (closeBtn) {
+        closeBtn.addEventListener('click', function() {
+            _trackingImagesMemory = [];
+            var modal = document.getElementById('addTrackingModal');
+            if (modal) modal.classList.remove('active');
+        });
+    }
+
+    console.log('✅ PATCH aplicado: Fix imágenes múltiples en Seguimiento de Avances');
+});
+</script>
 </body>
 </html>
+
+
+
