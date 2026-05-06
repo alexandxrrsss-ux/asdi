@@ -4249,16 +4249,41 @@
                     <div style="color:var(--gray); font-size:0.85rem; margin-top:3px;">${n.message}</div>
                     <div style="color:var(--gray); font-size:0.75rem; margin-top:4px;">${formatDateTime(n.createdAt)}</div>
                 `;
-                item.addEventListener('click', () => {
-                    n.read = true;
-                    try { localStorage.setItem('bell_notifs_' + currentUser.username, JSON.stringify(bellNotifications)); } catch(e) {}
-                    renderBellDropdown();
-                    // Ir a tracking si tiene trackingId
-                    if (n.trackingId) switchPage('tracking');
-                });
-                list.appendChild(item);
-            });
+            item.addEventListener('click', () => {
+    n.read = true;
+    try { localStorage.setItem('bell_notifs_' + currentUser.username, JSON.stringify(bellNotifications)); } catch(e) {}
+    renderBellDropdown();
+
+    // Cerrar el dropdown
+    const dropdown = document.getElementById('notificationDropdown');
+    if (dropdown) dropdown.classList.remove('active');
+
+    // Navegar según el tipo de notificación
+    const title = (n.title || '').toLowerCase();
+    const message = (n.message || '').toLowerCase();
+
+    if (n.trackingId || title.includes('avance')) {
+        switchPage('tracking');
+    } else if (title.includes('tarea') || title.includes('asignada') || title.includes('actualizada') || title.includes('vencida')) {
+        if (currentUser && currentUser.role === 'admin') {
+            switchPage('manage-tasks');
+        } else {
+            switchPage('tasks');
         }
+    } else if (title.includes('reporte') || message.includes('reporte')) {
+        if (currentUser && currentUser.role === 'admin') {
+            switchPage('reports-admin');
+        } else {
+            switchPage('reports');
+        }
+    } else if (title.includes('stock') || title.includes('inventario') || title.includes('material')) {
+        switchPage('inventory');
+    } else if (title.includes('chat') || title.includes('mensaje')) {
+        switchPage('chat');
+    } else {
+        switchPage('dashboard');
+    }
+});
 
         function markAllBellRead() {
             bellNotifications.forEach(n => n.read = true);
